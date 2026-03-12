@@ -16,7 +16,7 @@ BRANCH_NAME="$1"
 echo "Deleting local branch '$BRANCH_NAME'..."
 
 # Check if the branch exists locally
-if ! git branch --list | grep -q "^*.*$BRANCH_NAME$"; then
+if ! git branch --list | grep -e "$BRANCH_NAME"; then
     echo "Branch '$BRANCH_NAME' not found locally."
     exit 1
 fi
