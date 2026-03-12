@@ -4,6 +4,6 @@
 set -e
 
 echo "Running Maven tests..."
-mvn clean test
+./mvnw clean test
 
 echo "Tests completed successfully!"

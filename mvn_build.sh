@@ -4,6 +4,6 @@
 set -e
 
 echo "Running Maven compile..."
-mvn clean compile
+./mvnw clean compile
 
 echo "Compile completed successfully!"

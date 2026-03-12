@@ -4,6 +4,6 @@
 set -e
 
 echo "Running Maven install..."
-mvn clean install
+./mvnw clean install
 
 echo "Install completed successfully!"
