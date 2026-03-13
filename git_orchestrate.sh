@@ -48,17 +48,30 @@ echo "=========================================="
 
 
 
-# Step 1: Create and switch to branch
+# Step 1: Create or switch to existing branch
 
 echo ""
 
-echo "[Step 1/6] Creating branch..."
+echo "[Step 1/6] Creating or switching to branch..."
 
-if ! ./git_branchCreate.sh "$PREFIX" "$FEATURE_NAME"; then
+# Check if branch exists locally
+if git branch --list | grep -q "^*.*$BRANCH_NAME$"; then
 
-    echo "Error: Failed to create branch '$BRANCH_NAME'"
+    echo "Branch '$BRANCH_NAME' already exists, switching to it..."
 
-    exit 1
+    git checkout "$BRANCH_NAME"
+
+else
+
+    echo "Branch '$BRANCH_NAME' does not exist, creating it..."
+
+    if ! ./git_branchCreate.sh "$PREFIX" "$FEATURE_NAME"; then
+
+        echo "Error: Failed to create branch '$BRANCH_NAME'"
+
+        exit 1
+
+    fi
 
 fi
 
