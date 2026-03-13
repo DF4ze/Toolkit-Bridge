@@ -113,7 +113,7 @@ echo ""
 
 echo "[Step 2/6] Generating code with Aider..."
 
-AIDER_OUTPUT=$(aider --model ollama/qwen3.5:9b --no-confirm "$DESCRIPTION" 2>&1 || true)
+AIDER_OUTPUT=$(../venv/bin/aider --model ollama/qwen3.5:9b --no-confirm "$DESCRIPTION" 2>&1 || true)
 
 AIDER_EXIT_CODE=$?
 
