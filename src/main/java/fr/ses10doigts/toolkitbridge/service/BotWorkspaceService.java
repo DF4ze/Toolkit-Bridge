@@ -32,7 +32,7 @@ public class BotWorkspaceService {
      * Workspace dédié au bot.
      * A adapter selon ton environnement.
      */
-    private static final Path BOT_WORKDIR = Path.of("~/workspace/bot/").normalize();
+    private static final Path BOT_WORKDIR = Path.of("~/workspace/bot").normalize();
 
 
     public BotWorkspaceService() throws IOException {
