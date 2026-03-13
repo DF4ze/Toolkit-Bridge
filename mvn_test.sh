@@ -6,4 +6,9 @@ set -e
 echo "Running Maven tests..."
 ./mvnw clean test
 
-echo "Tests completed successfully!"
+if [ $? -eq 0 ]; then
+    echo "Tests completed successfully!"
+else
+    echo "Tests failed with exit code $?"
+    exit 1
+fi
