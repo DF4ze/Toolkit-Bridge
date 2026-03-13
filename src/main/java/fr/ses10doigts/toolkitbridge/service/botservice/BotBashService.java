@@ -1,8 +1,10 @@
-package fr.ses10doigts.toolkitbridge.service;
+package fr.ses10doigts.toolkitbridge.service.botservice;
 
 import fr.ses10doigts.toolkitbridge.exception.ForbiddenCommandException;
-import fr.ses10doigts.toolkitbridge.model.CommandRequest;
-import fr.ses10doigts.toolkitbridge.model.CommandResponse;
+import fr.ses10doigts.toolkitbridge.model.dto.web.CommandRequest;
+import fr.ses10doigts.toolkitbridge.model.dto.web.CommandResponse;
+import fr.ses10doigts.toolkitbridge.service.WorkspaceService;
+import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -23,23 +25,14 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 @Service
-public class BashToolService {
+@RequiredArgsConstructor
+public class BotBashService {
 
-    private static final Logger log = LoggerFactory.getLogger(BashToolService.class);
+    private static final Logger log = LoggerFactory.getLogger(BotBashService.class);
 
     private static final int MAX_OUTPUT_CHARS = 20_000;
     private static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(10);
 
-    /**
-     * Workspace dédié au bot.
-     * A adapter selon ton environnement.
-     */
-    private static final Path BOT_WORKDIR = Path.of("/opt/llm-tools/workdir").normalize();
-
-    /**
-     * Commandes shell éventuellement conservées.
-     * Si tu veux supprimer totalement le shell, enlève toute la partie execute().
-     */
     private static final Map<String, String> ALLOWED_TOOLS = Map.of(
             "ls", "/bin/ls",
             "pwd", "/bin/pwd",
@@ -53,15 +46,9 @@ public class BashToolService {
             "whoami", "/usr/bin/whoami"
     );
 
-    /**
-     * Répertoire racine autorisé pour éviter de laisser l'outil balayer tout le système.
-     * A adapter selon ton besoin.
-     */
-    private static final Path ALLOWED_BASE_DIR = Path.of("/home/oai/share").normalize();
+    private final WorkspaceService workspaceService;
 
-    /**
-     * Exécution shell limitée, facultative.
-     */
+
     public CommandResponse execute(CommandRequest request) throws Exception {
         validateRequest(request);
 
@@ -73,17 +60,21 @@ public class BashToolService {
         List<String> command = new ArrayList<>();
         command.add(executable);
 
-        if (request.getArgs() != null) {
-            for (String arg : request.getArgs()) {
-                validateArg(arg);
-                command.add(arg);
-            }
-        }
+        List<String> args = request.getArgs() != null ? request.getArgs() : List.of();
+        validateArgsForTool(request.getTool(), args);
+        command.addAll(args);
 
-        log.info("Executing tool={} args={}", request.getTool(), request.getArgs());
+        Path botWorkspace = workspaceService.getCurrentBotWorkspace();
+
+        log.info(
+                "Executing tool={} args={} workspace={}",
+                request.getTool(),
+                request.getArgs(),
+                botWorkspace
+        );
 
         ProcessBuilder pb = new ProcessBuilder(command);
-        pb.directory(BOT_WORKDIR.toFile());
+        pb.directory(botWorkspace.toFile());
 
         Map<String, String> env = pb.environment();
         env.clear();
@@ -156,36 +147,103 @@ public class BashToolService {
         }
     }
 
-    private void validateArg(String arg) {
-        if (arg == null) {
-            throw new IllegalArgumentException("Argument cannot be null");
+    private void validateArgsForTool(String tool, List<String> args) throws IOException {
+        switch (tool) {
+            case "pwd", "date", "whoami" -> validateNoArgs(tool, args);
+            case "echo" -> validateEchoArgs(args);
+            case "cat" -> validateFileOnlyArgs(tool, args, true);
+            case "head", "tail" -> validateHeadTailArgs(tool, args);
+            case "ls" -> validateLsArgs(args);
+            case "find" -> validateFindArgs(args);
+            case "grep" -> validateGrepArgs(args);
+            default -> throw new ForbiddenCommandException("Tool not allowed: " + tool);
+        }
+    }
+
+    private void validateNoArgs(String tool, List<String> args) {
+        if (!args.isEmpty()) {
+            throw new IllegalArgumentException("Tool '" + tool + "' does not accept arguments");
+        }
+    }
+
+    private void validateEchoArgs(List<String> args) {
+        for (String arg : args) {
+            workspaceService.validateCommandArg(arg);
+        }
+    }
+
+    private void validateFileOnlyArgs(String tool, List<String> args, boolean requireAtLeastOne) throws IOException {
+        if (requireAtLeastOne && args.isEmpty()) {
+            throw new IllegalArgumentException("Tool '" + tool + "' requires at least one file path");
         }
 
-        if (arg.length() > 300) {
-            throw new IllegalArgumentException("Argument too long");
+        for (String arg : args) {
+            workspaceService.validateRelativeWorkspacePathArg(arg);
+        }
+    }
+
+    private void validateHeadTailArgs(String tool, List<String> args) throws IOException {
+        if (args.isEmpty()) {
+            throw new IllegalArgumentException("Tool '" + tool + "' requires at least one argument");
         }
 
-        // Refus des caractères typiquement utilisés pour faire de l'injection shell
-        // même si on n'utilise pas bash -c, ça évite des usages tordus.
-        if (arg.matches(".*[\\r\\n\\x00].*")) {
-            throw new IllegalArgumentException("Invalid control characters in argument");
-        }
-
-        // Si tu veux être plus strict, garde seulement un sous-ensemble de caractères.
-        if (!arg.matches("[a-zA-Z0-9._/\\-:=,@+ ]*")) {
-            throw new IllegalArgumentException("Forbidden characters in argument: " + arg);
-        }
-
-        // Vérification simple sur les chemins absolus/sortie de zone
-        if (arg.startsWith("/")) {
-            Path p = Path.of(arg).normalize();
-            if (!p.startsWith(ALLOWED_BASE_DIR)) {
-                throw new ForbiddenCommandException("Path outside allowed directory: " + arg);
+        for (String arg : args) {
+            if (arg.startsWith("-")) {
+                workspaceService.validateCommandArg(arg);
+            } else {
+                workspaceService.validateRelativeWorkspacePathArg(arg);
             }
         }
+    }
 
-        if (arg.contains("..")) {
-            throw new ForbiddenCommandException("Parent path '..' is not allowed");
+    private void validateLsArgs(List<String> args) throws IOException {
+        for (String arg : args) {
+            if (arg.startsWith("-")) {
+                workspaceService.validateCommandArg(arg);
+            } else {
+                workspaceService.validateRelativeWorkspacePathArg(arg);
+            }
+        }
+    }
+
+    private void validateFindArgs(List<String> args) throws IOException {
+        if (args.isEmpty()) {
+            workspaceService.validateRelativeWorkspacePathArg(".");
+            return;
+        }
+
+        boolean pathConsumed = false;
+
+        for (String arg : args) {
+            if (!pathConsumed && !arg.startsWith("-")) {
+                workspaceService.validateRelativeWorkspacePathArg(arg);
+                pathConsumed = true;
+            } else {
+                workspaceService.validateCommandArg(arg);
+            }
+        }
+    }
+
+    private void validateGrepArgs(List<String> args) throws IOException {
+        if (args.isEmpty()) {
+            throw new IllegalArgumentException("Tool 'grep' requires at least a pattern");
+        }
+
+        boolean patternConsumed = false;
+
+        for (String arg : args) {
+            if (arg.startsWith("-")) {
+                workspaceService.validateCommandArg(arg);
+                continue;
+            }
+
+            if (!patternConsumed) {
+                workspaceService.validateCommandArg(arg);
+                patternConsumed = true;
+                continue;
+            }
+
+            workspaceService.validateRelativeWorkspacePathArg(arg);
         }
     }
 

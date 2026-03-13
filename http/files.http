@@ -1,0 +1,57 @@
+@host = http://localhost:8080
+@apiKey = Bearer tb_9Yi8clcV.Xw1RnjkhFnFf5AeWr1P49vRzZqwotIVk
+@filePath = notes/test.txt
+@moveTarget = archive/test-moved.txt
+
+### Write file
+POST {{host}}/api/files/write?path={{filePath}}
+Authorization: {{apiKey}}
+Content-Type: text/plain
+
+Hello workspace
+
+### Append file
+POST {{host}}/api/files/append?path={{filePath}}
+Authorization: {{apiKey}}
+Content-Type: text/plain
+
+ + appended content
+
+### Read file
+GET {{host}}/api/files/read?path={{filePath}}
+Authorization: {{apiKey}}
+
+### List root
+GET {{host}}/api/files/list
+Authorization: {{apiKey}}
+
+### List notes directory
+GET {{host}}/api/files/list?path=notes
+Authorization: {{apiKey}}
+
+### Move file
+POST {{host}}/api/files/move?sourcePath={{filePath}}&targetPath={{moveTarget}}
+Authorization: {{apiKey}}
+
+### Read moved file
+GET {{host}}/api/files/read?path={{moveTarget}}
+Authorization: {{apiKey}}
+
+### Delete moved file
+DELETE {{host}}/api/files/delete?path={{moveTarget}}
+Authorization: {{apiKey}}
+
+### Read deleted file -> should fail
+GET {{host}}/api/files/read?path={{moveTarget}}
+Authorization: {{apiKey}}
+
+### Escape workspace with read -> should be forbidden
+GET {{host}}/api/files/read?path=../outside.txt
+Authorization: {{apiKey}}
+
+### Escape workspace with write -> should be forbidden
+POST {{host}}/api/files/write?path=../outside.txt
+Authorization: {{apiKey}}
+Content-Type: text/plain
+
+forbidden

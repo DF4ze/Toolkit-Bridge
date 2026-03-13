@@ -1,0 +1,79 @@
+@host = http://localhost:8080
+@apiKey = Bearer {{replace_with_api_key}}
+
+### pwd
+POST {{host}}/api/command/run
+Authorization: {{apiKey}}
+Content-Type: application/json
+
+{
+  "tool": "pwd",
+  "args": [],
+  "timeout": 5
+}
+
+### ls root
+POST {{host}}/api/command/run
+Authorization: {{apiKey}}
+Content-Type: application/json
+
+{
+  "tool": "ls",
+  "args": ["."],
+  "timeout": 5
+}
+
+### echo
+POST {{host}}/api/command/run
+Authorization: {{apiKey}}
+Content-Type: application/json
+
+{
+  "tool": "echo",
+  "args": ["hello", "workspace"],
+  "timeout": 5
+}
+
+### cat outside workspace -> should be forbidden
+POST {{host}}/api/command/run
+Authorization: {{apiKey}}
+Content-Type: application/json
+
+{
+  "tool": "cat",
+  "args": ["../secret.txt"],
+  "timeout": 5
+}
+
+### pwd with arg -> should be bad request
+POST {{host}}/api/command/run
+Authorization: {{apiKey}}
+Content-Type: application/json
+
+{
+  "tool": "pwd",
+  "args": ["oops"],
+  "timeout": 5
+}
+
+### grep without pattern -> should be bad request
+POST {{host}}/api/command/run
+Authorization: {{apiKey}}
+Content-Type: application/json
+
+{
+  "tool": "grep",
+  "args": [],
+  "timeout": 5
+}
+
+### unknown tool -> should be forbidden
+POST {{host}}/api/command/run
+Authorization: {{apiKey}}
+Content-Type: application/json
+
+{
+  "tool": "rm",
+  "args": ["test.txt"],
+  "timeout": 5
+}

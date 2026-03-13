@@ -1,0 +1,13 @@
+@host = http://localhost:8080
+@apiKey = Bearer {{replace_with_api_key}}
+
+### Without auth
+GET {{host}}/api/auth/me
+
+### With invalid auth
+GET {{host}}/api/auth/me
+Authorization: Bearer invalid-key
+
+### With valid auth
+GET {{host}}/api/auth/me
+Authorization: {{apiKey}}

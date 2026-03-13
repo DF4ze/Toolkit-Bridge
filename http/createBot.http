@@ -1,0 +1,17 @@
+@host = http://localhost:8080
+@botIdent = mon-bot-02
+
+### Create bot
+POST {{host}}/api/admin/bots/create
+Content-Type: application/json
+Accept: application/json
+
+{
+  "botIdent": "{{botIdent}}"
+}
+
+> {%
+    client.test("Status is 201", function() {
+        client.assert(response.status === 201, "Le status devrait être 201");
+    });
+%}

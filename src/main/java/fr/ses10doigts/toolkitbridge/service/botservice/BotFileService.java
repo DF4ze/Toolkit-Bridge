@@ -1,71 +1,32 @@
-package fr.ses10doigts.toolkitbridge.service;
+package fr.ses10doigts.toolkitbridge.service.botservice;
 
 
-import fr.ses10doigts.toolkitbridge.exception.ForbiddenCommandException;
-import fr.ses10doigts.toolkitbridge.model.*;
+import fr.ses10doigts.toolkitbridge.model.dto.web.FileContentResponse;
+import fr.ses10doigts.toolkitbridge.model.dto.web.FileEntryResponse;
+import fr.ses10doigts.toolkitbridge.model.dto.web.SimpleResponse;
+import fr.ses10doigts.toolkitbridge.service.WorkspaceService;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.*;
-import java.time.Duration;
-import java.util.ArrayList;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.*;
 import java.util.stream.Stream;
 
 @Slf4j
 @Service
-public class BotWorkspaceService {
+@RequiredArgsConstructor
+public class BotFileService {
 
-    private static final int MAX_OUTPUT_CHARS = 20_000;
     private static final int MAX_FILE_SIZE = 1_000_000; // 1 MB lecture max
-    private static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(10);
 
-    /**
-     * Workspace dédié au bot.
-     * A adapter selon ton environnement.
-     */
-    private static final Path BOT_WORKDIR = Path.of("~/workspace/bot").normalize();
-
-
-    public BotWorkspaceService() throws IOException {
-        Files.createDirectories(BOT_WORKDIR);
-    }
-
-    /**
-     * Résout un chemin utilisateur à l'intérieur du workspace du bot.
-     * Refuse les chemins absolus et toute tentative de sortie du dossier racine.
-     */
-    private Path resolveInWorkdir(String userPath) {
-        if (userPath == null || userPath.isBlank()) {
-            throw new IllegalArgumentException("Path cannot be empty");
-        }
-
-        Path inputPath = Path.of(userPath);
-
-        if (inputPath.isAbsolute()) {
-            throw new ForbiddenCommandException("Absolute paths are not allowed");
-        }
-
-        Path resolved = BOT_WORKDIR.resolve(inputPath).normalize();
-
-        if (!resolved.startsWith(BOT_WORKDIR)) {
-            throw new ForbiddenCommandException("Path escapes bot workdir");
-        }
-
-        return resolved;
-    }
-
-    private String relativizeFromWorkdir(Path path) {
-        return BOT_WORKDIR.relativize(path).toString().replace("\\", "/");
-    }
+    private final WorkspaceService workspaceService;
 
     private void validateTextContent(String content) {
         if (content == null) {
@@ -77,82 +38,13 @@ public class BotWorkspaceService {
         }
     }
 
-    private String readStream(InputStream inputStream) throws IOException {
-        StringBuilder sb = new StringBuilder();
-
-        try (BufferedReader reader = new BufferedReader(
-                new InputStreamReader(inputStream, StandardCharsets.UTF_8))) {
-
-            char[] buffer = new char[1024];
-            int read;
-            while ((read = reader.read(buffer)) != -1) {
-                int remaining = MAX_OUTPUT_CHARS - sb.length();
-                if (remaining <= 0) {
-                    break;
-                }
-                sb.append(buffer, 0, Math.min(read, remaining));
-            }
-        }
-
-        if (sb.length() >= MAX_OUTPUT_CHARS) {
-            sb.append("\n[output truncated]");
-        }
-
-        return sb.toString();
-    }
-
-    private String safeGet(Future<String> future) {
-        try {
-            return future.get(1, TimeUnit.SECONDS);
-        } catch (Exception e) {
-            return "";
-        }
-    }
-
-    private void validateRequest(CommandRequest request) {
-        if (request == null) {
-            throw new IllegalArgumentException("Request cannot be null");
-        }
-
-        if (request.getTool() == null || request.getTool().isBlank()) {
-            throw new IllegalArgumentException("Tool cannot be empty");
-        }
-
-        if (request.getTimeout() != null && (request.getTimeout() < 1 || request.getTimeout() > 60)) {
-            throw new IllegalArgumentException("Timeout must be between 1 and 60 seconds");
-        }
-    }
-
-    private void validateArg(String arg) {
-        if (arg == null) {
-            throw new IllegalArgumentException("Argument cannot be null");
-        }
-
-        if (arg.length() > 300) {
-            throw new IllegalArgumentException("Argument too long");
-        }
-
-        if (arg.matches(".*[\\r\\n\\x00].*")) {
-            throw new IllegalArgumentException("Invalid control characters in argument");
-        }
-
-        if (!arg.matches("[a-zA-Z0-9._/\\-:=,@+ ]*")) {
-            throw new IllegalArgumentException("Forbidden characters in argument: " + arg);
-        }
-
-        if (arg.contains("..")) {
-            throw new ForbiddenCommandException("Parent path '..' is not allowed");
-        }
-    }
-
-
     /**
      * Liste le contenu d'un dossier du workspace.
      * path = "." ou "subdir"
      */
     public List<FileEntryResponse> listFiles(String path) throws IOException {
         String effectivePath = (path == null || path.isBlank()) ? "." : path;
-        Path dir = resolveInWorkdir(effectivePath);
+        Path dir = workspaceService.resolveInCurrentBotWorkspace(effectivePath);
 
         if (!Files.exists(dir)) {
             throw new IllegalArgumentException("Directory does not exist: " + effectivePath);
@@ -168,13 +60,13 @@ public class BotWorkspaceService {
                     .map(p -> {
                         try {
                             return new FileEntryResponse(
-                                    relativizeFromWorkdir(p),
+                                    workspaceService.relativizeFromCurrentBotWorkspace(p),
                                     Files.isDirectory(p),
                                     Files.isDirectory(p) ? 0L : Files.size(p)
                             );
                         } catch (IOException e) {
                             return new FileEntryResponse(
-                                    relativizeFromWorkdir(p),
+                                    p.getFileName().toString(),
                                     Files.isDirectory(p),
                                     -1L
                             );
@@ -185,7 +77,7 @@ public class BotWorkspaceService {
     }
 
     public FileContentResponse readFile(String path) throws IOException {
-        Path file = resolveInWorkdir(path);
+        Path file = workspaceService.resolveInCurrentBotWorkspace(path);
 
         if (!Files.exists(file)) {
             throw new IllegalArgumentException("File does not exist: " + path);
@@ -205,7 +97,7 @@ public class BotWorkspaceService {
         return new FileContentResponse(
                 false,
                 "File read successfully",
-                relativizeFromWorkdir(file),
+                workspaceService.relativizeFromCurrentBotWorkspace(file),
                 content
         );
     }
@@ -213,7 +105,7 @@ public class BotWorkspaceService {
     public SimpleResponse writeFile(String path, String content) throws IOException {
         validateTextContent(content);
 
-        Path file = resolveInWorkdir(path);
+        Path file = workspaceService.resolveInCurrentBotWorkspace(path);
         Path parent = file.getParent();
 
         if (parent != null) {
@@ -228,13 +120,16 @@ public class BotWorkspaceService {
                 StandardOpenOption.TRUNCATE_EXISTING
         );
 
-        return new SimpleResponse(false, "File written successfully: " + relativizeFromWorkdir(file));
+        return new SimpleResponse(
+                false,
+                "File written successfully: " + workspaceService.relativizeFromCurrentBotWorkspace(file)
+        );
     }
 
     public SimpleResponse appendFile(String path, String content) throws IOException {
         validateTextContent(content);
 
-        Path file = resolveInWorkdir(path);
+        Path file = workspaceService.resolveInCurrentBotWorkspace(path);
         Path parent = file.getParent();
 
         if (parent != null) {
@@ -249,11 +144,14 @@ public class BotWorkspaceService {
                 StandardOpenOption.APPEND
         );
 
-        return new SimpleResponse(false, "File appended successfully: " + relativizeFromWorkdir(file));
+        return new SimpleResponse(
+                false,
+                "File appended successfully: " + workspaceService.relativizeFromCurrentBotWorkspace(file)
+        );
     }
 
     public SimpleResponse deleteFile(String path) throws IOException {
-        Path file = resolveInWorkdir(path);
+        Path file = workspaceService.resolveInCurrentBotWorkspace(path);
 
         if (!Files.exists(file)) {
             throw new IllegalArgumentException("Path does not exist: " + path);
@@ -283,8 +181,8 @@ public class BotWorkspaceService {
     }
 
     public SimpleResponse moveFile(String sourcePath, String targetPath) throws IOException {
-        Path source = resolveInWorkdir(sourcePath);
-        Path target = resolveInWorkdir(targetPath);
+        Path source = workspaceService.resolveInCurrentBotWorkspace(sourcePath);
+        Path target = workspaceService.resolveInCurrentBotWorkspace(targetPath);
 
         if (!Files.exists(source)) {
             throw new IllegalArgumentException("Source does not exist: " + sourcePath);
@@ -299,7 +197,10 @@ public class BotWorkspaceService {
 
         return new SimpleResponse(
                 false,
-                "Moved successfully from " + relativizeFromWorkdir(source) + " to " + relativizeFromWorkdir(target)
+                "Moved successfully from "
+                        + workspaceService.relativizeFromCurrentBotWorkspace(source)
+                        + " to "
+                        + workspaceService.relativizeFromCurrentBotWorkspace(target)
         );
     }
 }
