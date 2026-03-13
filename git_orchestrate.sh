@@ -70,23 +70,30 @@ echo "Master branch is now up to date."
 
 
 
-# Step 1: Create or switch to existing branch
+# Step 1: Create or switch to existing branch (local or remote)
 
 echo ""
 
-echo "[Step 1/6] Creating or switching to branch..."
+echo "[Step 1/6] Checking for existing branch (local or remote)..."
 
 # Check if branch exists locally
-
 if git branch --list | grep -q "^*.*$BRANCH_NAME$"; then
 
-    echo "Branch '$BRANCH_NAME' already exists, switching to it..."
+    echo "Branch '$BRANCH_NAME' already exists locally, switching to it..."
+
+    git checkout "$BRANCH_NAME"
+
+elif git ls-remote --heads origin "$BRANCH_NAME" > /dev/null 2>&1; then
+
+    echo "Branch '$BRANCH_NAME' exists on remote, fetching and switching to it..."
+
+    git fetch origin "$BRANCH_NAME"
 
     git checkout "$BRANCH_NAME"
 
 else
 
-    echo "Branch '$BRANCH_NAME' does not exist, creating it..."
+    echo "Branch '$BRANCH_NAME' does not exist locally or remotely, creating it..."
 
     if ! ./git_branchCreate.sh "$PREFIX" "$FEATURE_NAME"; then
 
