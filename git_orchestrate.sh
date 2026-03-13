@@ -48,6 +48,28 @@ echo "=========================================="
 
 
 
+# Step 0: Switch to master and pull latest changes
+
+echo ""
+
+echo "[Step 0/6] Ensuring we're on master branch and up to date..."
+
+if [ "$(git branch --show-current)" != "master" ]; then
+
+    echo "Switching to master branch..."
+
+    git checkout master
+
+fi
+
+echo "Pulling latest changes from remote..."
+
+git pull origin master
+
+echo "Master branch is now up to date."
+
+
+
 # Step 1: Create or switch to existing branch
 
 echo ""
@@ -55,6 +77,7 @@ echo ""
 echo "[Step 1/6] Creating or switching to branch..."
 
 # Check if branch exists locally
+
 if git branch --list | grep -q "^*.*$BRANCH_NAME$"; then
 
     echo "Branch '$BRANCH_NAME' already exists, switching to it..."
