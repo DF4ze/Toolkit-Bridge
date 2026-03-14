@@ -17,7 +17,7 @@ public class OllamaClientService implements OllamaClient {
     private final RestClient restClient;
     private final OllamaProperties properties;
 
-    public OllamaClientService( OllamaProperties properties) {
+    public OllamaClientService(OllamaProperties properties) {
         this.restClient = RestClient.builder()
                 .baseUrl(properties.baseUrl())
                 .defaultHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
