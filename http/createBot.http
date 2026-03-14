@@ -1,4 +1,4 @@
-@host = http://localhost:8080
+
 @botIdent = mon-bot-02
 
 ### Create bot

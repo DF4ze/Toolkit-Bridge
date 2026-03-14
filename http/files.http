@@ -1,5 +1,4 @@
-@host = {{host}}
-@apiKey = {{apiKey}}
+
 @filePath = notes/test.txt
 @moveTarget = archive/test-moved.txt
 

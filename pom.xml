@@ -81,11 +81,20 @@
             <artifactId>commons-lang3</artifactId>
         </dependency>
 
+        <!--  Gestion des tests -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.wiremock</groupId>
+            <artifactId>wiremock</artifactId>
+            <version>3.13.2</version>
+            <scope>test</scope>
+        </dependency>
+
+
     </dependencies>
 
     <build>

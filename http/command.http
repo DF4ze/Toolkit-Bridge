@@ -1,5 +1,3 @@
-@host = {{host}}
-@apiKey = {{apiKey}}
 
 ### pwd
 POST {{host}}/api/command/run
