@@ -34,7 +34,7 @@ class OllamaClientServiceTest {
 
         ollamaClientService = new OllamaClientService(
                 builder.build(),
-                new OllamaProperties("http://localhost:11434", "qwen2.5-coder:7b", 60)
+                new OllamaProperties("test://url.test", "qwen2.5-coder:7b", 60)
         );
     }
 
