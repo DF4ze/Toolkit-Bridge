@@ -19,3 +19,6 @@ target/
 *.iml
 *.ipr
 .aider*
+
+## Private keys
+/http-client.private.env.json

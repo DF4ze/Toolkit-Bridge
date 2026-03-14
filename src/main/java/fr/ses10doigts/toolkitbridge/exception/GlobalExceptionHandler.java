@@ -2,6 +2,7 @@ package fr.ses10doigts.toolkitbridge.exception;
 
 import fr.ses10doigts.toolkitbridge.model.dto.web.ErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -11,6 +12,7 @@ import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -19,6 +21,7 @@ public class GlobalExceptionHandler {
             BotAlreadyExistsException ex,
             HttpServletRequest request
     ) {
+        log.warn("Bot already exists: {}", ex.getMessage());
         return buildResponse(HttpStatus.CONFLICT, ex.getMessage(), request, null);
     }
 
@@ -27,6 +30,7 @@ public class GlobalExceptionHandler {
             BotNotFoundException ex,
             HttpServletRequest request
     ) {
+        log.warn("Bot not found: {}", ex.getMessage());
         return buildResponse(HttpStatus.NOT_FOUND, ex.getMessage(), request, null);
     }
 
@@ -35,6 +39,7 @@ public class GlobalExceptionHandler {
             InvalidApiKeyException ex,
             HttpServletRequest request
     ) {
+        log.warn("Invalid API key: {}", ex.getMessage());
         return buildResponse(HttpStatus.UNAUTHORIZED, ex.getMessage(), request, null);
     }
 
@@ -43,6 +48,7 @@ public class GlobalExceptionHandler {
             IllegalArgumentException ex,
             HttpServletRequest request
     ) {
+        log.warn("Illegal argument: {}", ex.getMessage());
         return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage(), request, null);
     }
 
@@ -57,7 +63,17 @@ public class GlobalExceptionHandler {
                 details.put(error.getField(), error.getDefaultMessage())
         );
 
+        log.warn("Validation failed: {}", details);
         return buildResponse(HttpStatus.BAD_REQUEST, "Validation failed", request, details);
+    }
+
+    @ExceptionHandler(ForbiddenCommandException.class)
+    public org.springframework.http.ResponseEntity<ErrorResponse> handleForbiddenCommand(
+            ForbiddenCommandException ex,
+            HttpServletRequest request
+    ) {
+        log.warn("Forbidden command: {}", ex.getMessage());
+        return buildResponse(HttpStatus.FORBIDDEN, ex.getMessage(), request, null);
     }
 
     @ExceptionHandler(Exception.class)
@@ -65,6 +81,7 @@ public class GlobalExceptionHandler {
             Exception ex,
             HttpServletRequest request
     ) {
+        log.error("Unexpected error: {}", ex.getMessage(), ex);
         return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, "Unexpected server error", request, null);
     }
 

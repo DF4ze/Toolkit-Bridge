@@ -1,5 +1,5 @@
-@host = http://localhost:8080
-@apiKey = Bearer tb_9Yi8clcV.Xw1RnjkhFnFf5AeWr1P49vRzZqwotIVk
+@host = {{host}}
+@apiKey = {{apiKey}}
 @filePath = notes/test.txt
 @moveTarget = archive/test-moved.txt
 

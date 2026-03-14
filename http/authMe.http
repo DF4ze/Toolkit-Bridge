@@ -1,5 +1,5 @@
-@host = http://localhost:8080
-@apiKey = Bearer {{replace_with_api_key}}
+@host = {{host}}
+@apiKey = {{apiKey}}
 
 ### Without auth
 GET {{host}}/api/auth/me
