@@ -1,6 +1,6 @@
 package fr.ses10doigts.toolkitbridge.service.tool;
 
-import fr.ses10doigts.toolkitbridge.model.dto.llm.OllamaToolCall;
+import fr.ses10doigts.toolkitbridge.model.dto.llm.tool.ToolCall;
 import fr.ses10doigts.toolkitbridge.model.dto.tool.ToolExecutionResult;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -14,7 +14,7 @@ public class ToolExecutionService {
     private final ToolRegistryService toolRegistryService;
     private final ToolArgumentValidator toolArgumentValidator;
 
-    public ToolExecutionResult execute(OllamaToolCall toolCall) throws Exception{
+    public ToolExecutionResult execute(ToolCall toolCall) throws Exception{
         String toolName = toolCall.function().name();
         Map<String, Object> arguments = toolCall.function().arguments();
 

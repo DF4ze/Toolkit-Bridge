@@ -1,4 +1,4 @@
-package fr.ses10doigts.toolkitbridge.config;
+package fr.ses10doigts.toolkitbridge.config.llm;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Positive;

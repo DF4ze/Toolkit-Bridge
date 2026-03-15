@@ -1,7 +1,7 @@
 package fr.ses10doigts.toolkitbridge.service.tool;
 
-import fr.ses10doigts.toolkitbridge.model.dto.llm.OllamaToolDefinition;
-import fr.ses10doigts.toolkitbridge.model.dto.llm.OllamaToolSpec;
+import fr.ses10doigts.toolkitbridge.model.dto.llm.tool.ToolDefinition;
+import fr.ses10doigts.toolkitbridge.model.dto.llm.tool.ToolSpec;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -19,7 +19,7 @@ public class ToolRegistryService {
                 .collect(Collectors.toMap(ToolHandler::name, Function.identity()));
     }
 
-    public List<OllamaToolDefinition> getToolDefinitions() {
+    public List<ToolDefinition> getToolDefinitions() {
         return handlers.values().stream()
                 .map(this::toDefinition)
                 .toList();
@@ -33,9 +33,9 @@ public class ToolRegistryService {
         return handler;
     }
 
-    private OllamaToolDefinition toDefinition(ToolHandler handler) {
-        return OllamaToolDefinition.function(
-                new OllamaToolSpec(
+    private ToolDefinition toDefinition(ToolHandler handler) {
+        return ToolDefinition.function(
+                new ToolSpec(
                         handler.name(),
                         handler.description(),
                         handler.parametersSchema()
