@@ -1,8 +1,9 @@
-package fr.ses10doigts.toolkitbridge.service.botservice;
+package fr.ses10doigts.toolkitbridge.service.tool.bash;
 
 import fr.ses10doigts.toolkitbridge.exception.ForbiddenCommandException;
+import fr.ses10doigts.toolkitbridge.model.dto.tool.ToolExecutionResult;
 import fr.ses10doigts.toolkitbridge.model.dto.web.CommandRequest;
-import fr.ses10doigts.toolkitbridge.model.dto.web.CommandResponse;
+import fr.ses10doigts.toolkitbridge.model.dto.tool.bash.BashResponse;
 import fr.ses10doigts.toolkitbridge.service.WorkspaceService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -49,7 +50,7 @@ public class BotBashService {
     private final WorkspaceService workspaceService;
 
 
-    public CommandResponse execute(CommandRequest request) throws Exception {
+    public ToolExecutionResult execute(CommandRequest request) throws Exception {
         validateRequest(request);
 
         String executable = ALLOWED_TOOLS.get(request.getTool());
@@ -84,7 +85,7 @@ public class BotBashService {
 
         Process process = pb.start();
 
-        CommandResponse response;
+        ToolExecutionResult response;
         try (ExecutorService executor = Executors.newFixedThreadPool(2)) {
             Future<String> stdoutFuture = executor.submit(() -> readStream(process.getInputStream()));
             Future<String> stderrFuture = executor.submit(() -> readStream(process.getErrorStream()));
@@ -103,27 +104,35 @@ public class BotBashService {
                         process.destroyForcibly();
                     }
 
-                    response = new CommandResponse(
-                            true,
-                            "Timeout reached",
-                            safeGet(stdoutFuture),
-                            safeGet(stderrFuture),
-                            null,
-                            true
-                    );
+                    response = ToolExecutionResult.builder()
+                            .error(true)
+                            .message("Timeout reached")
+                            .bash(new BashResponse(
+                                    safeGet(stdoutFuture),
+                                    safeGet(stderrFuture),
+                                    null,
+                                    true
+                                )
+                            )
+                            .build();
+
+
                 } else {
                     int exitCode = process.exitValue();
                     String stdout = safeGet(stdoutFuture);
                     String stderr = safeGet(stderrFuture);
 
-                    response = new CommandResponse(
-                            exitCode != 0,
-                            exitCode == 0 ? "Command executed" : "Command failed",
-                            stdout.isBlank() ? "No output" : stdout,
-                            stderr,
-                            exitCode,
-                            false
-                    );
+                    response = ToolExecutionResult.builder()
+                            .error(exitCode != 0)
+                            .message(exitCode == 0 ? "Command executed" : "Command failed")
+                            .bash(new BashResponse(
+                                    stdout.isBlank() ? "No output" : stdout,
+                                    stderr,
+                                    exitCode,
+                                    false
+                                )
+                            )
+                            .build();
                 }
             } finally {
                 executor.shutdownNow();
@@ -151,7 +160,7 @@ public class BotBashService {
         switch (tool) {
             case "pwd", "date", "whoami" -> validateNoArgs(tool, args);
             case "echo" -> validateEchoArgs(args);
-            case "cat" -> validateFileOnlyArgs(tool, args, true);
+            case "cat" -> validateFileOnlyArgs(tool, args);
             case "head", "tail" -> validateHeadTailArgs(tool, args);
             case "ls" -> validateLsArgs(args);
             case "find" -> validateFindArgs(args);
@@ -172,8 +181,8 @@ public class BotBashService {
         }
     }
 
-    private void validateFileOnlyArgs(String tool, List<String> args, boolean requireAtLeastOne) throws IOException {
-        if (requireAtLeastOne && args.isEmpty()) {
+    private void validateFileOnlyArgs(String tool, List<String> args) throws IOException {
+        if (args.isEmpty()) {
             throw new IllegalArgumentException("Tool '" + tool + "' requires at least one file path");
         }
 

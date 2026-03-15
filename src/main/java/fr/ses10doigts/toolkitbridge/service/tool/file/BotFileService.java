@@ -1,9 +1,10 @@
-package fr.ses10doigts.toolkitbridge.service.botservice;
+package fr.ses10doigts.toolkitbridge.service.tool.file;
 
 
-import fr.ses10doigts.toolkitbridge.model.dto.web.FileContentResponse;
-import fr.ses10doigts.toolkitbridge.model.dto.web.FileEntryResponse;
-import fr.ses10doigts.toolkitbridge.model.dto.web.SimpleResponse;
+import fr.ses10doigts.toolkitbridge.model.dto.tool.ToolExecutionResult;
+import fr.ses10doigts.toolkitbridge.model.dto.tool.file.FileContentResponse;
+import fr.ses10doigts.toolkitbridge.model.dto.tool.file.FileEntryResponse;
+import fr.ses10doigts.toolkitbridge.model.dto.tool.file.FileResponse;
 import fr.ses10doigts.toolkitbridge.service.WorkspaceService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -42,7 +43,7 @@ public class BotFileService {
      * Liste le contenu d'un dossier du workspace.
      * path = "." ou "subdir"
      */
-    public List<FileEntryResponse> listFiles(String path) throws IOException {
+    public ToolExecutionResult listFiles(String path) throws IOException {
         String effectivePath = (path == null || path.isBlank()) ? "." : path;
         Path dir = workspaceService.resolveInCurrentBotWorkspace(effectivePath);
 
@@ -55,7 +56,7 @@ public class BotFileService {
         }
 
         try (Stream<Path> stream = Files.list(dir)) {
-            return stream
+            List<FileEntryResponse> entryResponses = stream
                     .sorted(Comparator.comparing(p -> p.getFileName().toString().toLowerCase()))
                     .map(p -> {
                         try {
@@ -73,10 +74,19 @@ public class BotFileService {
                         }
                     })
                     .toList();
+
+            return ToolExecutionResult.builder()
+                    .error(false)
+                    .message("Folder listed successfully")
+                    .file(FileResponse.builder()
+                            .path(workspaceService.relativizeFromCurrentBotWorkspace(dir))
+                            .entry(entryResponses)
+                            .build())
+                    .build();
         }
     }
 
-    public FileContentResponse readFile(String path) throws IOException {
+    public ToolExecutionResult readFile(String path) throws IOException {
         Path file = workspaceService.resolveInCurrentBotWorkspace(path);
 
         if (!Files.exists(file)) {
@@ -94,15 +104,22 @@ public class BotFileService {
 
         String content = Files.readString(file, StandardCharsets.UTF_8);
 
-        return new FileContentResponse(
-                false,
-                "File read successfully",
-                workspaceService.relativizeFromCurrentBotWorkspace(file),
-                content
+        FileContentResponse fcr = new FileContentResponse(
+                content,
+                content.length()
         );
+
+        return ToolExecutionResult.builder()
+                .error(false)
+                .message("File read successfully")
+                .file(FileResponse.builder()
+                        .path(workspaceService.relativizeFromCurrentBotWorkspace(file))
+                        .content(fcr)
+                        .build())
+                .build();
     }
 
-    public SimpleResponse writeFile(String path, String content) throws IOException {
+    public ToolExecutionResult writeFile(String path, String content) throws IOException {
         validateTextContent(content);
 
         Path file = workspaceService.resolveInCurrentBotWorkspace(path);
@@ -120,13 +137,16 @@ public class BotFileService {
                 StandardOpenOption.TRUNCATE_EXISTING
         );
 
-        return new SimpleResponse(
-                false,
-                "File written successfully: " + workspaceService.relativizeFromCurrentBotWorkspace(file)
-        );
+        return ToolExecutionResult.builder()
+                .error(false)
+                .message("File written successfully: " + workspaceService.relativizeFromCurrentBotWorkspace(file))
+                .file(FileResponse.builder()
+                        .path(workspaceService.relativizeFromCurrentBotWorkspace(file))
+                        .build())
+                .build();
     }
 
-    public SimpleResponse appendFile(String path, String content) throws IOException {
+    public ToolExecutionResult appendFile(String path, String content) throws IOException {
         validateTextContent(content);
 
         Path file = workspaceService.resolveInCurrentBotWorkspace(path);
@@ -144,13 +164,16 @@ public class BotFileService {
                 StandardOpenOption.APPEND
         );
 
-        return new SimpleResponse(
-                false,
-                "File appended successfully: " + workspaceService.relativizeFromCurrentBotWorkspace(file)
-        );
+        return ToolExecutionResult.builder()
+                .error(false)
+                .message("File appended successfully: " + workspaceService.relativizeFromCurrentBotWorkspace(file))
+                .file(FileResponse.builder()
+                        .path(workspaceService.relativizeFromCurrentBotWorkspace(file))
+                        .build())
+                .build();
     }
 
-    public SimpleResponse deleteFile(String path) throws IOException {
+    public ToolExecutionResult deleteFile(String path) throws IOException {
         Path file = workspaceService.resolveInCurrentBotWorkspace(path);
 
         if (!Files.exists(file)) {
@@ -177,10 +200,16 @@ public class BotFileService {
             Files.delete(file);
         }
 
-        return new SimpleResponse(false, "Deleted successfully: " + path);
+        return ToolExecutionResult.builder()
+                .error(false)
+                .message("File deleted successfully: " + workspaceService.relativizeFromCurrentBotWorkspace(file))
+                .file(FileResponse.builder()
+                        .path(workspaceService.relativizeFromCurrentBotWorkspace(file))
+                        .build())
+                .build();
     }
 
-    public SimpleResponse moveFile(String sourcePath, String targetPath) throws IOException {
+    public ToolExecutionResult moveFile(String sourcePath, String targetPath) throws IOException {
         Path source = workspaceService.resolveInCurrentBotWorkspace(sourcePath);
         Path target = workspaceService.resolveInCurrentBotWorkspace(targetPath);
 
@@ -195,12 +224,15 @@ public class BotFileService {
 
         Files.move(source, target, StandardCopyOption.REPLACE_EXISTING);
 
-        return new SimpleResponse(
-                false,
-                "Moved successfully from "
+        return ToolExecutionResult.builder()
+                .error(false)
+                .message("Moved successfully from "
                         + workspaceService.relativizeFromCurrentBotWorkspace(source)
                         + " to "
-                        + workspaceService.relativizeFromCurrentBotWorkspace(target)
-        );
+                        + workspaceService.relativizeFromCurrentBotWorkspace(target))
+                .file(FileResponse.builder()
+                        .path(workspaceService.relativizeFromCurrentBotWorkspace(target))
+                        .build())
+                .build();
     }
 }

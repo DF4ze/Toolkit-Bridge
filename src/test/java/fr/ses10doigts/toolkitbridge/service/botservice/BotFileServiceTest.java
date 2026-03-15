@@ -1,11 +1,10 @@
 package fr.ses10doigts.toolkitbridge.service.botservice;
 
 import fr.ses10doigts.toolkitbridge.model.dto.auth.AuthenticatedBot;
-import fr.ses10doigts.toolkitbridge.model.dto.web.FileContentResponse;
-import fr.ses10doigts.toolkitbridge.model.dto.web.FileEntryResponse;
-import fr.ses10doigts.toolkitbridge.model.dto.web.SimpleResponse;
+import fr.ses10doigts.toolkitbridge.model.dto.tool.ToolExecutionResult;
 import fr.ses10doigts.toolkitbridge.service.WorkspaceService;
 import fr.ses10doigts.toolkitbridge.service.auth.CurrentBotService;
+import fr.ses10doigts.toolkitbridge.service.tool.file.BotFileService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -13,7 +12,6 @@ import org.junit.jupiter.api.io.TempDir;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -39,12 +37,12 @@ class BotFileServiceTest {
 
     @Test
     void writeAndReadFileShouldWork() throws IOException {
-        SimpleResponse writeResponse = botFileService.writeFile("notes/test.txt", "hello");
-        FileContentResponse readResponse = botFileService.readFile("notes/test.txt");
+        ToolExecutionResult writeResponse = botFileService.writeFile("notes/test.txt", "hello");
+        ToolExecutionResult readResponse = botFileService.readFile("notes/test.txt");
 
         assertFalse(writeResponse.isError());
-        assertEquals("hello", readResponse.content());
-        assertEquals("notes/test.txt", readResponse.path());
+        assertEquals("hello", readResponse.getFile().getContent().content());
+        assertEquals("notes/test.txt", readResponse.getFile().getPath());
     }
 
     @Test
@@ -52,8 +50,8 @@ class BotFileServiceTest {
         botFileService.writeFile("notes/test.txt", "hello");
         botFileService.appendFile("notes/test.txt", " world");
 
-        FileContentResponse readResponse = botFileService.readFile("notes/test.txt");
-        assertEquals("hello world", readResponse.content());
+        ToolExecutionResult readResponse = botFileService.readFile("notes/test.txt");
+        assertEquals("hello world", readResponse.getFile().getContent().content());
     }
 
     @Test
@@ -61,11 +59,11 @@ class BotFileServiceTest {
         botFileService.writeFile("notes/zeta.txt", "Z");
         botFileService.writeFile("notes/alpha.txt", "A");
 
-        List<FileEntryResponse> entries = botFileService.listFiles("notes");
+        ToolExecutionResult entries = botFileService.listFiles("notes");
 
-        assertEquals(2, entries.size());
-        assertEquals("notes/alpha.txt", entries.get(0).path());
-        assertEquals("notes/zeta.txt", entries.get(1).path());
+        assertEquals(2, entries.getFile().getEntry().size());
+        assertEquals("notes/alpha.txt", entries.getFile().getEntry().get(0).path());
+        assertEquals("notes/zeta.txt", entries.getFile().getEntry().get(1).path());
     }
 
     @Test
@@ -74,8 +72,10 @@ class BotFileServiceTest {
 
         botFileService.moveFile("notes/test.txt", "archive/test.txt");
 
+        ToolExecutionResult result = botFileService.readFile("archive/test.txt");
+
         assertThrows(IllegalArgumentException.class, () -> botFileService.readFile("notes/test.txt"));
-        assertEquals("hello", botFileService.readFile("archive/test.txt").content());
+        assertEquals("hello", result.getFile().getContent().content());
     }
 
     @Test

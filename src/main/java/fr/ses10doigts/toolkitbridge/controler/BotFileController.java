@@ -1,14 +1,11 @@
 package fr.ses10doigts.toolkitbridge.controler;
 
-import fr.ses10doigts.toolkitbridge.model.dto.web.FileContentResponse;
-import fr.ses10doigts.toolkitbridge.model.dto.web.FileEntryResponse;
-import fr.ses10doigts.toolkitbridge.model.dto.web.SimpleResponse;
-import fr.ses10doigts.toolkitbridge.service.botservice.BotFileService;
+import fr.ses10doigts.toolkitbridge.model.dto.tool.ToolExecutionResult;
+import fr.ses10doigts.toolkitbridge.service.tool.file.BotFileService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/files")
@@ -18,37 +15,37 @@ public class BotFileController {
     private final BotFileService botFileService;
 
     @GetMapping("/list")
-    public List<FileEntryResponse> listFiles(@RequestParam(required = false) String path)
+    public ToolExecutionResult listFiles(@RequestParam(required = false) String path)
             throws IOException {
         return botFileService.listFiles(path);
     }
 
     @GetMapping("/read")
-    public FileContentResponse readFile(@RequestParam String path)
+    public ToolExecutionResult readFile(@RequestParam String path)
             throws IOException {
         return botFileService.readFile(path);
     }
 
     @PostMapping("/write")
-    public SimpleResponse writeFile(@RequestParam String path, @RequestBody String content)
+    public ToolExecutionResult writeFile(@RequestParam String path, @RequestBody String content)
             throws IOException {
         return botFileService.writeFile(path, content);
     }
 
     @PostMapping("/append")
-    public SimpleResponse appendFile(@RequestParam String path, @RequestBody String content)
+    public ToolExecutionResult appendFile(@RequestParam String path, @RequestBody String content)
             throws IOException {
         return botFileService.appendFile(path, content);
     }
 
     @DeleteMapping("/delete")
-    public SimpleResponse deleteFile(@RequestParam String path)
+    public ToolExecutionResult deleteFile(@RequestParam String path)
             throws IOException {
         return botFileService.deleteFile(path);
     }
 
     @PostMapping("/move")
-    public SimpleResponse moveFile(@RequestParam String sourcePath, @RequestParam String targetPath)
+    public ToolExecutionResult moveFile(@RequestParam String sourcePath, @RequestParam String targetPath)
             throws IOException {
         return botFileService.moveFile(sourcePath, targetPath);
     }

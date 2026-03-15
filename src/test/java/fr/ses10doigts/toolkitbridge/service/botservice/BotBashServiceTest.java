@@ -5,7 +5,7 @@ import fr.ses10doigts.toolkitbridge.model.dto.auth.AuthenticatedBot;
 import fr.ses10doigts.toolkitbridge.model.dto.web.CommandRequest;
 import fr.ses10doigts.toolkitbridge.service.WorkspaceService;
 import fr.ses10doigts.toolkitbridge.service.auth.CurrentBotService;
-import fr.ses10doigts.toolkitbridge.service.botservice.BotBashService;
+import fr.ses10doigts.toolkitbridge.service.tool.bash.BotBashService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;

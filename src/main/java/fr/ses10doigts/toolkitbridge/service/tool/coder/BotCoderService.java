@@ -1,4 +1,4 @@
-package fr.ses10doigts.toolkitbridge.service.botservice;
+package fr.ses10doigts.toolkitbridge.service.tool.coder;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
