@@ -1,4 +1,4 @@
-package fr.ses10doigts.toolkitbridge.model.dto.web;
+package fr.ses10doigts.toolkitbridge.model.dto.tool.bash;
 
 import lombok.Data;
 
@@ -8,7 +8,7 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 
 @Data
-public class CommandRequest {
+public class BashRequest {
 
     @NotBlank
     private String tool;
