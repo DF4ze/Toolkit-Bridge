@@ -8,6 +8,8 @@ import java.util.List;
 public record OpenAiMessage(
         String role,
         String content,
+        String name,
+        String tool_call_id,
         List<OpenAiToolCall> tool_calls
 ) {
 }

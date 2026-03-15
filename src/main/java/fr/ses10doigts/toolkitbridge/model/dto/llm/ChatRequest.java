@@ -9,8 +9,7 @@ import java.util.List;
 public record ChatRequest(
         String model,
         List<Message> messages,
-        List<ToolDefinition> tools,
-        boolean stream
+        List<ToolDefinition> tools
 ) {
     public ChatRequest {
         messages = messages == null ? List.of() : List.copyOf(messages);

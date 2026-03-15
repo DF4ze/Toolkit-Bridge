@@ -10,12 +10,14 @@ import fr.ses10doigts.toolkitbridge.model.dto.llm.provider.openai.*;
 import fr.ses10doigts.toolkitbridge.model.dto.llm.tool.ToolCall;
 import fr.ses10doigts.toolkitbridge.model.dto.llm.tool.ToolDefinition;
 import fr.ses10doigts.toolkitbridge.model.dto.llm.tool.ToolFunction;
+import org.springframework.stereotype.Component;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
 import java.util.List;
 import java.util.Map;
 
+@Component
 public class OpenAiLikeMapper {
 
     private final ObjectMapper objectMapper;
@@ -32,8 +34,7 @@ public class OpenAiLikeMapper {
                         .toList(),
                 request.tools().isEmpty() ? null : request.tools().stream()
                         .map(this::toOpenAiToolDefinition)
-                        .toList(),
-                request.stream()
+                        .toList()
         );
     }
 
@@ -53,11 +54,11 @@ public class OpenAiLikeMapper {
             return new OpenAiMessage(
                     MessageRole.toRole(chatMessage.getRole()),
                     chatMessage.getContent(),
-                    chatMessage.getToolCalls() == null
-                            ? List.of()
-                            : chatMessage.getToolCalls().stream()
-                              .map(this::toOpenAiToolCall)
-                              .toList()
+                    null,
+                    null,
+                    chatMessage.getToolCalls() == null ? List.of() : chatMessage.getToolCalls().stream()
+                            .map(this::toOpenAiToolCall)
+                            .toList()
             );
         }
 
@@ -65,6 +66,8 @@ public class OpenAiLikeMapper {
             return new OpenAiMessage(
                     MessageRole.toRole(MessageRole.TOOL),
                     toolResultMessage.getContent(),
+                    toolResultMessage.getToolName(),
+                    toolResultMessage.getToolCallId(),
                     null
             );
         }
@@ -72,16 +75,26 @@ public class OpenAiLikeMapper {
         return new OpenAiMessage(
                 MessageRole.toRole(message.getRole()),
                 message.getContent(),
+                null,
+                null,
                 null
         );
     }
 
-    private ChatMessage toInternalMessage(OpenAiMessage message) {
+    private Message toInternalMessage(OpenAiMessage message) {
+        MessageRole role = MessageRole.fromRole(message.role());
+
+        if (role == MessageRole.TOOL) {
+            return new ToolResultMessage(
+                    message.content(),
+                    message.name(),
+                    message.tool_call_id()
+            );
+        }
+
         List<ToolCall> toolCalls = message.tool_calls() == null ? List.of() : message.tool_calls().stream()
                 .map(this::toInternalToolCall)
                 .toList();
-
-        MessageRole role = MessageRole.fromRole(message.role());
 
         return new ChatMessage(
                 role,
