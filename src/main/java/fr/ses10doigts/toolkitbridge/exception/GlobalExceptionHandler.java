@@ -16,18 +16,18 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler(BotAlreadyExistsException.class)
+    @ExceptionHandler(AgentAlreadyExistsException.class)
     public org.springframework.http.ResponseEntity<ErrorResponse> handleBotAlreadyExists(
-            BotAlreadyExistsException ex,
+            AgentAlreadyExistsException ex,
             HttpServletRequest request
     ) {
         log.warn("Bot already exists: {}", ex.getMessage());
         return buildResponse(HttpStatus.CONFLICT, ex.getMessage(), request, null);
     }
 
-    @ExceptionHandler(BotNotFoundException.class)
+    @ExceptionHandler(AgentNotFoundException.class)
     public org.springframework.http.ResponseEntity<ErrorResponse> handleBotNotFound(
-            BotNotFoundException ex,
+            AgentNotFoundException ex,
             HttpServletRequest request
     ) {
         log.warn("Bot not found: {}", ex.getMessage());

@@ -2,7 +2,7 @@ package fr.ses10doigts.toolkitbridge.model.dto.llm;
 
 
 import fr.ses10doigts.toolkitbridge.model.dto.llm.message.Message;
-import fr.ses10doigts.toolkitbridge.model.dto.llm.tool.ToolDefinition;
+import fr.ses10doigts.toolkitbridge.model.dto.llm.tooling.ToolDefinition;
 
 import java.util.List;
 

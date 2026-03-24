@@ -1,10 +1,10 @@
 package fr.ses10doigts.toolkitbridge.service.botservice;
 
 import fr.ses10doigts.toolkitbridge.exception.ForbiddenCommandException;
-import fr.ses10doigts.toolkitbridge.model.dto.auth.AuthenticatedBot;
+import fr.ses10doigts.toolkitbridge.model.dto.auth.AuthenticatedAgent;
 import fr.ses10doigts.toolkitbridge.model.dto.tool.bash.BashRequest;
 import fr.ses10doigts.toolkitbridge.service.WorkspaceService;
-import fr.ses10doigts.toolkitbridge.service.auth.CurrentBotService;
+import fr.ses10doigts.toolkitbridge.service.auth.CurrentAgentService;
 import fr.ses10doigts.toolkitbridge.service.tool.bash.BashSecurityService;
 import fr.ses10doigts.toolkitbridge.service.tool.bash.BashToolHandler;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,11 +28,11 @@ class BashToolHandlerTest {
 
     @BeforeEach
     void setUp() throws IOException {
-        CurrentBotService currentBotService = mock(CurrentBotService.class);
-        when(currentBotService.getCurrentBot())
-                .thenReturn(new AuthenticatedBot(UUID.randomUUID(), "bot-bash"));
+        CurrentAgentService currentAgentService = mock(CurrentAgentService.class);
+        when(currentAgentService.getCurrentBot())
+                .thenReturn(new AuthenticatedAgent(UUID.randomUUID(), "bot-bash"));
 
-        WorkspaceService workspaceService = new WorkspaceService(tempDir.toString(), currentBotService);
+        WorkspaceService workspaceService = new WorkspaceService(tempDir.toString(), currentAgentService);
         BashSecurityService securityService = new BashSecurityService(workspaceService);
         bashToolHandler = new BashToolHandler(workspaceService, securityService);
     }

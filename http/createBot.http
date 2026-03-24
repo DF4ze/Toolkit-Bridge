@@ -2,7 +2,7 @@
 @botIdent = mon-bot-02
 
 ### Create bot
-POST {{host}}/api/admin/bots/create
+POST {{host}}/api/admin/agents/create
 Content-Type: application/json
 Accept: application/json
 

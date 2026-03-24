@@ -1,8 +1,8 @@
 package fr.ses10doigts.toolkitbridge.service;
 
 import fr.ses10doigts.toolkitbridge.exception.ForbiddenCommandException;
-import fr.ses10doigts.toolkitbridge.model.dto.auth.AuthenticatedBot;
-import fr.ses10doigts.toolkitbridge.service.auth.CurrentBotService;
+import fr.ses10doigts.toolkitbridge.model.dto.auth.AuthenticatedAgent;
+import fr.ses10doigts.toolkitbridge.service.auth.CurrentAgentService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -20,16 +20,16 @@ class WorkspaceServiceTest {
     @TempDir
     Path tempDir;
 
-    private CurrentBotService currentBotService;
+    private CurrentAgentService currentAgentService;
     private WorkspaceService workspaceService;
 
     @BeforeEach
     void setUp() throws IOException {
-        currentBotService = mock(CurrentBotService.class);
-        when(currentBotService.getCurrentBot())
-                .thenReturn(new AuthenticatedBot(UUID.randomUUID(), "bot-test"));
+        currentAgentService = mock(CurrentAgentService.class);
+        when(currentAgentService.getCurrentBot())
+                .thenReturn(new AuthenticatedAgent(UUID.randomUUID(), "bot-test"));
 
-        workspaceService = new WorkspaceService(tempDir.toString(), currentBotService);
+        workspaceService = new WorkspaceService(tempDir.toString(), currentAgentService);
     }
 
     @Test

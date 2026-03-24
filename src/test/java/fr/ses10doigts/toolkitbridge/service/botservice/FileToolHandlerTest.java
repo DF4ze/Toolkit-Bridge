@@ -2,10 +2,10 @@ package fr.ses10doigts.toolkitbridge.service.botservice;
 
 import fr.ses10doigts.toolkitbridge.exception.ToolExecutionException;
 import fr.ses10doigts.toolkitbridge.exception.ToolValidationException;
-import fr.ses10doigts.toolkitbridge.model.dto.auth.AuthenticatedBot;
+import fr.ses10doigts.toolkitbridge.model.dto.auth.AuthenticatedAgent;
 import fr.ses10doigts.toolkitbridge.model.dto.tool.ToolExecutionResult;
 import fr.ses10doigts.toolkitbridge.service.WorkspaceService;
-import fr.ses10doigts.toolkitbridge.service.auth.CurrentBotService;
+import fr.ses10doigts.toolkitbridge.service.auth.CurrentAgentService;
 import fr.ses10doigts.toolkitbridge.service.tool.file.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -37,11 +37,11 @@ class FileToolHandlerTest {
 
     @BeforeEach
     void setUp() throws IOException {
-        CurrentBotService currentBotService = mock(CurrentBotService.class);
-        when(currentBotService.getCurrentBot())
-                .thenReturn(new AuthenticatedBot(UUID.randomUUID(), "bot-files"));
+        CurrentAgentService currentAgentService = mock(CurrentAgentService.class);
+        when(currentAgentService.getCurrentBot())
+                .thenReturn(new AuthenticatedAgent(UUID.randomUUID(), "bot-files"));
 
-        workspaceService = new WorkspaceService(tempDir.toString(), currentBotService);
+        workspaceService = new WorkspaceService(tempDir.toString(), currentAgentService);
 
         writeFileToolHandler = new WriteFileToolHandler(workspaceService);
         readFileToolHandler = new ReadFileToolHandler(workspaceService);

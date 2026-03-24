@@ -2,7 +2,7 @@ package fr.ses10doigts.toolkitbridge.model.dto.llm.message;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import fr.ses10doigts.toolkitbridge.model.dto.llm.tool.ToolCall;
+import fr.ses10doigts.toolkitbridge.model.dto.llm.tooling.ToolCall;
 import lombok.Getter;
 
 import java.util.List;

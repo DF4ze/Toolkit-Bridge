@@ -1,8 +1,8 @@
 package fr.ses10doigts.toolkitbridge.service;
 
 import fr.ses10doigts.toolkitbridge.exception.ForbiddenCommandException;
-import fr.ses10doigts.toolkitbridge.model.dto.auth.AuthenticatedBot;
-import fr.ses10doigts.toolkitbridge.service.auth.CurrentBotService;
+import fr.ses10doigts.toolkitbridge.model.dto.auth.AuthenticatedAgent;
+import fr.ses10doigts.toolkitbridge.service.auth.CurrentAgentService;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -22,20 +22,20 @@ public class WorkspaceService {
 
     @Getter
     private final Path botsRoot;
-    private final CurrentBotService currentBotService;
+    private final CurrentAgentService currentAgentService;
 
     public WorkspaceService(
             @Value("${app.workspace.bots-root}") String botsRoot,
-            CurrentBotService currentBotService
+            CurrentAgentService currentAgentService
     ) throws IOException {
         this.botsRoot = Path.of(botsRoot).normalize();
-        this.currentBotService = currentBotService;
+        this.currentAgentService = currentAgentService;
         Files.createDirectories(this.botsRoot);
     }
 
     public Path getCurrentBotWorkspace() throws IOException {
-        AuthenticatedBot bot = currentBotService.getCurrentBot();
-        String safeBotFolderName = sanitizeBotFolderName(bot.botIdent());
+        AuthenticatedAgent bot = currentAgentService.getCurrentBot();
+        String safeBotFolderName = sanitizeBotFolderName(bot.agentIdent());
 
         Path botWorkspace = botsRoot.resolve(safeBotFolderName).normalize();
 

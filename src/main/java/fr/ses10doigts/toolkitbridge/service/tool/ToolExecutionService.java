@@ -1,6 +1,6 @@
 package fr.ses10doigts.toolkitbridge.service.tool;
 
-import fr.ses10doigts.toolkitbridge.model.dto.llm.tool.ToolCall;
+import fr.ses10doigts.toolkitbridge.model.dto.llm.tooling.ToolCall;
 import fr.ses10doigts.toolkitbridge.model.dto.tool.ToolExecutionResult;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;

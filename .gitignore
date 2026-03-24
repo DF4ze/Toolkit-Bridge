@@ -22,3 +22,5 @@ target/
 
 ## Private keys
 /http-client.private.env.json
+application.yaml
+

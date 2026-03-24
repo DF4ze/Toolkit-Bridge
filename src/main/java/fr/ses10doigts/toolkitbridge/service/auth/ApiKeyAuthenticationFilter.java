@@ -1,7 +1,7 @@
 package fr.ses10doigts.toolkitbridge.service.auth;
 
 import fr.ses10doigts.toolkitbridge.exception.InvalidApiKeyException;
-import fr.ses10doigts.toolkitbridge.model.dto.auth.AuthenticatedBot;
+import fr.ses10doigts.toolkitbridge.model.dto.auth.AuthenticatedAgent;
 import fr.ses10doigts.toolkitbridge.model.dto.web.ErrorResponse;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -25,8 +25,8 @@ public class ApiKeyAuthenticationFilter extends OncePerRequestFilter {
     private static final String AUTHORIZATION_HEADER = "Authorization";
     private static final String BEARER_PREFIX = "Bearer ";
 
-    private final BotAccountService botAccountService;
-    private final BotContextHolder botContextHolder;
+    private final AgentAccountService agentAccountService;
+    private final AgentContextHolder agentContextHolder;
     private final ObjectMapper objectMapper;
 
     @Override
@@ -46,14 +46,14 @@ public class ApiKeyAuthenticationFilter extends OncePerRequestFilter {
             String authorization = request.getHeader(AUTHORIZATION_HEADER);
             String rawApiKey = extractBearerToken(authorization);
 
-            AuthenticatedBot authenticatedBot = botAccountService.authenticate(rawApiKey);
-            botContextHolder.setCurrentBot(authenticatedBot);
+            AuthenticatedAgent authenticatedAgent = agentAccountService.authenticate(rawApiKey);
+            agentContextHolder.setCurrentBot(authenticatedAgent);
 
             filterChain.doFilter(request, response);
         } catch (InvalidApiKeyException ex) {
             writeUnauthorizedResponse(response, request, ex.getMessage());
         } finally {
-            botContextHolder.clear();
+            agentContextHolder.clear();
         }
     }
 

@@ -1,7 +1,7 @@
 package fr.ses10doigts.toolkitbridge.service.tool;
 
-import fr.ses10doigts.toolkitbridge.model.dto.llm.tool.ToolDefinition;
-import fr.ses10doigts.toolkitbridge.model.dto.llm.tool.ToolSpec;
+import fr.ses10doigts.toolkitbridge.model.dto.llm.tooling.ToolDefinition;
+import fr.ses10doigts.toolkitbridge.model.dto.llm.tooling.ToolSpec;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
