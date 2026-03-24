@@ -1,4 +1,4 @@
-package fr.ses10doigts.toolkitbridge.service.llm;
+package fr.ses10doigts.toolkitbridge.service.llm.provider;
 
 import fr.ses10doigts.toolkitbridge.model.dto.llm.ChatRequest;
 import fr.ses10doigts.toolkitbridge.model.dto.llm.ChatResponse;

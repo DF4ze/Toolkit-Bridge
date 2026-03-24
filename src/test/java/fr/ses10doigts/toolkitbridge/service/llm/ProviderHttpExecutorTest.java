@@ -1,6 +1,7 @@
 package fr.ses10doigts.toolkitbridge.service.llm;
 
 import fr.ses10doigts.toolkitbridge.exception.LlmProviderException;
+import fr.ses10doigts.toolkitbridge.service.llm.provider.ProviderHttpExecutor;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;

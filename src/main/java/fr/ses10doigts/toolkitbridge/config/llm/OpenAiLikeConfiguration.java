@@ -1,9 +1,9 @@
 package fr.ses10doigts.toolkitbridge.config.llm;
 
 import fr.ses10doigts.toolkitbridge.exception.LlmProviderException;
-import fr.ses10doigts.toolkitbridge.service.llm.LlmProvider;
-import fr.ses10doigts.toolkitbridge.service.llm.LlmProviderRegistry;
-import fr.ses10doigts.toolkitbridge.service.llm.ProviderHttpExecutor;
+import fr.ses10doigts.toolkitbridge.service.llm.provider.LlmProvider;
+import fr.ses10doigts.toolkitbridge.service.llm.provider.LlmProviderRegistry;
+import fr.ses10doigts.toolkitbridge.service.llm.provider.ProviderHttpExecutor;
 import fr.ses10doigts.toolkitbridge.service.llm.openai.OpenAiLikeMapper;
 import fr.ses10doigts.toolkitbridge.service.llm.openai.OpenAiLikeProvider;
 import lombok.extern.slf4j.Slf4j;

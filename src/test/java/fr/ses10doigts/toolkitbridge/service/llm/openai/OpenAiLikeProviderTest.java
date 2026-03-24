@@ -5,7 +5,7 @@ import fr.ses10doigts.toolkitbridge.model.dto.llm.ChatRequest;
 import fr.ses10doigts.toolkitbridge.model.dto.llm.ChatResponse;
 import fr.ses10doigts.toolkitbridge.model.dto.llm.message.ChatMessage;
 import fr.ses10doigts.toolkitbridge.model.dto.llm.message.MessageRole;
-import fr.ses10doigts.toolkitbridge.service.llm.ProviderHttpExecutor;
+import fr.ses10doigts.toolkitbridge.service.llm.provider.ProviderHttpExecutor;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
@@ -109,7 +109,11 @@ class OpenAiLikeProviderTest {
                     """));
 
         OpenAiLikeProvider provider = new OpenAiLikeProvider(
-                new OpenAiLikeProperties("lmstudio", server.url("/").toString(), null, "default-model"),
+                new OpenAiLikeProperties(
+                        "lmstudio",
+                        server.url("/").toString(),
+                        null,
+                        "default-model"),
                 mapper,
                 providerHttpExecutor
         );
@@ -129,7 +133,11 @@ class OpenAiLikeProviderTest {
     @Test
     void shouldFailWhenNoModelIsAvailable() {
         OpenAiLikeProvider provider = new OpenAiLikeProvider(
-                new OpenAiLikeProperties("lmstudio", "http://localhost:1234", null, null),
+                new OpenAiLikeProperties(
+                        "lmstudio",
+                        "http://localhost:1234",
+                        null,
+                        null),
                 mapper,
                 providerHttpExecutor
         );

@@ -9,4 +9,15 @@ public record AgentDefinition(
         String model,
         String systemPrompt
 ) {
+    public static AgentDefinition fromProperties( AgentDefinitionProperties props ){
+        return new AgentDefinition(
+                props.getId(),
+                props.getName(),
+                props.getTelegramBotId(),
+                AgentOrchestratorType.valueOf( props.getOrchestratorType().toUpperCase() ),
+                props.getLlmProvider(),
+                props.getModel(),
+                props.getSystemPrompt()
+        );
+    }
 }

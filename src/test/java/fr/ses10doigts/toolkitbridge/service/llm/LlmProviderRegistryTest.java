@@ -5,6 +5,8 @@ import fr.ses10doigts.toolkitbridge.model.dto.llm.ChatRequest;
 import fr.ses10doigts.toolkitbridge.model.dto.llm.ChatResponse;
 import fr.ses10doigts.toolkitbridge.model.dto.llm.provider.LlmCapability;
 import fr.ses10doigts.toolkitbridge.model.dto.llm.provider.ModelInfo;
+import fr.ses10doigts.toolkitbridge.service.llm.provider.LlmProvider;
+import fr.ses10doigts.toolkitbridge.service.llm.provider.LlmProviderRegistry;
 import org.junit.Ignore;
 import org.junit.jupiter.api.Test;
 
