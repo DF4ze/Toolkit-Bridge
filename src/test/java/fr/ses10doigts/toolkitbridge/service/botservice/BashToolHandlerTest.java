@@ -1,9 +1,10 @@
 package fr.ses10doigts.toolkitbridge.service.botservice;
 
+import fr.ses10doigts.toolkitbridge.config.workspace.WorkspaceProperties;
 import fr.ses10doigts.toolkitbridge.exception.ForbiddenCommandException;
 import fr.ses10doigts.toolkitbridge.model.dto.auth.AuthenticatedAgent;
 import fr.ses10doigts.toolkitbridge.model.dto.tool.bash.BashRequest;
-import fr.ses10doigts.toolkitbridge.service.WorkspaceService;
+import fr.ses10doigts.toolkitbridge.service.workspace.WorkspaceService;
 import fr.ses10doigts.toolkitbridge.service.auth.CurrentAgentService;
 import fr.ses10doigts.toolkitbridge.service.tool.bash.BashSecurityService;
 import fr.ses10doigts.toolkitbridge.service.tool.bash.BashToolHandler;
@@ -29,10 +30,14 @@ class BashToolHandlerTest {
     @BeforeEach
     void setUp() throws IOException {
         CurrentAgentService currentAgentService = mock(CurrentAgentService.class);
-        when(currentAgentService.getCurrentBot())
+        when(currentAgentService.getCurrentAgent())
                 .thenReturn(new AuthenticatedAgent(UUID.randomUUID(), "bot-bash"));
 
-        WorkspaceService workspaceService = new WorkspaceService(tempDir.toString(), currentAgentService);
+        WorkspaceProperties properties = new WorkspaceProperties();
+        properties.setAgentsRoot(tempDir.resolve("agents").toString());
+        properties.setSharedRoot(tempDir.resolve("shared").toString());
+
+        WorkspaceService workspaceService = new WorkspaceService(properties, currentAgentService);
         BashSecurityService securityService = new BashSecurityService(workspaceService);
         bashToolHandler = new BashToolHandler(workspaceService, securityService);
     }

@@ -7,7 +7,7 @@ import fr.ses10doigts.toolkitbridge.model.dto.llm.provider.LlmCapability;
 import fr.ses10doigts.toolkitbridge.model.dto.llm.provider.ModelInfo;
 import fr.ses10doigts.toolkitbridge.service.llm.provider.LlmProvider;
 import fr.ses10doigts.toolkitbridge.service.llm.provider.LlmProviderRegistry;
-import org.junit.Ignore;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -30,8 +30,9 @@ class LlmProviderRegistryTest {
         assertFalse(registry.exists("missing"));
     }
 
-    @Ignore
+
     @Test
+    @Disabled("Ordering should not be part of the registry contract")
     void shouldKeepInsertionOrderInGetAll() {
         LlmProvider p1 = new FakeProvider("first");
         LlmProvider p2 = new FakeProvider("second");

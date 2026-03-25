@@ -2,9 +2,10 @@ package fr.ses10doigts.toolkitbridge.service.botservice;
 
 import fr.ses10doigts.toolkitbridge.exception.ToolExecutionException;
 import fr.ses10doigts.toolkitbridge.exception.ToolValidationException;
+import fr.ses10doigts.toolkitbridge.config.workspace.WorkspaceProperties;
 import fr.ses10doigts.toolkitbridge.model.dto.auth.AuthenticatedAgent;
 import fr.ses10doigts.toolkitbridge.model.dto.tool.ToolExecutionResult;
-import fr.ses10doigts.toolkitbridge.service.WorkspaceService;
+import fr.ses10doigts.toolkitbridge.service.workspace.WorkspaceService;
 import fr.ses10doigts.toolkitbridge.service.auth.CurrentAgentService;
 import fr.ses10doigts.toolkitbridge.service.tool.file.*;
 import org.junit.jupiter.api.BeforeEach;
@@ -38,10 +39,14 @@ class FileToolHandlerTest {
     @BeforeEach
     void setUp() throws IOException {
         CurrentAgentService currentAgentService = mock(CurrentAgentService.class);
-        when(currentAgentService.getCurrentBot())
+        when(currentAgentService.getCurrentAgent())
                 .thenReturn(new AuthenticatedAgent(UUID.randomUUID(), "bot-files"));
 
-        workspaceService = new WorkspaceService(tempDir.toString(), currentAgentService);
+        WorkspaceProperties properties = new WorkspaceProperties();
+        properties.setAgentsRoot(tempDir.resolve("agents").toString());
+        properties.setSharedRoot(tempDir.resolve("shared").toString());
+
+        workspaceService = new WorkspaceService(properties, currentAgentService);
 
         writeFileToolHandler = new WriteFileToolHandler(workspaceService);
         readFileToolHandler = new ReadFileToolHandler(workspaceService);
@@ -159,7 +164,7 @@ class FileToolHandlerTest {
                 "path", "notes"
         ));
 
-        Path notesDir = workspaceService.resolveInCurrentBotWorkspace("notes");
+        Path notesDir = workspaceService.resolveInCurrentAgentWorkspace("notes");
         assertFalse(Files.exists(notesDir));
     }
 

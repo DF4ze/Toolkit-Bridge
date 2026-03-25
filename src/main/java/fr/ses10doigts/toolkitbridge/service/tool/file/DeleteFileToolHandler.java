@@ -3,7 +3,7 @@ package fr.ses10doigts.toolkitbridge.service.tool.file;
 
 import fr.ses10doigts.toolkitbridge.exception.ToolExecutionException;
 import fr.ses10doigts.toolkitbridge.model.dto.tool.ToolExecutionResult;
-import fr.ses10doigts.toolkitbridge.service.WorkspaceService;
+import fr.ses10doigts.toolkitbridge.service.workspace.WorkspaceService;
 import fr.ses10doigts.toolkitbridge.service.tool.JsonSchemaBuilder;
 import org.springframework.stereotype.Component;
 
@@ -41,7 +41,7 @@ public class DeleteFileToolHandler extends AbstractFileToolHandler {
     @Override
     public ToolExecutionResult execute(Map<String, Object> arguments) throws IOException {
         String path = (String) arguments.get("path");
-        Path target = workspaceService.resolveInCurrentBotWorkspace(path);
+        Path target = workspaceService.resolveInCurrentAgentWorkspace(path);
 
         if (!Files.exists(target)) {
             throw new ToolExecutionException("Path does not exist: " + path);

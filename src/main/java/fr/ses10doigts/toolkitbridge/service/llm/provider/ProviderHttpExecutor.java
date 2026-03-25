@@ -1,6 +1,7 @@
 package fr.ses10doigts.toolkitbridge.service.llm.provider;
 
 import fr.ses10doigts.toolkitbridge.exception.LlmProviderException;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.ResourceAccessException;
@@ -8,9 +9,12 @@ import org.springframework.web.client.ResourceAccessException;
 import java.util.function.Supplier;
 
 @Component
+@Slf4j
 public class ProviderHttpExecutor {
 
     public <T> T execute(String providerName, String endpoint, Supplier<T> call) {
+        long startNanos = System.nanoTime();
+        log.debug("LLM provider call start provider={} endpoint={}", providerName, endpoint);
         try {
             T response = call.get();
 
@@ -18,6 +22,10 @@ public class ProviderHttpExecutor {
                 throw new LlmProviderException(buildPrefix(providerName, endpoint) + "empty response body");
             }
 
+            log.debug("LLM provider call success provider={} endpoint={} durationMs={}",
+                    providerName,
+                    endpoint,
+                    elapsedMs(startNanos));
             return response;
 
         } catch (LlmProviderException e) {
@@ -44,6 +52,11 @@ public class ProviderHttpExecutor {
                             + "unexpected error: " + safeMessage(e),
                     e
             );
+        } finally {
+            log.debug("LLM provider call finished provider={} endpoint={} durationMs={}",
+                    providerName,
+                    endpoint,
+                    elapsedMs(startNanos));
         }
     }
 
@@ -65,5 +78,9 @@ public class ProviderHttpExecutor {
             return throwable == null ? "unknown error" : throwable.getClass().getSimpleName();
         }
         return throwable.getMessage();
+    }
+
+    private long elapsedMs(long startNanos) {
+        return (System.nanoTime() - startNanos) / 1_000_000;
     }
 }

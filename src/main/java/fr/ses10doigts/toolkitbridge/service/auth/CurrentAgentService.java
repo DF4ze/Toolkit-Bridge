@@ -13,7 +13,7 @@ public class CurrentAgentService {
         this.agentContextHolder = agentContextHolder;
     }
 
-    public AuthenticatedAgent getCurrentBot() {
+    public AuthenticatedAgent getCurrentAgent() {
         AuthenticatedAgent bot = agentContextHolder.getCurrentBot();
         if (bot == null) {
             throw new InvalidApiKeyException("Authentication is required");

@@ -4,7 +4,7 @@ package fr.ses10doigts.toolkitbridge.service.tool.bash;
 import fr.ses10doigts.toolkitbridge.exception.ForbiddenCommandException;
 import fr.ses10doigts.toolkitbridge.exception.ToolValidationException;
 import fr.ses10doigts.toolkitbridge.model.dto.tool.bash.BashRequest;
-import fr.ses10doigts.toolkitbridge.service.WorkspaceService;
+import fr.ses10doigts.toolkitbridge.service.workspace.WorkspaceService;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;

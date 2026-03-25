@@ -31,20 +31,39 @@ public class ChatAgentOrchestrator implements AgentOrchestrator {
     public AgentResponse handle(AgentDefinition agentDefinition, AgentRequest request) {
         validate(agentDefinition, request);
 
+        String traceId = traceId(request);
+        long startNanos = System.nanoTime();
+        log.info("Orchestrator start traceId={} agentId={} provider={} model={} messageLength={}",
+                traceId,
+                agentDefinition.id(),
+                agentDefinition.llmProvider(),
+                agentDefinition.model(),
+                request.message().length());
+        log.debug("Orchestrator message preview traceId={} text='{}'", traceId, snippet(request.message()));
+
         try {
+            long llmStartNanos = System.nanoTime();
             String llmResponse = llmService.chat(
                     agentDefinition.llmProvider(),
                     agentDefinition.model(),
                     agentDefinition.systemPrompt(),
                     request.message()
             );
+            log.info("LLM response received traceId={} length={} durationMs={}",
+                    traceId,
+                    llmResponse == null ? 0 : llmResponse.length(),
+                    elapsedMs(llmStartNanos));
 
             String safeResponse = normalizeLlmResponse(llmResponse);
+            log.debug("LLM response normalized traceId={} length={}",
+                    traceId,
+                    safeResponse.length());
 
             if (safeResponse.isBlank()) {
                 return AgentResponse.error("The agent returned an empty response.");
             }
 
+            log.info("Orchestrator completed traceId={} durationMs={}", traceId, elapsedMs(startNanos));
             return AgentResponse.success(safeResponse);
         } catch (LlmProviderException e) {
             log.warn("LLM provider failure for agent={} provider={} model={}",
@@ -57,6 +76,8 @@ public class ChatAgentOrchestrator implements AgentOrchestrator {
         } catch (Exception e) {
             log.error("Unexpected agent orchestration error for agent={}", agentDefinition.id(), e);
             return AgentResponse.error("An unexpected error occurred.");
+        } finally {
+            log.debug("Orchestrator finished traceId={} durationMs={}", traceId, elapsedMs(startNanos));
         }
     }
 
@@ -96,5 +117,28 @@ public class ChatAgentOrchestrator implements AgentOrchestrator {
         }
 
         return normalized;
+    }
+
+    private String traceId(AgentRequest request) {
+        if (request == null || request.context() == null) {
+            return "n/a";
+        }
+        Object value = request.context().get("traceId");
+        return value == null ? "n/a" : String.valueOf(value);
+    }
+
+    private long elapsedMs(long startNanos) {
+        return (System.nanoTime() - startNanos) / 1_000_000;
+    }
+
+    private String snippet(String value) {
+        if (value == null) {
+            return "";
+        }
+        String trimmed = value.trim();
+        if (trimmed.length() <= 160) {
+            return trimmed;
+        }
+        return trimmed.substring(0, 160) + "...";
     }
 }

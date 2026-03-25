@@ -3,7 +3,7 @@ package fr.ses10doigts.toolkitbridge.service.tool.file;
 
 import fr.ses10doigts.toolkitbridge.exception.ToolExecutionException;
 import fr.ses10doigts.toolkitbridge.model.dto.tool.ToolExecutionResult;
-import fr.ses10doigts.toolkitbridge.service.WorkspaceService;
+import fr.ses10doigts.toolkitbridge.service.workspace.WorkspaceService;
 import fr.ses10doigts.toolkitbridge.service.tool.JsonSchemaBuilder;
 import org.springframework.stereotype.Component;
 
@@ -43,8 +43,8 @@ public class MoveFileToolHandler extends AbstractFileToolHandler {
         String sourcePath = (String) arguments.get("source_path");
         String targetPath = (String) arguments.get("target_path");
 
-        Path source = workspaceService.resolveInCurrentBotWorkspace(sourcePath);
-        Path target = workspaceService.resolveInCurrentBotWorkspace(targetPath);
+        Path source = workspaceService.resolveInCurrentAgentWorkspace(sourcePath);
+        Path target = workspaceService.resolveInCurrentAgentWorkspace(targetPath);
 
         if (!Files.exists(source)) {
             throw new ToolExecutionException("Source does not exist: " + sourcePath);

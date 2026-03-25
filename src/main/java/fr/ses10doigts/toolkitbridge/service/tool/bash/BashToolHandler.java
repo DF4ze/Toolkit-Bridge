@@ -3,7 +3,7 @@ package fr.ses10doigts.toolkitbridge.service.tool.bash;
 import fr.ses10doigts.toolkitbridge.model.dto.tool.ToolExecutionResult;
 import fr.ses10doigts.toolkitbridge.model.dto.tool.bash.BashRequest;
 import fr.ses10doigts.toolkitbridge.model.dto.tool.bash.BashResponse;
-import fr.ses10doigts.toolkitbridge.service.WorkspaceService;
+import fr.ses10doigts.toolkitbridge.service.workspace.WorkspaceService;
 import fr.ses10doigts.toolkitbridge.service.tool.JsonSchemaBuilder;
 import fr.ses10doigts.toolkitbridge.service.tool.ToolHandler;
 import lombok.RequiredArgsConstructor;
@@ -96,7 +96,7 @@ public class BashToolHandler implements ToolHandler {
         command.add(bashSecurityService.getExecutable(request.getTool()));
         command.addAll(args);
 
-        Path botWorkspace = workspaceService.getCurrentBotWorkspace();
+        Path botWorkspace = workspaceService.getCurrentAgentWorkspace();
 
         log.info(
                 "Executing tool={} args={} workspace={}",

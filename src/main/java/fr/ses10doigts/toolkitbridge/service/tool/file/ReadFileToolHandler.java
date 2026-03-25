@@ -5,7 +5,7 @@ import fr.ses10doigts.toolkitbridge.exception.ToolExecutionException;
 import fr.ses10doigts.toolkitbridge.model.dto.tool.ToolExecutionResult;
 import fr.ses10doigts.toolkitbridge.model.dto.tool.file.FileContentResponse;
 import fr.ses10doigts.toolkitbridge.model.dto.tool.file.FileResponse;
-import fr.ses10doigts.toolkitbridge.service.WorkspaceService;
+import fr.ses10doigts.toolkitbridge.service.workspace.WorkspaceService;
 import fr.ses10doigts.toolkitbridge.service.tool.JsonSchemaBuilder;
 import org.springframework.stereotype.Component;
 
@@ -42,7 +42,7 @@ public class ReadFileToolHandler extends AbstractFileToolHandler {
     @Override
     public ToolExecutionResult execute(Map<String, Object> arguments) throws IOException {
         String path = (String) arguments.get("path");
-        Path file = workspaceService.resolveInCurrentBotWorkspace(path);
+        Path file = workspaceService.resolveInCurrentAgentWorkspace(path);
 
         if (!Files.exists(file)) {
             throw new ToolExecutionException("File does not exist: " + path);

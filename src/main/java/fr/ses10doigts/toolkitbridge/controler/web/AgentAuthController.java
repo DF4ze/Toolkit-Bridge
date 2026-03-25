@@ -16,6 +16,6 @@ public class AgentAuthController {
 
     @GetMapping("/me")
     public AuthenticatedAgent getCurrentAgent() {
-        return currentAgentService.getCurrentBot();
+        return currentAgentService.getCurrentAgent();
     }
 }

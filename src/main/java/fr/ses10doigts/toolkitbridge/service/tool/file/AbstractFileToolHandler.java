@@ -4,7 +4,7 @@ package fr.ses10doigts.toolkitbridge.service.tool.file;
 import fr.ses10doigts.toolkitbridge.exception.ToolValidationException;
 import fr.ses10doigts.toolkitbridge.model.dto.tool.ToolExecutionResult;
 import fr.ses10doigts.toolkitbridge.model.dto.tool.file.FileResponse;
-import fr.ses10doigts.toolkitbridge.service.WorkspaceService;
+import fr.ses10doigts.toolkitbridge.service.workspace.WorkspaceService;
 import fr.ses10doigts.toolkitbridge.service.tool.ToolHandler;
 import lombok.RequiredArgsConstructor;
 
@@ -37,13 +37,13 @@ public abstract class AbstractFileToolHandler implements ToolHandler {
                 .error(false)
                 .message(message)
                 .file(FileResponse.builder()
-                        .path(workspaceService.relativizeFromCurrentBotWorkspace(path))
+                        .path(workspaceService.relativizeFromCurrentAgentWorkspace(path))
                         .build())
                 .build();
     }
 
     protected String relativePath(Path path) throws IOException {
-        return workspaceService.relativizeFromCurrentBotWorkspace(path);
+        return workspaceService.relativizeFromCurrentAgentWorkspace(path);
     }
 
     public ToolExecutionResult writeToFile(Map<String, Object> arguments, StandardOpenOption option) throws IOException {
@@ -52,7 +52,7 @@ public abstract class AbstractFileToolHandler implements ToolHandler {
 
         validateTextContent(content);
 
-        Path file = workspaceService.resolveInCurrentBotWorkspace(path);
+        Path file = workspaceService.resolveInCurrentAgentWorkspace(path);
         Path parent = file.getParent();
 
         if (parent != null) {

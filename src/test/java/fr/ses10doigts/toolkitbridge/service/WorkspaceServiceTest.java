@@ -1,8 +1,10 @@
 package fr.ses10doigts.toolkitbridge.service;
 
+import fr.ses10doigts.toolkitbridge.config.workspace.WorkspaceProperties;
 import fr.ses10doigts.toolkitbridge.exception.ForbiddenCommandException;
 import fr.ses10doigts.toolkitbridge.model.dto.auth.AuthenticatedAgent;
 import fr.ses10doigts.toolkitbridge.service.auth.CurrentAgentService;
+import fr.ses10doigts.toolkitbridge.service.workspace.WorkspaceService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -26,26 +28,30 @@ class WorkspaceServiceTest {
     @BeforeEach
     void setUp() throws IOException {
         currentAgentService = mock(CurrentAgentService.class);
-        when(currentAgentService.getCurrentBot())
+        when(currentAgentService.getCurrentAgent())
                 .thenReturn(new AuthenticatedAgent(UUID.randomUUID(), "bot-test"));
 
-        workspaceService = new WorkspaceService(tempDir.toString(), currentAgentService);
+        WorkspaceProperties properties = new WorkspaceProperties();
+        properties.setAgentsRoot(tempDir.resolve("agents").toString());
+        properties.setSharedRoot(tempDir.resolve("shared").toString());
+
+        workspaceService = new WorkspaceService(properties, currentAgentService);
     }
 
     @Test
     void shouldCreateCurrentBotWorkspace() throws IOException {
-        Path workspace = workspaceService.getCurrentBotWorkspace();
+        Path workspace = workspaceService.getCurrentAgentWorkspace();
 
         assertTrue(Files.exists(workspace));
         assertTrue(Files.isDirectory(workspace));
-        assertTrue(workspace.startsWith(tempDir));
+        assertTrue(workspace.startsWith(tempDir.resolve("agents")));
     }
 
     @Test
     void shouldResolvePathInsideCurrentBotWorkspace() throws IOException {
-        Path resolved = workspaceService.resolveInCurrentBotWorkspace("notes/test.txt");
+        Path resolved = workspaceService.resolveInCurrentAgentWorkspace("notes/test.txt");
 
-        assertTrue(resolved.startsWith(tempDir.resolve("bot-test")));
+        assertTrue(resolved.startsWith(tempDir.resolve("agents").resolve("bot-test")));
         assertEquals("test.txt", resolved.getFileName().toString());
     }
 
@@ -55,7 +61,7 @@ class WorkspaceServiceTest {
 
         assertThrows(
                 ForbiddenCommandException.class,
-                () -> workspaceService.resolveInCurrentBotWorkspace(absolutePath.toString())
+                () -> workspaceService.resolveInCurrentAgentWorkspace(absolutePath.toString())
         );
     }
 
@@ -63,15 +69,15 @@ class WorkspaceServiceTest {
     void shouldRejectEscapingPath() {
         assertThrows(
                 ForbiddenCommandException.class,
-                () -> workspaceService.resolveInCurrentBotWorkspace("../secret.txt")
+                () -> workspaceService.resolveInCurrentAgentWorkspace("../secret.txt")
         );
     }
 
     @Test
     void shouldRelativizePathFromCurrentBotWorkspace() throws IOException {
-        Path resolved = workspaceService.resolveInCurrentBotWorkspace("folder/file.txt");
+        Path resolved = workspaceService.resolveInCurrentAgentWorkspace("folder/file.txt");
 
-        String relative = workspaceService.relativizeFromCurrentBotWorkspace(resolved);
+        String relative = workspaceService.relativizeFromCurrentAgentWorkspace(resolved);
 
         assertEquals("folder/file.txt", relative);
     }

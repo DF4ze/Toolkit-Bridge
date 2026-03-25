@@ -5,7 +5,7 @@ import fr.ses10doigts.toolkitbridge.exception.ToolExecutionException;
 import fr.ses10doigts.toolkitbridge.model.dto.tool.ToolExecutionResult;
 import fr.ses10doigts.toolkitbridge.model.dto.tool.file.FileEntryResponse;
 import fr.ses10doigts.toolkitbridge.model.dto.tool.file.FileResponse;
-import fr.ses10doigts.toolkitbridge.service.WorkspaceService;
+import fr.ses10doigts.toolkitbridge.service.workspace.WorkspaceService;
 import fr.ses10doigts.toolkitbridge.service.tool.JsonSchemaBuilder;
 import org.springframework.stereotype.Component;
 
@@ -46,7 +46,7 @@ public class ListFilesToolHandler extends AbstractFileToolHandler {
         String path = (String) arguments.get("path");
         String effectivePath = (path == null || path.isBlank()) ? "." : path;
 
-        Path dir = workspaceService.resolveInCurrentBotWorkspace(effectivePath);
+        Path dir = workspaceService.resolveInCurrentAgentWorkspace(effectivePath);
 
         if (!Files.exists(dir)) {
             throw new ToolExecutionException("Directory does not exist: " + effectivePath);
