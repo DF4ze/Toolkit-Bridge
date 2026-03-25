@@ -1,0 +1,92 @@
+spring:
+  application:
+    name: Toolkit-Bridge
+  datasource:
+    url: jdbc:sqlite:./data/toolkit-bridge.db
+    driver-class-name: org.sqlite.JDBC
+  jpa:
+    database-platform: org.hibernate.community.dialect.SQLiteDialect
+    show-sql: false
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+  sql:
+    init:
+      mode: never
+
+server:
+  port: 8080
+
+logging:
+  level:
+    root: INFO
+    org.springframework: INFO
+    fr.ses10doigts.toolkitbridge: DEBUG
+
+app:
+  workspace:
+    bots-root: workspace
+
+telegram:
+  enabled: true
+  default-bot-id: Cortex
+  bots:
+    - id: Minus
+      token: YourBotToken1
+      polling-enabled: true
+      auto-register-commands: true
+      configure-menu-button: true
+      security:
+        allowed-user-ids:
+          - 123456789
+
+    - id: Cortex
+      token: YourBotToken2
+      polling-enabled: true
+      auto-register-commands: true
+      configure-menu-button: true
+      security:
+        allowed-user-ids:
+          - 123456789
+
+toolkit:
+  llm:
+    openai-like:
+      providers:
+        - name: lmstudio
+          base-url: http://url:port/v1
+          api-key: "YourApiKey"
+          default-model: qwen3.5-9b
+        - name: ollama
+          base-url: http://url:port/v1
+          api-key: ""
+          default-model: qwen3.5:9b
+    #   - name: openai
+    #     base-url: https://api.openai.com/v1
+    #     api-key: ${OPENAI_API_KEY}
+    #     default-model: gpt-4.1-mini
+
+  agents:
+    definitions:
+      - id: Cortex
+        name: Cortex
+        telegram-bot-id: Cortex
+        orchestrator-type: CHAT
+        llm-provider: lmstudio
+        model: qwen3.5:9b
+        system-prompt: |
+          Tu es un assistant de développement Java Spring.
+          Tu aides à concevoir, coder, tester et refactorer proprement.
+
+      - id: Minus
+        name: Minus
+        telegram-bot-id: Minus
+        orchestrator-type: CHAT
+        llm-provider: ollama
+        model: qwen3.5:9b
+        system-prompt: |
+          Tu es un assistant orienté exploitation et automatisation système.
+          Tu privilégies la sécurité, la prudence et la traçabilité.
+
