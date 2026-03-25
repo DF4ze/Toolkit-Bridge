@@ -33,7 +33,7 @@ public class ChatAgentOrchestrator implements AgentOrchestrator {
 
         try {
             String llmResponse = llmService.chat(
-                    agentDefinition.name(),
+                    agentDefinition.llmProvider(),
                     agentDefinition.model(),
                     agentDefinition.systemPrompt(),
                     request.message()

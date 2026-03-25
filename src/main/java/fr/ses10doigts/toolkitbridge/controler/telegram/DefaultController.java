@@ -13,7 +13,7 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class DefaultController {
 
-    private AgentRuntimeService agentRuntimeService;
+    private final AgentRuntimeService agentRuntimeService;
 
     @Chat
     public String handleChatMessage( TelegramUpdateContext ctx ) {
