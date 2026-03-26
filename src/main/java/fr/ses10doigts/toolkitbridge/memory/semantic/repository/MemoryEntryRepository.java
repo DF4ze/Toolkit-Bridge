@@ -23,4 +23,14 @@ public interface MemoryEntryRepository extends JpaRepository<MemoryEntry, Long> 
             "and lower(m.content) like lower(concat('%', :query, '%'))")
     List<MemoryEntry> searchByAgentIdAndContent(@Param("agentId") String agentId,
                                                 @Param("query") String query);
+
+    @Query("select distinct m from MemoryEntry m left join m.tags t " +
+            "where m.agentId = :agentId " +
+            "and m.status = :status " +
+            "and (:query is null or :query = '' " +
+            "or lower(m.content) like lower(concat('%', :query, '%')) " +
+            "or lower(t) like lower(concat('%', :query, '%')))")
+    List<MemoryEntry> searchCandidates(@Param("agentId") String agentId,
+                                       @Param("status") MemoryStatus status,
+                                       @Param("query") String query);
 }

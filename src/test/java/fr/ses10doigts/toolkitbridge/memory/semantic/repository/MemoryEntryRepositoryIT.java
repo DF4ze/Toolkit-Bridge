@@ -67,6 +67,25 @@ class MemoryEntryRepositoryIT {
         assertThat(result.get(0).getAgentId()).isEqualTo("agent-1");
     }
 
+    @Test
+    void searchCandidatesFiltersByStatusAndMatchesTags() {
+        MemoryEntry activeWithTag = createEntry("agent-1", MemoryScope.AGENT, MemoryType.FACT, "content");
+        activeWithTag.setTags(Set.of("alpha"));
+        activeWithTag.setStatus(MemoryStatus.ACTIVE);
+
+        MemoryEntry archivedWithTag = createEntry("agent-1", MemoryScope.AGENT, MemoryType.FACT, "content");
+        archivedWithTag.setTags(Set.of("alpha"));
+        archivedWithTag.setStatus(MemoryStatus.ARCHIVED);
+
+        repository.save(activeWithTag);
+        repository.save(archivedWithTag);
+
+        List<MemoryEntry> result = repository.searchCandidates("agent-1", MemoryStatus.ACTIVE, "alpha");
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getStatus()).isEqualTo(MemoryStatus.ACTIVE);
+    }
+
     private MemoryEntry createEntry(String agentId, MemoryScope scope, MemoryType type, String content) {
         MemoryEntry entry = new MemoryEntry();
         entry.setAgentId(agentId);

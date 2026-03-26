@@ -71,7 +71,7 @@ Elle sera traitée comme :
 - Surtout **utiliser Lombok** pour @Data, @Getter, @Setter, @Builder, @AllArgsConstructor, @NoArgsConstructor, @RequiredArgsConstructor
 
 ## Definition of 'Technically' done
-- lancer les tests et vérifier les résultats. Réfléchir si ça vient de l'algo ou du test. Corriger les éventuels bugs trouvés. Boucler 4 fois max.
+- lancer **tous** les tests du projet et vérifier les résultats. Réfléchir si ça vient de l'algo ou du test. Corriger les éventuels bugs trouvés. Boucler 4 fois max.
 - faire un maven clean install à la fin de chaque étape. Corriger les éventuels bugs trouvés.
 - toujours finir par faire un maven clean install valide avant de considérer l'étape comme réalisée.
 - réitérer la correction des bugs trouvés 4 fois. si toujours en erreur, le signaler
