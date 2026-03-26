@@ -8,6 +8,7 @@ import fr.ses10doigts.toolkitbridge.memory.semantic.repository.MemoryEntryReposi
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -21,13 +22,18 @@ import static org.mockito.Mockito.*;
 
 class SemanticMemoryServiceTest {
 
+    private static Validator validator;
     private MemoryEntryRepository repository;
     private SemanticMemoryService service;
+
+    @BeforeAll
+    static void beforeAll() {
+        validator = Validation.buildDefaultValidatorFactory().getValidator();
+    }
 
     @BeforeEach
     void setUp() {
         repository = mock(MemoryEntryRepository.class);
-        Validator validator = Validation.buildDefaultValidatorFactory().getValidator();
         service = new DefaultSemanticMemoryService(repository, validator);
     }
 
