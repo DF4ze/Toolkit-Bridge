@@ -7,6 +7,7 @@ import fr.ses10doigts.toolkitbridge.memory.semantic.model.MemoryType;
 import fr.ses10doigts.toolkitbridge.memory.semantic.repository.MemoryEntryRepository;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Validator;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,15 +19,11 @@ import java.util.Set;
 
 @Service
 @Transactional
+@RequiredArgsConstructor
 public class DefaultSemanticMemoryService implements SemanticMemoryService {
 
     private final MemoryEntryRepository repository;
     private final Validator validator;
-
-    public DefaultSemanticMemoryService(MemoryEntryRepository repository, Validator validator) {
-        this.repository = repository;
-        this.validator = validator;
-    }
 
     @Override
     public MemoryEntry create(MemoryEntry entry) {

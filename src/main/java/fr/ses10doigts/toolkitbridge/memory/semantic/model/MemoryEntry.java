@@ -1,5 +1,6 @@
 package fr.ses10doigts.toolkitbridge.memory.semantic.model;
 
+import fr.ses10doigts.toolkitbridge.memory.scoring.model.ScorableMemory;
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;
@@ -24,6 +25,7 @@ import java.time.Instant;
 import java.util.HashSet;
 import java.util.Set;
 
+@Data
 @Entity
 @Table(
         name = "semantic_memory",
@@ -33,8 +35,7 @@ import java.util.Set;
                 @Index(name = "idx_semantic_memory_type", columnList = "type")
         }
 )
-@Data
-public class MemoryEntry {
+public class MemoryEntry implements ScorableMemory {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

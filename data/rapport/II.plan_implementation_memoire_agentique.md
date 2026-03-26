@@ -68,7 +68,7 @@ Elle sera traitée comme :
 ## Technique
 - Spring Boot
 - Jdk 26 installé là : D:\Installs\Java\jdk-26
-- Utiliser Lombok
+- Surtout **utiliser Lombok** pour @Data, @Getter, @Setter, @Builder, @AllArgsConstructor, @NoArgsConstructor, @RequiredArgsConstructor
 
 ## Definition of 'Technically' done
 - lancer les tests et vérifier les résultats. Réfléchir si ça vient de l'algo ou du test. Corriger les éventuels bugs trouvés. Boucler 4 fois max.
