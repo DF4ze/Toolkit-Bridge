@@ -61,6 +61,10 @@ toolkit:
       expire-after-minutes: 720
       auto-summarize: true
       max-summary-characters: 2000
+    context:
+      max-rules: 10
+      max-memories: 10
+      max-characters: 15000
   llm:
     openai-like:
       providers:
