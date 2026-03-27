@@ -105,7 +105,7 @@ class MemoryRetrieverIT {
     @TestConfiguration
     static class FixedClockConfig {
 
-        @Bean
+        @Bean("testMemoryScoringClock")
         @Primary
         public Clock memoryScoringClock() {
             return Clock.fixed(NOW, ZoneOffset.UTC);
