@@ -14,7 +14,6 @@ public class ProviderHttpExecutor {
 
     public <T> T execute(String providerName, String endpoint, Supplier<T> call) {
         long startNanos = System.nanoTime();
-        log.debug("LLM provider call start provider={} endpoint={}", providerName, endpoint);
         try {
             T response = call.get();
 
@@ -22,10 +21,6 @@ public class ProviderHttpExecutor {
                 throw new LlmProviderException(buildPrefix(providerName, endpoint) + "empty response body");
             }
 
-            log.debug("LLM provider call success provider={} endpoint={} durationMs={}",
-                    providerName,
-                    endpoint,
-                    elapsedMs(startNanos));
             return response;
 
         } catch (LlmProviderException e) {

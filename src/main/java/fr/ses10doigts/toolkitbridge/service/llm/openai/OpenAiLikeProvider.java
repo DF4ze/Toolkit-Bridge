@@ -6,11 +6,10 @@ import fr.ses10doigts.toolkitbridge.model.dto.llm.ChatRequest;
 import fr.ses10doigts.toolkitbridge.model.dto.llm.ChatResponse;
 import fr.ses10doigts.toolkitbridge.model.dto.llm.provider.LlmCapability;
 import fr.ses10doigts.toolkitbridge.model.dto.llm.provider.ModelInfo;
-import fr.ses10doigts.toolkitbridge.model.dto.llm.provider.openai.OpenAiChatRequest;
-import fr.ses10doigts.toolkitbridge.model.dto.llm.provider.openai.OpenAiChatResponse;
-import fr.ses10doigts.toolkitbridge.model.dto.llm.provider.openai.OpenAiModelsResponse;
+import fr.ses10doigts.toolkitbridge.model.dto.llm.provider.openai.*;
 import fr.ses10doigts.toolkitbridge.service.llm.provider.LlmProvider;
 import fr.ses10doigts.toolkitbridge.service.llm.provider.ProviderHttpExecutor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.web.client.RestClient;
@@ -18,6 +17,7 @@ import org.springframework.web.client.RestClient;
 import java.util.List;
 import java.util.Set;
 
+@Slf4j
 public class OpenAiLikeProvider implements LlmProvider {
 
     private static final String CHAT_COMPLETIONS_ENDPOINT = "/chat/completions";
@@ -63,6 +63,8 @@ public class OpenAiLikeProvider implements LlmProvider {
     public ChatResponse chat(ChatRequest request) {
         OpenAiChatRequest payload = mapper.toOpenAiChatRequest(resolveModel(request), request);
 
+        log.debug("Sending chat request to OpenAI-like provider: {}", payload);
+
         OpenAiChatResponse response = httpExecutor.execute(
                 getName(),
                 CHAT_COMPLETIONS_ENDPOINT,
@@ -73,11 +75,12 @@ public class OpenAiLikeProvider implements LlmProvider {
                         .body(OpenAiChatResponse.class)
         );
 
-            if (response == null) {
-                throw new LlmProviderException("Empty response from OpenAI-like provider");
-            }
+        if (response == null) {
+            throw new LlmProviderException("Empty response from OpenAI-like provider");
+        }
 
-            return mapper.toChatResponse(response);
+        logResponseSummary(response);
+        return mapper.toChatResponse(response);
 
     }
 
@@ -115,5 +118,24 @@ public class OpenAiLikeProvider implements LlmProvider {
         }
 
         throw new IllegalArgumentException("No model specified in request and no default model configured");
+    }
+
+    private void logResponseSummary(OpenAiChatResponse response) {
+        if (response == null || response.choices() == null || response.choices().isEmpty()) {
+            log.warn("LLM response summary provider={} model={} choices=0", getName(), response == null ? null : response.model());
+            return;
+        }
+
+        OpenAiChoice choice = response.choices().getFirst();
+        OpenAiMessage message = choice == null ? null : choice.message();
+        int contentLength = message == null || message.content() == null ? 0 : message.content().length();
+        int toolCalls = message == null || message.tool_calls() == null ? 0 : message.tool_calls().size();
+
+        log.info("LLM response summary provider={} model={} finishReason={} contentLength={} toolCalls={}",
+                getName(),
+                response.model(),
+                choice == null ? null : choice.finish_reason(),
+                contentLength,
+                toolCalls);
     }
 }

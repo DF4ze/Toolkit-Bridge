@@ -64,7 +64,20 @@ Elle sera traitée comme :
 
 ---
 
-# 4. Ordre d’implémentation recommandé
+# 4. Environnement de développement
+## Technique
+- Spring Boot
+- Jdk 26 installé là : D:\Installs\Java\jdk-26
+- Surtout **utiliser Lombok** pour @Data, @Getter, @Setter, @Builder, @AllArgsConstructor, @NoArgsConstructor, @RequiredArgsConstructor
+
+## Definition of 'Technically' done
+- lancer **tous** les tests du projet et vérifier les résultats. Réfléchir si ça vient de l'algo ou du test. Corriger les éventuels bugs trouvés. Boucler 4 fois max.
+- faire un maven clean install à la fin de chaque étape. Corriger les éventuels bugs trouvés.
+- toujours finir par faire un maven clean install valide avant de considérer l'étape comme réalisée.
+- réitérer la correction des bugs trouvés 4 fois. si toujours en erreur, le signaler
+
+
+# 5. Ordre d’implémentation recommandé
 
 ## Ordre retenu
 
@@ -111,7 +124,7 @@ Permet de stabiliser le tout.
 
 ---
 
-# 5. Contraintes globales à respecter par l’agent codeur
+# 6. Contraintes globales à respecter par l’agent codeur
 
 ## 5.1 Ce qu’il faut faire
 
@@ -123,10 +136,11 @@ Permet de stabiliser le tout.
   - persistance
   - service métier
   - assemblage
-- écrire les tests au fur et à mesure
 - documenter les choix non triviaux dans le code
+- écrire les tests au fur et à mesure
 
-## 5.2 Ce qu’il ne faut pas faire
+
+## 6.2 Ce qu’il ne faut pas faire
 
 - ne pas ajouter de vector database
 - ne pas ajouter d’embeddings
@@ -138,7 +152,7 @@ Permet de stabiliser le tout.
 - ne pas faire de scoring ML
 - ne pas sur-généraliser les abstractions
 
-## 5.3 Principes de qualité obligatoires
+## 6.3 Principes de qualité obligatoires
 
 - code Java clair
 - noms de classes en anglais
@@ -150,7 +164,7 @@ Permet de stabiliser le tout.
 
 ---
 
-# 6. Convention de packaging recommandée
+# 7. Convention de packaging recommandée
 
 Exemple de découpage conseillé :
 
@@ -200,12 +214,12 @@ Cette convention n’est pas obligatoire au caractère près, mais le principe d
 
 ---
 
-# 7. Phase 1 — Implémenter `SemanticMemory`
+# 8. Phase 1 — Implémenter `SemanticMemory`
 
-## 7.1 Objectif
+## 8.1 Objectif
 Créer la mémoire durable structurée.
 
-## 7.2 Livrables attendus
+## 8.2 Livrables attendus
 - enums :
   - `MemoryScope`
   - `MemoryType`
@@ -216,7 +230,7 @@ Créer la mémoire durable structurée.
 - configuration Spring
 - recherche simple SQL/JPQL
 
-## 7.3 Fonctionnalités minimales
+## 8.3 Fonctionnalités minimales
 - créer une entrée mémoire
 - mettre à jour une entrée
 - désactiver / archiver une entrée
@@ -231,13 +245,13 @@ Créer la mémoire durable structurée.
   - `lastAccessedAt`
   - tags
 
-## 7.4 Points de vigilance
+## 8.4 Points de vigilance
 - ne pas mettre le score en base
 - ne pas coupler au scoring ici
 - ne pas ajouter de recherche vectorielle
 - conserver une entité simple
 
-## 7.5 Tests obligatoires
+## 8.5 Tests obligatoires
 ### Unitaires
 - création d’une mémoire valide
 - rejet d’une mémoire invalide si validations ajoutées
@@ -250,7 +264,7 @@ Créer la mémoire durable structurée.
 - recherche texte simple
 - isolation par agent
 
-## 7.6 Definition of Done
+## 8.6 Definition of Done
 La phase est finie si :
 - on peut persister et relire une mémoire
 - on peut filtrer correctement
@@ -259,18 +273,18 @@ La phase est finie si :
 
 ---
 
-# 8. Phase 2 — Implémenter `Memory Scoring`
+# 9. Phase 2 — Implémenter `Memory Scoring`
 
-## 8.1 Objectif
+## 9.1 Objectif
 Créer le moteur de priorisation simple.
 
-## 8.2 Livrables attendus
+## 9.2 Livrables attendus
 - interface `ScorableMemory`
 - service `MemoryScoringService`
 - implémentation `DefaultMemoryScoringService`
 - éventuellement propriétés de poids configurables
 
-## 8.3 Règle V1
+## 9.3 Règle V1
 ```text
 score = importance + (usageCount * weightUsage) + recencyBoost
 ```
@@ -280,19 +294,19 @@ Avec :
 recencyBoost = 1 / (1 + age_in_days)
 ```
 
-## 8.4 Points de vigilance
+## 9.4 Points de vigilance
 - score calculé dynamiquement
 - pas de stockage du score
 - pas de ML
 - pas de feedback loop automatique
 
-## 8.5 Tests obligatoires
+## 9.5 Tests obligatoires
 - une mémoire plus importante score plus haut
 - une mémoire plus utilisée score plus haut
 - une mémoire plus récente score plus haut
 - score stable et déterministe à date donnée
 
-## 8.6 Definition of Done
+## 9.6 Definition of Done
 La phase est finie si :
 - un service de scoring testable existe
 - `MemoryEntry` peut être évaluée via `ScorableMemory`
@@ -300,17 +314,17 @@ La phase est finie si :
 
 ---
 
-# 9. Phase 3 — Implémenter `Memory Retrieval`
+# 10. Phase 3 — Implémenter `Memory Retrieval`
 
-## 9.1 Objectif
+## 10.1 Objectif
 Sélectionner les mémoires pertinentes à partir de la mémoire sémantique.
 
-## 9.2 Livrables attendus
+## 10.2 Livrables attendus
 - `MemoryQuery`
 - `MemoryRetriever`
 - `DefaultMemoryRetriever`
 
-## 9.3 Fonctionnalités minimales
+## 10.3 Fonctionnalités minimales
 - récupérer des candidats depuis `SemanticMemory`
 - filtrer par :
   - scope
@@ -320,20 +334,20 @@ Sélectionner les mémoires pertinentes à partir de la mémoire sémantique.
 - trier
 - limiter à `top N`
 
-## 9.4 Points de vigilance
+## 10.4 Points de vigilance
 - pas de NLP
 - pas de LLM
 - pas de pipeline multi-step
 - pas de vector search
 
-## 9.5 Tests obligatoires
+## 10.5 Tests obligatoires
 - filtre scope correct
 - filtre type correct
 - tri par score correct
 - limitation `limit` respectée
 - aucune mémoire archivée/obsolete injectée
 
-## 9.6 Definition of Done
+## 10.6 Definition of Done
 La phase est finie si :
 - on peut obtenir une liste triée et bornée de mémoires pertinentes
 - le retrieval reste purement déterministe
@@ -341,12 +355,12 @@ La phase est finie si :
 
 ---
 
-# 10. Phase 4 — Implémenter `RuleMemory`
+# 11. Phase 4 — Implémenter `RuleMemory`
 
-## 10.1 Objectif
+## 11.1 Objectif
 Créer la mémoire procédurale de règles.
 
-## 10.2 Livrables attendus
+## 11.2 Livrables attendus
 - enums :
   - `RuleScope`
   - `RulePriority`
@@ -355,7 +369,7 @@ Créer la mémoire procédurale de règles.
 - repository JPA
 - service `RuleService`
 
-## 10.3 Fonctionnalités minimales
+## 11.3 Fonctionnalités minimales
 - créer une règle
 - activer/désactiver une règle
 - récupérer les règles applicables par :
@@ -364,7 +378,7 @@ Créer la mémoire procédurale de règles.
   - global
 - trier par priorité
 
-## 10.4 Règle de résolution simple V1
+## 11.4 Règle de résolution simple V1
 - `PROJECT` prioritaire sur `AGENT` si besoin métier futur
 - `AGENT` prioritaire sur `GLOBAL`
 - `CRITICAL > HIGH > MEDIUM > LOW`
@@ -372,19 +386,19 @@ Créer la mémoire procédurale de règles.
 ⚠️ En V1, pas de moteur de résolution de conflit complexe.  
 Le tri et le filtrage suffisent.
 
-## 10.5 Points de vigilance
+## 11.5 Points de vigilance
 - pas de versioning complet
 - pas de moteur de contradiction sophistiqué
 - pas de calcul de confiance
 - pas d’injection illimitée
 
-## 10.6 Tests obligatoires
+## 11.6 Tests obligatoires
 - récupération des règles actives seulement
 - tri correct par priorité
 - scope correct
 - désactivation bien respectée
 
-## 10.7 Definition of Done
+## 11.7 Definition of Done
 La phase est finie si :
 - les règles peuvent être stockées et retrouvées proprement
 - l’ordre d’injection peut être maîtrisé
@@ -392,12 +406,12 @@ La phase est finie si :
 
 ---
 
-# 11. Phase 5 — Implémenter `ConversationMemory`
+# 12. Phase 5 — Implémenter `ConversationMemory`
 
-## 11.1 Objectif
+## 12.1 Objectif
 Créer la mémoire court terme par conversation.
 
-## 11.2 Livrables attendus
+## 12.2 Livrables attendus
 - enums et records de conversation
 - `ConversationMemoryStore`
 - `InMemoryConversationMemoryStore`
@@ -405,7 +419,7 @@ Créer la mémoire court terme par conversation.
 - `ConversationMemoryService`
 - `ConversationContextRenderer`
 
-## 11.3 Fonctionnalités minimales
+## 12.3 Fonctionnalités minimales
 - stocker les messages par :
   - `agentId`
   - `conversationId`
@@ -413,13 +427,13 @@ Créer la mémoire court terme par conversation.
 - résumer si overflow
 - reconstruire un contexte texte
 
-## 11.4 Points de vigilance
+## 12.4 Points de vigilance
 - ne pas transformer ça en mémoire long terme
 - ne pas faire de résumé “intelligent” en V1
 - ne pas dépendre d’un LLM pour résumer
 - ne pas mélanger plusieurs conversations
 
-## 11.5 Tests obligatoires
+## 12.5 Tests obligatoires
 - conversation vide
 - ajout de messages
 - overflow par nombre de messages
@@ -428,7 +442,7 @@ Créer la mémoire court terme par conversation.
 - rendu summary + récents
 - isolation par `agentId + conversationId`
 
-## 11.6 Definition of Done
+## 12.6 Definition of Done
 La phase est finie si :
 - une conversation peut être conservée proprement
 - le contexte court terme est reconstructible
@@ -436,17 +450,17 @@ La phase est finie si :
 
 ---
 
-# 12. Phase 6 — Implémenter `ContextAssembler`
+# 13. Phase 6 — Implémenter `ContextAssembler`
 
-## 12.1 Objectif
+## 13.1 Objectif
 Construire le contexte final du LLM.
 
-## 12.2 Livrables attendus
+## 13.2 Livrables attendus
 - `ContextRequest`
 - `ContextAssembler`
 - `DefaultContextAssembler`
 
-## 12.3 Fonctionnalités minimales
+## 13.3 Fonctionnalités minimales
 Assembler, dans cet ordre :
 
 1. règles
@@ -454,19 +468,19 @@ Assembler, dans cet ordre :
 3. conversation
 4. dernier message utilisateur
 
-## 12.4 Limites obligatoires
+## 13.4 Limites obligatoires
 - limite de règles
 - limite de mémoires
 - limite totale en caractères
 
-## 12.5 Points de vigilance
+## 13.5 Points de vigilance
 - ordre strict
 - format stable
 - pas d’appel LLM ici
 - pas de logique “magique”
 - pas de trimming destructeur mal placé
 
-## 12.6 Tests obligatoires
+## 13.6 Tests obligatoires
 - ordre des sections respecté
 - limites respectées
 - contexte trimé sans erreur
@@ -474,7 +488,7 @@ Assembler, dans cet ordre :
 - règles bien intégrées
 - mémoire sémantique bien intégrée
 
-## 12.7 Definition of Done
+## 13.7 Definition of Done
 La phase est finie si :
 - on peut générer un prompt de contexte stable
 - l’assembler ne dépend pas du provider LLM
@@ -482,12 +496,12 @@ La phase est finie si :
 
 ---
 
-# 13. Phase 7 — Implémenter `EpisodicMemory`
+# 14. Phase 7 — Implémenter `EpisodicMemory`
 
-## 13.1 Objectif
+## 14.1 Objectif
 Créer le journal des actions et résultats.
 
-## 13.2 Livrables attendus
+## 14.2 Livrables attendus
 - enums :
   - `EpisodeEventType`
   - `EpisodeStatus`
@@ -495,7 +509,7 @@ Créer le journal des actions et résultats.
 - repository JPA
 - service `EpisodicMemoryService`
 
-## 13.3 Fonctionnalités minimales
+## 14.3 Fonctionnalités minimales
 - enregistrer un événement
 - relire les derniers événements
 - filtrer par agent / scope
@@ -506,31 +520,31 @@ Créer le journal des actions et résultats.
   - score éventuel
   - date
 
-## 13.4 Points de vigilance
+## 14.4 Points de vigilance
 - pas de résumé automatique
 - pas d’analyse prédictive
 - pas d’injection systématique dans le prompt
 - append-only autant que possible
 
-## 13.5 Tests obligatoires
+## 14.5 Tests obligatoires
 - enregistrement d’un événement
 - récupération des plus récents
 - isolation par agent
 - type d’événement correct
 
-## 13.6 Definition of Done
+## 14.6 Definition of Done
 La phase est finie si :
 - les événements peuvent être journalisés proprement
 - le service reste simple et audit-friendly
 
 ---
 
-# 14. Phase 8 — Intégration orchestrateur et flux complet
+# 15. Phase 8 — Intégration orchestrateur et flux complet
 
-## 14.1 Objectif
+## 15.1 Objectif
 Brancher les briques dans le vrai flux agentique.
 
-## 14.2 Flux cible
+## 15.2 Flux cible
 
 ```text
 Incoming message
@@ -544,13 +558,13 @@ Incoming message
     -> return response
 ```
 
-## 14.3 Intégrations minimales
+## 15.3 Intégrations minimales
 - branchement avec l’orchestrateur principal
 - branchement avec l’agent courant
 - récupération correcte de `conversationId`
 - tests d’intégration
 
-## 14.4 Tests de flux obligatoires
+## 15.4 Tests de flux obligatoires
 - message utilisateur écrit en mémoire
 - contexte assemblé avant appel LLM
 - réponse assistant écrite en mémoire
@@ -558,7 +572,7 @@ Incoming message
 - mémoires pertinentes visibles dans le contexte
 - conversation isolée par agent et conversation
 
-## 14.5 Definition of Done
+## 15.5 Definition of Done
 La phase est finie si :
 - le flux complet fonctionne
 - les briques coopèrent correctement
@@ -566,7 +580,7 @@ La phase est finie si :
 
 ---
 
-# 15. Backlog d’exécution prêt pour un agent codeur
+# 16. Backlog d’exécution prêt pour un agent codeur
 
 ## Ticket 1 — Créer le socle `SemanticMemory`
 ### À faire
@@ -671,7 +685,7 @@ La phase est finie si :
 
 ---
 
-# 16. Gouvernance V1 — à traiter sans brique dédiée
+# 17. Gouvernance V1 — à traiter sans brique dédiée
 
 ## Décision retenue
 Pas de module autonome `Governance` en V1.
@@ -689,7 +703,7 @@ Pas de module autonome `Governance` en V1.
 
 ---
 
-# 17. Questions que l’agent codeur ne doit PAS résoudre seul
+# 18. Questions que l’agent codeur ne doit PAS résoudre seul
 
 Si une ambiguïté apparaît, l’agent codeur ne doit **pas** improviser sur les sujets suivants :
 
@@ -706,7 +720,7 @@ Si une ambiguïté apparaît, l’agent codeur ne doit **pas** improviser sur le
 
 ---
 
-# 18. Checklist finale de validation
+# 19. Checklist finale de validation
 
 ## Architecture
 - [ ] chaque brique est séparée
@@ -736,7 +750,7 @@ Si une ambiguïté apparaît, l’agent codeur ne doit **pas** improviser sur le
 
 ---
 
-# 19. Recommandation finale d’exécution
+# 20. Recommandation finale d’exécution
 
 Pour maximiser les chances de réussite de l’expérience :
 
@@ -757,13 +771,13 @@ Refuser qu’il code la phase suivante tant que :
 
 ## Recommandation 4
 Lui rappeler explicitement :
-- de ne pas sortir du périmètre V1
+- de ne pas sortir du périmètre 
 - de ne pas complexifier
 - de ne pas introduire d’outils ou technos non demandés
 
 ---
 
-# 20. Prompt de pilotage conseillé pour l’agent codeur
+# 21. Prompt de pilotage conseillé pour l’agent codeur
 
 Tu peux piloter l’agent avec une instruction de ce type :
 
@@ -783,7 +797,7 @@ Tu ne passes pas à la phase suivante tant que la phase courante n’est pas ter
 
 ---
 
-# 21. Conclusion
+# 22. Conclusion
 
 Les rapports détaillés par brique donnent la **cible architecturale**.  
 Ce document donne le **mode opératoire d’exécution**.

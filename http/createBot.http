@@ -1,8 +1,8 @@
 
-@botIdent = mon-bot-02
+@botIdent = Cortex
 
 ### Create bot
-POST {{host}}/api/admin/agents/create
+POST http://localhost:8080/api/admin/agents/create
 Content-Type: application/json
 Accept: application/json
 

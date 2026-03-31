@@ -27,7 +27,7 @@ logging:
 
 app:
   workspace:
-    bots-root: workspace
+    agents-root: workspace
 
 telegram:
   enabled: true
@@ -52,6 +52,19 @@ telegram:
           - 123456789
 
 toolkit:
+  memory:
+    conversation:
+      enabled: true
+      max-recent-messages: 20
+      max-recent-characters: 12000
+      min-messages-to-keep: 8
+      expire-after-minutes: 720
+      auto-summarize: true
+      max-summary-characters: 2000
+    context:
+      max-rules: 10
+      max-memories: 10
+      max-characters: 15000
   llm:
     openai-like:
       providers:
@@ -89,4 +102,3 @@ toolkit:
         system-prompt: |
           Tu es un assistant orienté exploitation et automatisation système.
           Tu privilégies la sécurité, la prudence et la traçabilité.
-

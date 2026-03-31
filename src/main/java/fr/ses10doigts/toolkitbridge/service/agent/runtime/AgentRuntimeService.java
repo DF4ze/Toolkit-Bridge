@@ -5,9 +5,12 @@ import fr.ses10doigts.toolkitbridge.exception.AgentRuntimeException;
 import fr.ses10doigts.toolkitbridge.model.dto.agent.comm.AgentRequest;
 import fr.ses10doigts.toolkitbridge.model.dto.agent.comm.AgentResponse;
 import fr.ses10doigts.toolkitbridge.model.dto.agent.definition.AgentDefinition;
+import fr.ses10doigts.toolkitbridge.model.dto.auth.AuthenticatedAgent;
 import fr.ses10doigts.toolkitbridge.service.agent.definition.AgentDefinitionService;
 import fr.ses10doigts.toolkitbridge.service.agent.orchestrator.AgentOrchestrator;
 import fr.ses10doigts.toolkitbridge.service.agent.orchestrator.AgentOrchestratorRegistry;
+import fr.ses10doigts.toolkitbridge.service.auth.AgentAccountService;
+import fr.ses10doigts.toolkitbridge.service.auth.AgentContextHolder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -26,6 +29,8 @@ public class AgentRuntimeService {
     private final CurrentTelegramBotContext currentBotService;
     private final AgentDefinitionService agentDefinitionService;
     private final AgentOrchestratorRegistry agentOrchestratorRegistry;
+    private final AgentAccountService agentAccountService;
+    private final AgentContextHolder agentContextHolder;
 
     public AgentResponse processTelegramMessage(Long chatId, Long userId, String message) {
         String traceId = newTraceId();
@@ -56,6 +61,9 @@ public class AgentRuntimeService {
 
         AgentOrchestrator orchestrator = agentOrchestratorRegistry.getByType(agentDefinition.orchestratorType());
 
+        AuthenticatedAgent authenticatedAgent = authenticateTelegramAgent(agentDefinition, traceId);
+        agentContextHolder.setCurrentBot(authenticatedAgent);
+
         try {
             log.info("Runtime delegating to orchestrator traceId={} type={}", traceId, orchestrator.getType());
 
@@ -78,6 +86,7 @@ public class AgentRuntimeService {
             log.error("Runtime unexpected failure traceId={} durationMs={}", traceId, elapsedMs(startNanos), e);
             throw new AgentRuntimeException("Agent execution failed", e);
         } finally {
+            agentContextHolder.clear();
             log.debug("Runtime finished traceId={} durationMs={}", traceId, elapsedMs(startNanos));
         }
     }
@@ -135,6 +144,20 @@ public class AgentRuntimeService {
             return AgentResponse.error("Empty agent response");
         }
         return response;
+    }
+
+    private AuthenticatedAgent authenticateTelegramAgent(AgentDefinition agentDefinition, String traceId) {
+        try {
+            AuthenticatedAgent authenticated = agentAccountService.authenticateByAgentIdent(agentDefinition.id());
+            log.debug("Runtime authenticated agent traceId={} agentId={}", traceId, authenticated.agentIdent());
+            return authenticated;
+        } catch (Exception e) {
+            log.warn("Runtime failed to authenticate agent for telegram traceId={} agentId={}",
+                    traceId,
+                    agentDefinition == null ? null : agentDefinition.id(),
+                    e);
+            throw new AgentRuntimeException("Agent authentication failed for telegram", e);
+        }
     }
 
     private String newTraceId() {
