@@ -25,5 +25,6 @@ target/
 **/application.yml
 
 ## useless
-**/toolkit-bridge*.db
+**/toolkit-bridge.db
+**/toolkit-bridge-test.db
 workspace
