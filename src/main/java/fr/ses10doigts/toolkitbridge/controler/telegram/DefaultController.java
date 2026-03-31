@@ -1,6 +1,8 @@
 package fr.ses10doigts.toolkitbridge.controler.telegram;
 
+import fr.ses10doigts.telegrambots.model.TelegramMessageFormat;
 import fr.ses10doigts.telegrambots.model.TelegramUpdateContext;
+import fr.ses10doigts.telegrambots.model.TelegramView;
 import fr.ses10doigts.telegrambots.service.poller.handler.annot.Chat;
 import fr.ses10doigts.telegrambots.service.poller.handler.annot.TelegramController;
 import fr.ses10doigts.toolkitbridge.model.dto.agent.comm.AgentResponse;
@@ -18,17 +20,13 @@ public class DefaultController {
     private final AgentRuntimeService agentRuntimeService;
 
     @Chat
-    public String handleChatMessage( TelegramUpdateContext ctx ) {
+    public TelegramView handleChatMessage(TelegramUpdateContext ctx ) {
         String text = ctx.getMessage().getText();
         if (text == null || text.isBlank()) {
             log.debug("Ignoring blank Telegram message chatId={} userId={}", ctx.getChatId(), ctx.getUserId());
             return null;
         }
 
-        log.info("Telegram message received chatId={} userId={} length={}",
-                ctx.getChatId(),
-                ctx.getUserId(),
-                text.length());
         log.debug("Telegram message preview chatId={} userId={} text='{}'",
                 ctx.getChatId(),
                 ctx.getUserId(),
@@ -40,16 +38,16 @@ public class DefaultController {
                 text
         );
 
-        log.info("Telegram response ready chatId={} userId={} error={} length={}",
+        log.debug("Telegram response preview chatId={} userId={} error={} text='{}'",
                 ctx.getChatId(),
                 ctx.getUserId(),
                 response.error(),
-                response.message() == null ? 0 : response.message().length());
-        log.debug("Telegram response preview chatId={} userId={} text='{}'",
-                ctx.getChatId(),
-                ctx.getUserId(),
                 snippet(response.message()));
-        return response.message();
+
+        return TelegramView.builder()
+                .text(response.message())
+                .format(TelegramMessageFormat.MARKDOWN)
+                .build();
     }
 
     private String snippet(String value) {

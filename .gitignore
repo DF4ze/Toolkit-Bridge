@@ -24,3 +24,6 @@ target/
 /http-client.private.env.json
 **/application.yml
 
+## useless
+**/toolkit-bridge*.db
+workspace

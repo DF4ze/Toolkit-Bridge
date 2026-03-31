@@ -19,6 +19,7 @@ import fr.ses10doigts.toolkitbridge.model.dto.agent.definition.AgentDefinition;
 import fr.ses10doigts.toolkitbridge.model.dto.agent.definition.AgentOrchestratorType;
 import fr.ses10doigts.toolkitbridge.service.agent.orchestrator.AgentOrchestrator;
 import fr.ses10doigts.toolkitbridge.service.llm.LlmService;
+import fr.ses10doigts.toolkitbridge.service.llm.debug.LlmDebugStore;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -40,6 +41,7 @@ public class ChatAgentOrchestrator implements AgentOrchestrator {
     private final ConversationMemoryService conversationMemoryService;
     private final ContextAssembler contextAssembler;
     private final EpisodicMemoryService episodicMemoryService;
+    private final LlmDebugStore llmDebugStore;
 
     @Override
     public AgentOrchestratorType getType() {
@@ -80,12 +82,24 @@ public class ChatAgentOrchestrator implements AgentOrchestrator {
                     agentDefinition.llmProvider(),
                     agentDefinition.model(),
                     agentDefinition.systemPrompt(),
-                    context
+                    context,
+                    agentDefinition.toolsEnabled()
             );
             log.info("LLM response received traceId={} length={} durationMs={}",
                     traceId,
                     llmResponse == null ? 0 : llmResponse.length(),
                     elapsedMs(llmStartNanos));
+
+            llmDebugStore.recordSuccess(
+                    agentId,
+                    agentDefinition.llmProvider(),
+                    agentDefinition.model(),
+                    agentDefinition.toolsEnabled(),
+                    traceId,
+                    agentDefinition.systemPrompt(),
+                    context,
+                    llmResponse
+            );
 
             String safeResponse = normalizeLlmResponse(llmResponse);
             log.debug("LLM response normalized traceId={} length={}",
@@ -109,10 +123,31 @@ public class ChatAgentOrchestrator implements AgentOrchestrator {
                     agentDefinition.model(),
                     e);
 
+            llmDebugStore.recordFailure(
+                    agentId,
+                    agentDefinition.llmProvider(),
+                    agentDefinition.model(),
+                    agentDefinition.toolsEnabled(),
+                    traceId,
+                    agentDefinition.systemPrompt(),
+                    request.message(),
+                    e.getMessage()
+            );
+
             recordEpisodeFailure(agentId, conversationId, "provider_failure");
             return AgentResponse.error("The AI service is temporarily unavailable.");
         } catch (Exception e) {
             log.error("Unexpected agent orchestration error for agent={}", agentDefinition.id(), e);
+            llmDebugStore.recordFailure(
+                    agentId,
+                    agentDefinition.llmProvider(),
+                    agentDefinition.model(),
+                    agentDefinition.toolsEnabled(),
+                    traceId,
+                    agentDefinition.systemPrompt(),
+                    request.message(),
+                    e.getMessage()
+            );
             recordEpisodeFailure(agentId, conversationId, "orchestration_error");
             return AgentResponse.error("An unexpected error occurred.");
         } finally {

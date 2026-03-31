@@ -15,6 +15,7 @@ import fr.ses10doigts.toolkitbridge.model.dto.agent.comm.AgentResponse;
 import fr.ses10doigts.toolkitbridge.model.dto.agent.definition.AgentDefinition;
 import fr.ses10doigts.toolkitbridge.model.dto.agent.definition.AgentOrchestratorType;
 import fr.ses10doigts.toolkitbridge.service.llm.LlmService;
+import fr.ses10doigts.toolkitbridge.service.llm.debug.LlmDebugStore;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -36,12 +37,14 @@ class ChatAgentOrchestratorTest {
     private final ConversationMemoryService conversationMemoryService = mock(ConversationMemoryService.class);
     private final ContextAssembler contextAssembler = mock(ContextAssembler.class);
     private final EpisodicMemoryService episodicMemoryService = mock(EpisodicMemoryService.class);
+    private final LlmDebugStore llmDebugStore = mock(LlmDebugStore.class);
 
     private final ChatAgentOrchestrator orchestrator = new ChatAgentOrchestrator(
             llmService,
             conversationMemoryService,
             contextAssembler,
-            episodicMemoryService
+            episodicMemoryService,
+            llmDebugStore
     );
 
     @Test
@@ -50,7 +53,8 @@ class ChatAgentOrchestratorTest {
         AgentRequest request = request("hello", Map.of("traceId", "t-1"));
 
         when(contextAssembler.buildContext(any(ContextRequest.class))).thenReturn("CTX");
-        when(llmService.chat(eq("provider"), eq("model"), eq("system"), eq("CTX"))).thenReturn("assistant response");
+        when(llmService.chat(eq("provider"), eq("model"), eq("system"), eq("CTX"), eq(true)))
+                .thenReturn("assistant response");
 
         AgentResponse response = orchestrator.handle(agentDefinition, request);
 
@@ -77,7 +81,7 @@ class ChatAgentOrchestratorTest {
         InOrder inOrder = inOrder(conversationMemoryService, contextAssembler, llmService, episodicMemoryService);
         inOrder.verify(conversationMemoryService).appendMessage(any(), any());
         inOrder.verify(contextAssembler).buildContext(any());
-        inOrder.verify(llmService).chat(eq("provider"), eq("model"), eq("system"), eq("CTX"));
+        inOrder.verify(llmService).chat(eq("provider"), eq("model"), eq("system"), eq("CTX"), eq(true));
         inOrder.verify(conversationMemoryService).appendMessage(any(), any());
         inOrder.verify(episodicMemoryService).record(any(EpisodeEvent.class));
     }
@@ -88,7 +92,7 @@ class ChatAgentOrchestratorTest {
         AgentRequest request = request("hello", Map.of());
 
         when(contextAssembler.buildContext(any(ContextRequest.class))).thenReturn("CTX");
-        when(llmService.chat(eq("provider"), eq("model"), eq("system"), eq("CTX")))
+        when(llmService.chat(eq("provider"), eq("model"), eq("system"), eq("CTX"), eq(true)))
                 .thenThrow(new LlmProviderException("boom"));
 
         AgentResponse response = orchestrator.handle(agentDefinition, request);
@@ -117,7 +121,8 @@ class ChatAgentOrchestratorTest {
                 AgentOrchestratorType.CHAT,
                 "provider",
                 "model",
-                "system"
+                "system",
+                true
         );
     }
 

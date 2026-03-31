@@ -20,4 +20,9 @@ public class AgentAdminController {
     public AgentProvisioningResult createAgent(@Valid @RequestBody CreateAgentRequest request) {
         return agentAccountService.createBot(request.getAgentIdent());
     }
+
+    @GetMapping("new")
+    public AgentProvisioningResult newAgent(String agentIdent) {
+        return agentAccountService.createBot(agentIdent);
+    }
 }

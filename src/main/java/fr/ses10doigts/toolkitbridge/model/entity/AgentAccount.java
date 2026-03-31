@@ -24,7 +24,7 @@ public class AgentAccount {
     private UUID id;
 
     @Column(name = "agent_ident", nullable = false, length = 100)
-    private String AgentIdent;
+    private String agentIdent;
 
     @Column(name = "api_key_prefix", nullable = false, length = 32)
     private String apiKeyPrefix;

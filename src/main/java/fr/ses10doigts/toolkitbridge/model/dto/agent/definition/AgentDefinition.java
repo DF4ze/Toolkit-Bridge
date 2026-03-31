@@ -7,7 +7,8 @@ public record AgentDefinition(
         AgentOrchestratorType  orchestratorType,
         String llmProvider,
         String model,
-        String systemPrompt
+        String systemPrompt,
+        boolean toolsEnabled
 ) {
     public static AgentDefinition fromProperties( AgentDefinitionProperties props ){
         return new AgentDefinition(
@@ -17,7 +18,8 @@ public record AgentDefinition(
                 AgentOrchestratorType.valueOf( props.getOrchestratorType().toUpperCase() ),
                 props.getLlmProvider(),
                 props.getModel(),
-                props.getSystemPrompt()
+                props.getSystemPrompt(),
+                props.getToolsEnabled() == null || props.getToolsEnabled()
         );
     }
 }

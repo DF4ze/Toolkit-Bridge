@@ -26,4 +26,6 @@ public class AgentDefinitionProperties {
 
     @NotBlank
     private String systemPrompt;
+
+    private Boolean toolsEnabled = true;
 }

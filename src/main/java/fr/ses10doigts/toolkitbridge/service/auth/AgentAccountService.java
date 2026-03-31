@@ -69,6 +69,25 @@ public class AgentAccountService {
         );
     }
 
+    @Transactional(readOnly = true)
+    public AuthenticatedAgent authenticateByAgentIdent(String agentIdent) {
+        if (agentIdent == null || agentIdent.isBlank()) {
+            throw new InvalidApiKeyException();
+        }
+
+        AgentAccount agentAccount = agentAccountRepository.findByAgentIdent(agentIdent)
+                .orElseThrow(InvalidApiKeyException::new);
+
+        if (!agentAccount.isEnabled()) {
+            throw new InvalidApiKeyException();
+        }
+
+        return new AuthenticatedAgent(
+                agentAccount.getId(),
+                agentAccount.getAgentIdent()
+        );
+    }
+
     private String extractLookupPrefix(String rawApiKey) {
         if (!rawApiKey.startsWith(API_KEY_PREFIX)) {
             throw new InvalidApiKeyException();
