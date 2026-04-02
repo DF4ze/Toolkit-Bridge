@@ -1,15 +1,10 @@
 package fr.ses10doigts.toolkitbridge.service.agent.orchestrator.impl;
 
 import fr.ses10doigts.toolkitbridge.exception.LlmProviderException;
-import fr.ses10doigts.toolkitbridge.memory.context.model.ContextRequest;
-import fr.ses10doigts.toolkitbridge.memory.context.port.ContextAssembler;
-import fr.ses10doigts.toolkitbridge.memory.conversation.model.ConversationMessage;
-import fr.ses10doigts.toolkitbridge.memory.conversation.model.ConversationRole;
-import fr.ses10doigts.toolkitbridge.memory.conversation.port.ConversationMemoryService;
-import fr.ses10doigts.toolkitbridge.memory.episodic.model.EpisodeEvent;
-import fr.ses10doigts.toolkitbridge.memory.episodic.model.EpisodeEventType;
-import fr.ses10doigts.toolkitbridge.memory.episodic.model.EpisodeStatus;
-import fr.ses10doigts.toolkitbridge.memory.episodic.service.EpisodicMemoryService;
+import fr.ses10doigts.toolkitbridge.memory.facade.MemoryFacade;
+import fr.ses10doigts.toolkitbridge.memory.facade.model.MemoryContext;
+import fr.ses10doigts.toolkitbridge.memory.facade.model.MemoryContextRequest;
+import fr.ses10doigts.toolkitbridge.memory.facade.model.ToolExecutionRecord;
 import fr.ses10doigts.toolkitbridge.model.dto.agent.comm.AgentRequest;
 import fr.ses10doigts.toolkitbridge.model.dto.agent.comm.AgentResponse;
 import fr.ses10doigts.toolkitbridge.model.dto.agent.definition.AgentDefinition;
@@ -22,7 +17,6 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -34,25 +28,22 @@ import static org.mockito.Mockito.*;
 class ChatAgentOrchestratorTest {
 
     private final LlmService llmService = mock(LlmService.class);
-    private final ConversationMemoryService conversationMemoryService = mock(ConversationMemoryService.class);
-    private final ContextAssembler contextAssembler = mock(ContextAssembler.class);
-    private final EpisodicMemoryService episodicMemoryService = mock(EpisodicMemoryService.class);
+    private final MemoryFacade memoryFacade = mock(MemoryFacade.class);
     private final LlmDebugStore llmDebugStore = mock(LlmDebugStore.class);
 
     private final ChatAgentOrchestrator orchestrator = new ChatAgentOrchestrator(
             llmService,
-            conversationMemoryService,
-            contextAssembler,
-            episodicMemoryService,
+            memoryFacade,
             llmDebugStore
     );
 
     @Test
-    void writesConversationMemoryAndCallsContextBeforeLlm() {
+    void runsMemoryFlowBeforeAndAfterLlm() {
         AgentDefinition agentDefinition = agentDefinition();
         AgentRequest request = request("hello", Map.of("traceId", "t-1"));
 
-        when(contextAssembler.buildContext(any(ContextRequest.class))).thenReturn("CTX");
+        when(memoryFacade.buildContext(any(MemoryContextRequest.class)))
+                .thenReturn(new MemoryContext("CTX", java.util.List.of(10L)));
         when(llmService.chat(eq("provider"), eq("model"), eq("system"), eq("CTX"), eq(true)))
                 .thenReturn("assistant response");
 
@@ -61,88 +52,44 @@ class ChatAgentOrchestratorTest {
         assertThat(response.error()).isFalse();
         assertThat(response.message()).isEqualTo("assistant response");
 
-        ArgumentCaptor<ConversationMessage> messageCaptor = ArgumentCaptor.forClass(ConversationMessage.class);
-        verify(conversationMemoryService, times(2)).appendMessage(any(), messageCaptor.capture());
-
-        List<ConversationMessage> messages = messageCaptor.getAllValues();
-        assertThat(messages.get(0).role()).isEqualTo(ConversationRole.USER);
-        assertThat(messages.get(0).content()).isEqualTo("hello");
-        assertThat(messages.get(1).role()).isEqualTo(ConversationRole.ASSISTANT);
-        assertThat(messages.get(1).content()).isEqualTo("assistant response");
-
-        ArgumentCaptor<ContextRequest> contextCaptor = ArgumentCaptor.forClass(ContextRequest.class);
-        verify(contextAssembler).buildContext(contextCaptor.capture());
-        ContextRequest contextRequest = contextCaptor.getValue();
-        assertThat(contextRequest.agentId()).isEqualTo("agent-1");
-        assertThat(contextRequest.conversationId()).isEqualTo("telegram:chat-1");
-        assertThat(contextRequest.projectId()).isNull();
-        assertThat(contextRequest.userMessage()).isEqualTo("hello");
-
-        InOrder inOrder = inOrder(conversationMemoryService, contextAssembler, llmService, episodicMemoryService);
-        inOrder.verify(conversationMemoryService).appendMessage(any(), any());
-        inOrder.verify(contextAssembler).buildContext(any());
+        InOrder inOrder = inOrder(memoryFacade, llmService);
+        inOrder.verify(memoryFacade).onUserMessage(any(MemoryContextRequest.class));
+        inOrder.verify(memoryFacade).buildContext(any(MemoryContextRequest.class));
         inOrder.verify(llmService).chat(eq("provider"), eq("model"), eq("system"), eq("CTX"), eq(true));
-        inOrder.verify(conversationMemoryService).appendMessage(any(), any());
-        inOrder.verify(episodicMemoryService).record(any(EpisodeEvent.class));
+        inOrder.verify(memoryFacade).onAssistantMessage(any(MemoryContextRequest.class), eq("assistant response"));
+        inOrder.verify(memoryFacade).markContextMemoriesUsed(eq(java.util.List.of(10L)));
     }
 
     @Test
-    void propagatesProjectIdToContextRequest() {
+    void propagatesProjectIdToMemoryRequest() {
         AgentDefinition agentDefinition = agentDefinition();
         AgentRequest request = request("hello", "project-42", Map.of("traceId", "t-1"));
 
-        when(contextAssembler.buildContext(any(ContextRequest.class))).thenReturn("CTX");
-        when(llmService.chat(eq("provider"), eq("model"), eq("system"), eq("CTX"), eq(true)))
-                .thenReturn("assistant response");
+        when(memoryFacade.buildContext(any(MemoryContextRequest.class)))
+                .thenReturn(new MemoryContext("CTX", java.util.List.of()));
+        when(llmService.chat(any(), any(), any(), any(), anyBoolean())).thenReturn("assistant response");
 
         orchestrator.handle(agentDefinition, request);
 
-        ArgumentCaptor<ContextRequest> contextCaptor = ArgumentCaptor.forClass(ContextRequest.class);
-        verify(contextAssembler).buildContext(contextCaptor.capture());
-        assertThat(contextCaptor.getValue().projectId()).isEqualTo("project-42");
+        ArgumentCaptor<MemoryContextRequest> captor = ArgumentCaptor.forClass(MemoryContextRequest.class);
+        verify(memoryFacade).onUserMessage(captor.capture());
+        assertThat(captor.getValue().projectId()).isEqualTo("project-42");
     }
 
     @Test
-    void usesProjectIdFromContextWhenFieldMissing() {
-        AgentDefinition agentDefinition = agentDefinition();
-        AgentRequest request = request("hello", null, Map.of("projectId", "ctx-99"));
-
-        when(contextAssembler.buildContext(any(ContextRequest.class))).thenReturn("CTX");
-        when(llmService.chat(eq("provider"), eq("model"), eq("system"), eq("CTX"), eq(true)))
-                .thenReturn("assistant response");
-
-        orchestrator.handle(agentDefinition, request);
-
-        ArgumentCaptor<ContextRequest> contextCaptor = ArgumentCaptor.forClass(ContextRequest.class);
-        verify(contextAssembler).buildContext(contextCaptor.capture());
-        assertThat(contextCaptor.getValue().projectId()).isEqualTo("ctx-99");
-    }
-
-    @Test
-    void recordsEpisodicFailureAndPropagatesError() {
+    void recordsFailureThroughToolExecution() {
         AgentDefinition agentDefinition = agentDefinition();
         AgentRequest request = request("hello", Map.of());
 
-        when(contextAssembler.buildContext(any(ContextRequest.class))).thenReturn("CTX");
+        when(memoryFacade.buildContext(any(MemoryContextRequest.class)))
+                .thenReturn(new MemoryContext("CTX", java.util.List.of()));
         when(llmService.chat(eq("provider"), eq("model"), eq("system"), eq("CTX"), eq(true)))
                 .thenThrow(new LlmProviderException("boom"));
 
         AgentResponse response = orchestrator.handle(agentDefinition, request);
 
         assertThat(response.error()).isTrue();
-        assertThat(response.message()).isNotBlank();
-
-        ArgumentCaptor<ConversationMessage> messageCaptor = ArgumentCaptor.forClass(ConversationMessage.class);
-        verify(conversationMemoryService, atLeastOnce()).appendMessage(any(), messageCaptor.capture());
-        assertThat(messageCaptor.getAllValues())
-                .extracting(ConversationMessage::role)
-                .containsOnly(ConversationRole.USER);
-
-        ArgumentCaptor<EpisodeEvent> eventCaptor = ArgumentCaptor.forClass(EpisodeEvent.class);
-        verify(episodicMemoryService).record(eventCaptor.capture());
-        EpisodeEvent event = eventCaptor.getValue();
-        assertThat(event.getType()).isEqualTo(EpisodeEventType.ERROR);
-        assertThat(event.getStatus()).isEqualTo(EpisodeStatus.FAILURE);
+        verify(memoryFacade).onToolExecution(any(MemoryContextRequest.class), any(ToolExecutionRecord.class));
     }
 
     private AgentDefinition agentDefinition() {

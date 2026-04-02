@@ -1,59 +1,54 @@
 package fr.ses10doigts.toolkitbridge.memory.context.service;
 
 import fr.ses10doigts.toolkitbridge.memory.context.config.ContextAssemblerProperties;
+import fr.ses10doigts.toolkitbridge.memory.context.model.AssembledContext;
 import fr.ses10doigts.toolkitbridge.memory.context.model.ContextRequest;
 import fr.ses10doigts.toolkitbridge.memory.context.port.ContextAssembler;
-import fr.ses10doigts.toolkitbridge.memory.conversation.model.ConversationMemoryKey;
-import fr.ses10doigts.toolkitbridge.memory.conversation.port.ConversationMemoryService;
-import fr.ses10doigts.toolkitbridge.memory.retrieval.facade.MemoryRetrievalFacade;
 import fr.ses10doigts.toolkitbridge.memory.retrieval.model.RetrievedMemories;
 import fr.ses10doigts.toolkitbridge.memory.rule.model.RuleEntry;
 import fr.ses10doigts.toolkitbridge.memory.semantic.model.MemoryEntry;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 public class DefaultContextAssembler implements ContextAssembler {
 
-    private final MemoryRetrievalFacade memoryRetrievalFacade;
-    private final ConversationMemoryService conversationMemoryService;
     private final ContextAssemblerProperties properties;
 
     public DefaultContextAssembler(
-            MemoryRetrievalFacade memoryRetrievalFacade,
-            ConversationMemoryService conversationMemoryService,
             ContextAssemblerProperties properties
     ) {
-        this.memoryRetrievalFacade = memoryRetrievalFacade;
-        this.conversationMemoryService = conversationMemoryService;
         this.properties = properties;
         validateProperties(properties);
     }
 
     @Override
-    public String buildContext(ContextRequest request) {
+    public AssembledContext buildContext(ContextRequest request, RetrievedMemories retrievedMemories) {
         if (request == null) {
             throw new IllegalArgumentException("request must not be null");
         }
-
-        RetrievedMemories retrievedMemories = memoryRetrievalFacade.retrieve(request);
         if (retrievedMemories == null) {
             throw new IllegalStateException("retrievedMemories must not be null");
         }
 
         StringBuilder context = new StringBuilder();
+        LinkedHashSet<Long> usedSemanticMemoryIds = new LinkedHashSet<>();
 
         appendRules(context, limit(retrievedMemories.rules(), properties.getMaxRules()));
 
-        appendKnownFacts(context, limit(retrievedMemories.semanticMemories(), properties.getMaxMemories()));
+        appendKnownFacts(
+                context,
+                limit(retrievedMemories.semanticMemories(), properties.getMaxMemories()),
+                usedSemanticMemoryIds
+        );
 
         appendEpisodes(context, limit(retrievedMemories.episodicMemories(), properties.getMaxEpisodes()));
 
-        String conversation = conversationMemoryService.buildContext(
-                new ConversationMemoryKey(request.agentId(), request.conversationId())
-        );
+        String conversation = retrievedMemories.conversationSlice();
 
         context.append("\n## Conversation\n");
         if (conversation != null && !conversation.isBlank()) {
@@ -63,7 +58,7 @@ public class DefaultContextAssembler implements ContextAssembler {
         context.append("\n\n## User Input\n");
         context.append(request.userMessage());
 
-        return trim(context.toString());
+        return new AssembledContext(trim(context.toString()), List.copyOf(usedSemanticMemoryIds));
     }
 
     private void appendRules(StringBuilder context, List<RuleEntry> rules) {
@@ -77,11 +72,22 @@ public class DefaultContextAssembler implements ContextAssembler {
         }
     }
 
-    private void appendKnownFacts(StringBuilder context, List<MemoryEntry> memories) {
+    private void appendKnownFacts(StringBuilder context,
+                                  List<MemoryEntry> memories,
+                                  Set<Long> usedSemanticMemoryIds) {
         context.append("\n## Known Facts\n");
+        Set<String> uniqueFacts = new LinkedHashSet<>();
         for (MemoryEntry memory : memories) {
+            if (memory == null || memory.getContent() == null || memory.getContent().isBlank()) {
+                continue;
+            }
+            if (uniqueFacts.add(memory.getContent().trim()) && memory.getId() != null) {
+                usedSemanticMemoryIds.add(memory.getId());
+            }
+        }
+        for (String fact : uniqueFacts) {
             context.append("- ")
-                    .append(memory.getContent())
+                    .append(fact)
                     .append("\n");
         }
     }

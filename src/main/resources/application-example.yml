@@ -65,6 +65,23 @@ toolkit:
       max-rules: 10
       max-memories: 10
       max-characters: 15000
+      max-episodes: 5
+    retrieval:
+      max-rules: 10
+      max-semantic-memories: 10
+      max-episodes: 5
+      max-project-episode-fetch: 5
+      conversation-slice-max-characters: 4000
+    integration:
+      enable-semantic-extraction: true
+      enable-rule-promotion: true
+      enable-episodic-injection: true
+      mark-used-enabled: true
+      max-rules: 10
+      max-semantic-memories: 10
+      max-episodes: 5
+      max-conversation-messages: 20
+      max-context-characters: 15000
   llm:
     openai-like:
       providers:

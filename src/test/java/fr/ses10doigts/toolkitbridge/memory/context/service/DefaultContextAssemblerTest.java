@@ -1,11 +1,10 @@
 package fr.ses10doigts.toolkitbridge.memory.context.service;
 
 import fr.ses10doigts.toolkitbridge.memory.context.config.ContextAssemblerProperties;
+import fr.ses10doigts.toolkitbridge.memory.context.model.AssembledContext;
 import fr.ses10doigts.toolkitbridge.memory.context.model.ContextRequest;
-import fr.ses10doigts.toolkitbridge.memory.conversation.port.ConversationMemoryService;
 import fr.ses10doigts.toolkitbridge.memory.episodic.model.EpisodeEventType;
 import fr.ses10doigts.toolkitbridge.memory.episodic.model.EpisodeStatus;
-import fr.ses10doigts.toolkitbridge.memory.retrieval.facade.MemoryRetrievalFacade;
 import fr.ses10doigts.toolkitbridge.memory.retrieval.model.RetrievedMemories;
 import fr.ses10doigts.toolkitbridge.memory.rule.model.RuleEntry;
 import fr.ses10doigts.toolkitbridge.memory.rule.model.RulePriority;
@@ -19,39 +18,27 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 class DefaultContextAssemblerTest {
 
     @Test
     void buildsContextInExpectedOrder() {
-        MemoryRetrievalFacade retrievalFacade = mock(MemoryRetrievalFacade.class);
-        ConversationMemoryService conversationMemoryService = mock(ConversationMemoryService.class);
         ContextAssemblerProperties properties = new ContextAssemblerProperties();
 
         RuleEntry rule = rule("Always be safe", RulePriority.HIGH);
         MemoryEntry memory = memory("Remember X");
         RetrievedMemories.EpisodeSummary episode = episode("agent-exchange", EpisodeStatus.SUCCESS);
 
-        when(retrievalFacade.retrieve(any()))
-                .thenReturn(retrieved(List.of(rule), List.of(memory), List.of(episode)));
-        when(conversationMemoryService.buildContext(any()))
-                .thenReturn("Conversation content");
-
         DefaultContextAssembler assembler = new DefaultContextAssembler(
-                retrievalFacade,
-                conversationMemoryService,
                 properties
         );
 
-        String context = assembler.buildContext(new ContextRequest(
-                "agent-1",
-                "conv-1",
-                "project-1",
-                "User says hello"
-        ));
+        AssembledContext assembled = assembler.buildContext(
+                new ContextRequest("agent-1", "conv-1", "project-1", "User says hello"),
+                retrieved(List.of(rule), List.of(memory), List.of(episode), "Conversation content")
+        );
+
+        String context = assembled.text();
 
         int rulesIndex = context.indexOf("## Rules");
         int factsIndex = context.indexOf("## Known Facts");
@@ -70,35 +57,26 @@ class DefaultContextAssemblerTest {
         assertThat(context).contains("- [SUCCESS] agent-exchange");
         assertThat(context).contains("Conversation content");
         assertThat(context).contains("User says hello");
+        assertThat(assembled.injectedSemanticMemoryIds()).isEmpty();
     }
 
     @Test
     void respectsRulesAndMemoriesLimits() {
-        MemoryRetrievalFacade retrievalFacade = mock(MemoryRetrievalFacade.class);
-        ConversationMemoryService conversationMemoryService = mock(ConversationMemoryService.class);
         ContextAssemblerProperties properties = new ContextAssemblerProperties();
         properties.setMaxRules(1);
         properties.setMaxMemories(1);
 
         List<RuleEntry> rules = List.of(rule("R1", RulePriority.LOW), rule("R2", RulePriority.HIGH));
         List<MemoryEntry> memories = List.of(memory("M1"), memory("M2"));
-        when(retrievalFacade.retrieve(any()))
-                .thenReturn(retrieved(rules, memories, List.of()));
-        when(conversationMemoryService.buildContext(any()))
-                .thenReturn("");
 
         DefaultContextAssembler assembler = new DefaultContextAssembler(
-                retrievalFacade,
-                conversationMemoryService,
                 properties
         );
 
-        String context = assembler.buildContext(new ContextRequest(
-                "agent-1",
-                "conv-1",
-                null,
-                "User says hello"
-        ));
+        String context = assembler.buildContext(
+                new ContextRequest("agent-1", "conv-1", null, "User says hello"),
+                retrieved(rules, memories, List.of(), "")
+        ).text();
 
         assertThat(countOccurrences(context, "- [")).isEqualTo(1);
         assertThat(countOccurrences(context, "- M")).isEqualTo(1);
@@ -106,48 +84,36 @@ class DefaultContextAssemblerTest {
 
     @Test
     void trimsContextWhenMaxCharactersExceeded() {
-        MemoryRetrievalFacade retrievalFacade = mock(MemoryRetrievalFacade.class);
-        ConversationMemoryService conversationMemoryService = mock(ConversationMemoryService.class);
-
         RetrievedMemories data = retrieved(
                 List.of(rule("Rule content", RulePriority.HIGH)),
                 List.of(memory("Memory content")),
-                List.of()
+                List.of(),
+                "Conversation content"
         );
-        when(retrievalFacade.retrieve(any())).thenReturn(data);
-        when(conversationMemoryService.buildContext(any())).thenReturn("Conversation content");
 
         ContextAssemblerProperties large = new ContextAssemblerProperties();
         large.setMaxCharacters(1000);
 
         DefaultContextAssembler fullAssembler = new DefaultContextAssembler(
-                retrievalFacade,
-                conversationMemoryService,
                 large
         );
 
-        String full = fullAssembler.buildContext(new ContextRequest(
-                "agent-1",
-                "conv-1",
-                null,
-                "User says hello"
-        ));
+        String full = fullAssembler.buildContext(
+                new ContextRequest("agent-1", "conv-1", null, "User says hello"),
+                data
+        ).text();
 
         ContextAssemblerProperties small = new ContextAssemblerProperties();
         small.setMaxCharacters(50);
 
         DefaultContextAssembler trimmedAssembler = new DefaultContextAssembler(
-                retrievalFacade,
-                conversationMemoryService,
                 small
         );
 
-        String trimmed = trimmedAssembler.buildContext(new ContextRequest(
-                "agent-1",
-                "conv-1",
-                null,
-                "User says hello"
-        ));
+        String trimmed = trimmedAssembler.buildContext(
+                new ContextRequest("agent-1", "conv-1", null, "User says hello"),
+                data
+        ).text();
 
         assertThat(trimmed.length()).isEqualTo(50);
         assertThat(trimmed).isEqualTo(full.substring(full.length() - 50));
@@ -155,28 +121,52 @@ class DefaultContextAssemblerTest {
 
     @Test
     void rejectsNullRequest() {
-        MemoryRetrievalFacade retrievalFacade = mock(MemoryRetrievalFacade.class);
-        ConversationMemoryService conversationMemoryService = mock(ConversationMemoryService.class);
         ContextAssemblerProperties properties = new ContextAssemblerProperties();
 
-        when(retrievalFacade.retrieve(any()))
-                .thenReturn(retrieved(List.of(rule("R1", RulePriority.HIGH)), List.of(memory("M1")), List.of()));
-
         DefaultContextAssembler assembler = new DefaultContextAssembler(
-                retrievalFacade,
-                conversationMemoryService,
                 properties
         );
 
-        assertThatThrownBy(() -> assembler.buildContext(null))
+        assertThatThrownBy(() -> assembler.buildContext(null, retrieved(
+                List.of(rule("R1", RulePriority.HIGH)),
+                List.of(memory("M1")),
+                List.of(),
+                ""
+        )))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("request");
     }
 
+    @Test
+    void removesDuplicateFactsFromSameBatch() {
+        ContextAssemblerProperties properties = new ContextAssemblerProperties();
+
+        MemoryEntry sameA = memory("Same");
+        sameA.setId(10L);
+        MemoryEntry sameB = memory("Same");
+        sameB.setId(11L);
+        MemoryEntry other = memory("Other");
+        other.setId(12L);
+
+        DefaultContextAssembler assembler = new DefaultContextAssembler(properties);
+
+        AssembledContext assembled = assembler.buildContext(
+                new ContextRequest("agent-1", "conv-1", null, "hello"),
+                retrieved(List.of(), List.of(sameA, sameB, other), List.of(), "")
+        );
+
+        String context = assembled.text();
+
+        assertThat(countOccurrences(context, "- Same")).isEqualTo(1);
+        assertThat(countOccurrences(context, "- Other")).isEqualTo(1);
+        assertThat(assembled.injectedSemanticMemoryIds()).containsExactly(10L, 12L);
+    }
+
     private RetrievedMemories retrieved(List<RuleEntry> rules,
                                         List<MemoryEntry> memories,
-                                        List<RetrievedMemories.EpisodeSummary> episodes) {
-        return new RetrievedMemories(rules, memories, episodes, "conversation");
+                                        List<RetrievedMemories.EpisodeSummary> episodes,
+                                        String conversationSlice) {
+        return new RetrievedMemories(rules, memories, episodes, conversationSlice);
     }
 
     private RuleEntry rule(String content, RulePriority priority) {
