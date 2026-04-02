@@ -3,6 +3,7 @@ package fr.ses10doigts.toolkitbridge.memory.context.service;
 import fr.ses10doigts.toolkitbridge.memory.context.config.ContextAssemblerProperties;
 import fr.ses10doigts.toolkitbridge.memory.context.model.ContextRequest;
 import fr.ses10doigts.toolkitbridge.memory.conversation.port.ConversationMemoryService;
+import fr.ses10doigts.toolkitbridge.memory.retrieval.model.MemoryQuery;
 import fr.ses10doigts.toolkitbridge.memory.retrieval.port.MemoryRetriever;
 import fr.ses10doigts.toolkitbridge.memory.rule.model.RuleEntry;
 import fr.ses10doigts.toolkitbridge.memory.rule.model.RulePriority;
@@ -14,11 +15,12 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
+import org.mockito.ArgumentCaptor;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 class DefaultContextAssemblerTest {
 
@@ -171,6 +173,75 @@ class DefaultContextAssemblerTest {
         assertThatThrownBy(() -> assembler.buildContext(null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("request");
+    }
+
+    @Test
+    void skipsConversationWhenConversationIdMissing() {
+        RuleService ruleService = mock(RuleService.class);
+        ConversationMemoryService conversationMemoryService = mock(ConversationMemoryService.class);
+        MemoryRetriever memoryRetriever = mock(MemoryRetriever.class);
+        ContextAssemblerProperties properties = new ContextAssemblerProperties();
+
+        when(ruleService.getApplicableRules("agent-1", null))
+                .thenReturn(List.of(rule("R1", RulePriority.HIGH)));
+        when(memoryRetriever.retrieve(any()))
+                .thenReturn(List.of(memory("Memory")));
+
+        DefaultContextAssembler assembler = new DefaultContextAssembler(
+                ruleService,
+                conversationMemoryService,
+                memoryRetriever,
+                properties
+        );
+
+        assembler.buildContext(new ContextRequest(
+                "agent-1",
+                null,
+                null,
+                "User says hello"
+        ));
+
+        verify(conversationMemoryService, never()).buildContext(any());
+    }
+
+    @Test
+    void appliesMaxSemanticMemoriesOverride() {
+        RuleService ruleService = mock(RuleService.class);
+        ConversationMemoryService conversationMemoryService = mock(ConversationMemoryService.class);
+        MemoryRetriever memoryRetriever = mock(MemoryRetriever.class);
+        ContextAssemblerProperties properties = new ContextAssemblerProperties();
+
+        when(ruleService.getApplicableRules("agent-1", null))
+                .thenReturn(List.of(rule("R1", RulePriority.HIGH)));
+        when(memoryRetriever.retrieve(any()))
+                .thenReturn(List.of(memory("Memory")));
+        when(conversationMemoryService.buildContext(any()))
+                .thenReturn("Conversation content");
+
+        DefaultContextAssembler assembler = new DefaultContextAssembler(
+                ruleService,
+                conversationMemoryService,
+                memoryRetriever,
+                properties
+        );
+
+        assembler.buildContext(new ContextRequest(
+                "agent-1",
+                "user-1",
+                "bot-1",
+                "project-1",
+                "User says hello",
+                "conv-1",
+                3,
+                null,
+                null,
+                null
+        ));
+
+        ArgumentCaptor<MemoryQuery> queryCaptor = ArgumentCaptor.forClass(MemoryQuery.class);
+        verify(memoryRetriever).retrieve(queryCaptor.capture());
+        MemoryQuery query = queryCaptor.getValue();
+        assertThat(query.limit()).isEqualTo(3);
     }
 
     private RuleEntry rule(String content, RulePriority priority) {

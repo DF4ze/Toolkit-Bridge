@@ -56,6 +56,7 @@ public class DefaultContextAssembler implements ContextAssembler {
             throw new IllegalArgumentException("request must not be null");
         }
 
+        int maxMemories = resolveLimit(request.maxSemanticMemories(), properties.getMaxMemories());
         StringBuilder context = new StringBuilder();
 
         List<RuleEntry> rules = ruleService.getApplicableRules(request.agentId(), request.projectId())
@@ -75,12 +76,12 @@ public class DefaultContextAssembler implements ContextAssembler {
         List<MemoryEntry> memories = memoryRetriever.retrieve(new MemoryQuery(
                 request.agentId(),
                 request.projectId(),
-                request.userMessage(),
+                request.currentUserMessage(),
                 DEFAULT_SCOPES,
                 DEFAULT_TYPES,
-                properties.getMaxMemories()
+                maxMemories
         )).stream()
-                .limit(properties.getMaxMemories())
+                .limit(maxMemories)
                 .toList();
 
         context.append("\n## Relevant Memories\n");
@@ -90,9 +91,12 @@ public class DefaultContextAssembler implements ContextAssembler {
                     .append("\n");
         }
 
-        String conversation = conversationMemoryService.buildContext(
-                new ConversationMemoryKey(request.agentId(), request.conversationId())
-        );
+        String conversation = "";
+        if (request.conversationId() != null && !request.conversationId().isBlank()) {
+            conversation = conversationMemoryService.buildContext(
+                    new ConversationMemoryKey(request.agentId(), request.conversationId())
+            );
+        }
 
         context.append("\n## Conversation\n");
         if (conversation != null && !conversation.isBlank()) {
@@ -100,7 +104,7 @@ public class DefaultContextAssembler implements ContextAssembler {
         }
 
         context.append("\n\n## User Input\n");
-        context.append(request.userMessage());
+        context.append(request.currentUserMessage());
 
         return trim(context.toString());
     }
@@ -123,5 +127,12 @@ public class DefaultContextAssembler implements ContextAssembler {
         if (props.getMaxCharacters() <= 0) {
             throw new IllegalStateException("maxCharacters must be > 0");
         }
+    }
+
+    private int resolveLimit(Integer override, int fallback) {
+        if (override == null) {
+            return fallback;
+        }
+        return Math.min(override, fallback);
     }
 }

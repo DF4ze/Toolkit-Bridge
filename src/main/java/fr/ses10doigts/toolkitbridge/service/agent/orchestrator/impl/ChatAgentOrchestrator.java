@@ -3,16 +3,9 @@ package fr.ses10doigts.toolkitbridge.service.agent.orchestrator.impl;
 import fr.ses10doigts.toolkitbridge.exception.AgentException;
 import fr.ses10doigts.toolkitbridge.exception.LlmProviderException;
 import fr.ses10doigts.toolkitbridge.memory.context.model.ContextRequest;
-import fr.ses10doigts.toolkitbridge.memory.context.port.ContextAssembler;
 import fr.ses10doigts.toolkitbridge.memory.conversation.model.ConversationMemoryKey;
-import fr.ses10doigts.toolkitbridge.memory.conversation.model.ConversationMessage;
-import fr.ses10doigts.toolkitbridge.memory.conversation.model.ConversationRole;
-import fr.ses10doigts.toolkitbridge.memory.conversation.port.ConversationMemoryService;
-import fr.ses10doigts.toolkitbridge.memory.episodic.model.EpisodeEvent;
-import fr.ses10doigts.toolkitbridge.memory.episodic.model.EpisodeEventType;
-import fr.ses10doigts.toolkitbridge.memory.episodic.model.EpisodeScope;
 import fr.ses10doigts.toolkitbridge.memory.episodic.model.EpisodeStatus;
-import fr.ses10doigts.toolkitbridge.memory.episodic.service.EpisodicMemoryService;
+import fr.ses10doigts.toolkitbridge.memory.facade.MemoryFacade;
 import fr.ses10doigts.toolkitbridge.model.dto.agent.comm.AgentRequest;
 import fr.ses10doigts.toolkitbridge.model.dto.agent.comm.AgentResponse;
 import fr.ses10doigts.toolkitbridge.model.dto.agent.definition.AgentDefinition;
@@ -24,10 +17,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
 
 @Component
 @RequiredArgsConstructor
@@ -38,9 +29,7 @@ public class ChatAgentOrchestrator implements AgentOrchestrator {
     private static final int MAX_LLM_RESPONSE_LENGTH = 20_000;
 
     private final LlmService llmService;
-    private final ConversationMemoryService conversationMemoryService;
-    private final ContextAssembler contextAssembler;
-    private final EpisodicMemoryService episodicMemoryService;
+    private final MemoryFacade memoryFacade;
     private final LlmDebugStore llmDebugStore;
 
     @Override
@@ -69,12 +58,21 @@ public class ChatAgentOrchestrator implements AgentOrchestrator {
         try {
             appendUserMessage(memoryKey, request, traceId);
 
-            String context = contextAssembler.buildContext(new ContextRequest(
+            String projectId = resolveProjectId(request);
+            ContextRequest contextRequest = new ContextRequest(
                     agentId,
+                    request.channelUserId(),
+                    agentDefinition == null ? null : agentDefinition.telegramBotId(),
+                    projectId,
+                    request.message(),
                     conversationId,
                     null,
-                    request.message()
-            ));
+                    null,
+                    null,
+                    null
+            );
+
+            String context = memoryFacade.buildContext(contextRequest);
             log.debug("Memory context=\n'{}'", context);
 
             long llmStartNanos = System.nanoTime();
@@ -107,12 +105,11 @@ public class ChatAgentOrchestrator implements AgentOrchestrator {
                     safeResponse.length());
 
             if (safeResponse.isBlank()) {
-                recordEpisodeFailure(agentId, conversationId, "empty_response");
+                memoryFacade.onToolExecution(agentId, conversationId, "agent_exchange_failed", "empty_response", EpisodeStatus.FAILURE);
                 return AgentResponse.error("The agent returned an empty response.");
             }
 
             appendAssistantMessage(memoryKey, request, safeResponse, traceId);
-            recordEpisodeSuccess(agentId, conversationId, safeResponse);
 
             log.info("Orchestrator completed traceId={} durationMs={}", traceId, elapsedMs(startNanos));
             return AgentResponse.success(safeResponse);
@@ -134,7 +131,7 @@ public class ChatAgentOrchestrator implements AgentOrchestrator {
                     e.getMessage()
             );
 
-            recordEpisodeFailure(agentId, conversationId, "provider_failure");
+            memoryFacade.onToolExecution(agentId, conversationId, "agent_exchange_failed", "provider_failure", EpisodeStatus.FAILURE);
             return AgentResponse.error("The AI service is temporarily unavailable.");
         } catch (Exception e) {
             log.error("Unexpected agent orchestration error for agent={}", agentDefinition.id(), e);
@@ -148,7 +145,7 @@ public class ChatAgentOrchestrator implements AgentOrchestrator {
                     request.message(),
                     e.getMessage()
             );
-            recordEpisodeFailure(agentId, conversationId, "orchestration_error");
+            memoryFacade.onToolExecution(agentId, conversationId, "agent_exchange_failed", "orchestration_error", EpisodeStatus.FAILURE);
             return AgentResponse.error("An unexpected error occurred.");
         } finally {
             log.debug("Orchestrator finished traceId={} durationMs={}", traceId, elapsedMs(startNanos));
@@ -224,33 +221,27 @@ public class ChatAgentOrchestrator implements AgentOrchestrator {
         return agentId;
     }
 
+    private String resolveProjectId(AgentRequest request) {
+        if (request == null || request.context() == null) {
+            return null;
+        }
+        Object value = request.context().get("projectId");
+        if (value == null) {
+            return null;
+        }
+        String projectId = String.valueOf(value).trim();
+        return projectId.isBlank() ? null : projectId;
+    }
+
     private void appendUserMessage(ConversationMemoryKey key, AgentRequest request, String traceId) {
-        ConversationMessage message = new ConversationMessage(
-                UUID.randomUUID(),
-                key.agentId(),
-                key.conversationId(),
-                ConversationRole.USER,
-                request.message(),
-                Instant.now(),
-                buildMetadata(request, traceId)
-        );
-        conversationMemoryService.appendMessage(key, message);
+        memoryFacade.onUserMessage(key, request.message(), buildMetadata(request, traceId));
     }
 
     private void appendAssistantMessage(ConversationMemoryKey key,
                                         AgentRequest request,
                                         String response,
                                         String traceId) {
-        ConversationMessage message = new ConversationMessage(
-                UUID.randomUUID(),
-                key.agentId(),
-                key.conversationId(),
-                ConversationRole.ASSISTANT,
-                response,
-                Instant.now(),
-                buildMetadata(request, traceId)
-        );
-        conversationMemoryService.appendMessage(key, message);
+        memoryFacade.onAssistantMessage(key, response, buildMetadata(request, traceId));
     }
 
     private Map<String, Object> buildMetadata(AgentRequest request, String traceId) {
@@ -267,38 +258,6 @@ public class ChatAgentOrchestrator implements AgentOrchestrator {
             metadata.put("context", request.context());
         }
         return metadata.isEmpty() ? Map.of() : Map.copyOf(metadata);
-    }
-
-    private void recordEpisodeSuccess(String agentId, String conversationId, String response) {
-        EpisodeEvent event = new EpisodeEvent();
-        event.setAgentId(agentId);
-        event.setScope(EpisodeScope.AGENT);
-        event.setScopeId(conversationId);
-        event.setType(EpisodeEventType.RESULT);
-        event.setAction("agent_exchange");
-        event.setDetails("response_length=" + (response == null ? 0 : response.length()));
-        event.setStatus(EpisodeStatus.SUCCESS);
-        recordEpisodeSafely(event);
-    }
-
-    private void recordEpisodeFailure(String agentId, String conversationId, String reason) {
-        EpisodeEvent event = new EpisodeEvent();
-        event.setAgentId(agentId);
-        event.setScope(EpisodeScope.AGENT);
-        event.setScopeId(conversationId);
-        event.setType(EpisodeEventType.ERROR);
-        event.setAction("agent_exchange_failed");
-        event.setDetails(reason);
-        event.setStatus(EpisodeStatus.FAILURE);
-        recordEpisodeSafely(event);
-    }
-
-    private void recordEpisodeSafely(EpisodeEvent event) {
-        try {
-            episodicMemoryService.record(event);
-        } catch (Exception e) {
-            log.warn("Failed to record episodic event for agent={}", event.getAgentId(), e);
-        }
     }
 
     private String traceId(AgentRequest request) {
