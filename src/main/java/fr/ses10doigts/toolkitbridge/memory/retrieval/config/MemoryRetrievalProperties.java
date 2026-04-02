@@ -23,6 +23,11 @@ public class MemoryRetrievalProperties {
     private int maxEpisodes = 5;
 
     /**
+     * Maximum number of project-scoped episodic events to fetch per request.
+     */
+    private int maxProjectEpisodeFetch = 5;
+
+    /**
      * Maximum number of characters kept from the conversation slice.
      */
     private int conversationSliceMaxCharacters = 4000;

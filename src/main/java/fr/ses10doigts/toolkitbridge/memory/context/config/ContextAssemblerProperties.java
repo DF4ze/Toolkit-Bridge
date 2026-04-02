@@ -21,4 +21,9 @@ public class ContextAssemblerProperties {
      * Maximum number of characters in the final context.
      */
     private int maxCharacters = 15000;
+
+    /**
+     * Maximum number of episode summaries in the context.
+     */
+    private int maxEpisodes = 5;
 }

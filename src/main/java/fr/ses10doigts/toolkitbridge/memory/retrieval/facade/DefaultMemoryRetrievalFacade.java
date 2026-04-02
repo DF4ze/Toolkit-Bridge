@@ -4,6 +4,8 @@ import fr.ses10doigts.toolkitbridge.memory.context.model.ContextRequest;
 import fr.ses10doigts.toolkitbridge.memory.conversation.model.ConversationMemoryKey;
 import fr.ses10doigts.toolkitbridge.memory.conversation.port.ConversationMemoryService;
 import fr.ses10doigts.toolkitbridge.memory.episodic.model.EpisodeEvent;
+import fr.ses10doigts.toolkitbridge.memory.episodic.model.EpisodeScope;
+import fr.ses10doigts.toolkitbridge.memory.episodic.model.EpisodeStatus;
 import fr.ses10doigts.toolkitbridge.memory.episodic.service.EpisodicMemoryService;
 import fr.ses10doigts.toolkitbridge.memory.retrieval.config.MemoryRetrievalProperties;
 import fr.ses10doigts.toolkitbridge.memory.retrieval.model.MemoryQuery;
@@ -18,6 +20,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -35,6 +38,11 @@ public class DefaultMemoryRetrievalFacade implements MemoryRetrievalFacade {
             MemoryType.FACT,
             MemoryType.CONTEXT,
             MemoryType.DECISION
+    );
+
+    private static final Set<EpisodeStatus> ALLOWED_EPISODE_STATUSES = Set.of(
+            EpisodeStatus.SUCCESS,
+            EpisodeStatus.FAILURE
     );
 
     private final RuleService ruleService;
@@ -63,10 +71,8 @@ public class DefaultMemoryRetrievalFacade implements MemoryRetrievalFacade {
                 Math.max(1, properties.getMaxSemanticMemories())
         ));
 
-        List<RetrievedMemories.EpisodeSummary> episodicMemories = episodicMemoryService.findRecent(
-                        contextRequest.agentId(),
-                        Math.max(1, properties.getMaxEpisodes())
-                ).stream()
+        List<RetrievedMemories.EpisodeSummary> episodicMemories = collectEpisodeEvents(contextRequest)
+                .stream()
                 .map(this::summarizeEpisode)
                 .toList();
 
@@ -93,6 +99,53 @@ public class DefaultMemoryRetrievalFacade implements MemoryRetrievalFacade {
                 event.getScope() == null ? null : event.getScope().name(),
                 event.getScopeId()
         );
+    }
+
+    private List<EpisodeEvent> collectEpisodeEvents(ContextRequest contextRequest) {
+        int limit = Math.max(1, properties.getMaxEpisodes());
+        LinkedHashSet<EpisodeEvent> events = new LinkedHashSet<>();
+
+        addEvents(events, episodicMemoryService.findRecent(contextRequest.agentId(), limit), contextRequest);
+
+        if (contextRequest.projectId() != null) {
+            addEvents(events, episodicMemoryService.findRecentByScope(
+                    contextRequest.agentId(),
+                    EpisodeScope.PROJECT,
+                    Math.max(1, properties.getMaxProjectEpisodeFetch())
+            ), contextRequest);
+        }
+
+        return events.stream().limit(limit).toList();
+    }
+
+    private void addEvents(LinkedHashSet<EpisodeEvent> accumulator,
+                           List<EpisodeEvent> source,
+                           ContextRequest contextRequest) {
+        if (source == null) {
+            return;
+        }
+        for (EpisodeEvent event : source) {
+            if (shouldIncludeEpisode(event, contextRequest)) {
+                accumulator.add(event);
+            }
+        }
+    }
+
+    private boolean shouldIncludeEpisode(EpisodeEvent event, ContextRequest contextRequest) {
+        if (event == null || event.getAgentId() == null) {
+            return false;
+        }
+        if (!event.getAgentId().equals(contextRequest.agentId())) {
+            return false;
+        }
+        if (!ALLOWED_EPISODE_STATUSES.contains(event.getStatus())) {
+            return false;
+        }
+        if (event.getScope() == EpisodeScope.PROJECT) {
+            return contextRequest.projectId() != null &&
+                    contextRequest.projectId().equals(event.getScopeId());
+        }
+        return true;
     }
 
     private String trimConversationSlice(String slice, int maxCharacters) {

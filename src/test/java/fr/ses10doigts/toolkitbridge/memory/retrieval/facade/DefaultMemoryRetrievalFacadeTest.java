@@ -23,6 +23,7 @@ import fr.ses10doigts.toolkitbridge.memory.semantic.model.MemoryStatus;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -72,6 +73,8 @@ class DefaultMemoryRetrievalFacadeTest {
         episode.setDetails("detail");
         episode.setCreatedAt(Instant.parse("2025-01-01T00:00:00Z"));
         when(episodicMemoryService.findRecent("agent-1", 1)).thenReturn(List.of(episode));
+        when(episodicMemoryService.findRecentByScope("agent-1", EpisodeScope.PROJECT, 5))
+                .thenReturn(List.of());
 
         when(conversationMemoryService.buildContext(any(ConversationMemoryKey.class)))
                 .thenReturn("conversation-slice");
@@ -114,6 +117,80 @@ class DefaultMemoryRetrievalFacadeTest {
         assertThat(result.conversationSlice()).isEqualTo("cdef");
     }
 
+    @Test
+    void includesSuccessAndFailureEpisodesAndFiltersProjects() {
+        RuleService ruleService = mock(RuleService.class);
+        MemoryRetriever memoryRetriever = mock(MemoryRetriever.class);
+        EpisodicMemoryService episodicMemoryService = mock(EpisodicMemoryService.class);
+        ConversationMemoryService conversationMemoryService = mock(ConversationMemoryService.class);
+        MemoryRetrievalProperties properties = new MemoryRetrievalProperties();
+        properties.setMaxEpisodes(3);
+
+        DefaultMemoryRetrievalFacade facade = new DefaultMemoryRetrievalFacade(
+                ruleService,
+                memoryRetriever,
+                episodicMemoryService,
+                conversationMemoryService,
+                properties
+        );
+
+        when(ruleService.getApplicableRules(any(), any())).thenReturn(List.of());
+        when(memoryRetriever.retrieve(any())).thenReturn(List.of());
+        when(conversationMemoryService.buildContext(any())).thenReturn("");
+
+        EpisodeEvent success = episode("success", EpisodeScope.AGENT, null, EpisodeStatus.SUCCESS);
+        EpisodeEvent failure = episode("failure", EpisodeScope.AGENT, null, EpisodeStatus.FAILURE);
+        EpisodeEvent projectMatch = episode("project", EpisodeScope.PROJECT, "project-1", EpisodeStatus.SUCCESS);
+        EpisodeEvent projectMismatch = episode("other", EpisodeScope.PROJECT, "other", EpisodeStatus.SUCCESS);
+
+        when(episodicMemoryService.findRecent("agent-1", 3)).thenReturn(List.of(success, failure));
+        when(episodicMemoryService.findRecentByScope("agent-1", EpisodeScope.PROJECT, 5))
+                .thenReturn(List.of(projectMatch, projectMismatch));
+
+        ContextRequest request = new ContextRequest("agent-1", "conversation-1", "project-1", "msg");
+        RetrievedMemories result = facade.retrieve(request);
+
+        assertThat(result.episodicMemories()).hasSize(3);
+        assertThat(result.episodicMemories()).extracting(RetrievedMemories.EpisodeSummary::summary)
+                .anyMatch(text -> text.contains("success"))
+                .anyMatch(text -> text.contains("failure"));
+        assertThat(result.episodicMemories()).extracting(RetrievedMemories.EpisodeSummary::scopeId)
+                .contains("project-1")
+                .doesNotContain("other");
+    }
+
+    @Test
+    void ignoresOutOfScopeProjectEpisodesWhenProjectMissing() {
+        RuleService ruleService = mock(RuleService.class);
+        MemoryRetriever memoryRetriever = mock(MemoryRetriever.class);
+        EpisodicMemoryService episodicMemoryService = mock(EpisodicMemoryService.class);
+        ConversationMemoryService conversationMemoryService = mock(ConversationMemoryService.class);
+        MemoryRetrievalProperties properties = new MemoryRetrievalProperties();
+        properties.setMaxEpisodes(2);
+
+        DefaultMemoryRetrievalFacade facade = new DefaultMemoryRetrievalFacade(
+                ruleService,
+                memoryRetriever,
+                episodicMemoryService,
+                conversationMemoryService,
+                properties
+        );
+
+        when(ruleService.getApplicableRules(any(), any())).thenReturn(List.of());
+        when(memoryRetriever.retrieve(any())).thenReturn(List.of());
+        when(conversationMemoryService.buildContext(any())).thenReturn("");
+
+        EpisodeEvent projectOnly = episode("project-only", EpisodeScope.PROJECT, "project-1", EpisodeStatus.SUCCESS);
+        when(episodicMemoryService.findRecent("agent-1", 2)).thenReturn(List.of(projectOnly));
+        when(episodicMemoryService.findRecentByScope("agent-1", EpisodeScope.PROJECT, 5))
+                .thenReturn(List.of(projectOnly));
+
+        ContextRequest request = new ContextRequest("agent-1", "conversation-1", null, "msg");
+        RetrievedMemories result = facade.retrieve(request);
+
+        assertThat(result.episodicMemories()).isEmpty();
+    }
+
     private RuleEntry rule(String name) {
         RuleEntry entry = new RuleEntry();
         entry.setScope(RuleScope.AGENT);
@@ -132,5 +209,17 @@ class DefaultMemoryRetrievalFacadeTest {
         entry.setType(MemoryType.FACT);
         entry.setContent(content);
         return entry;
+    }
+
+    private EpisodeEvent episode(String action, EpisodeScope scope, String scopeId, EpisodeStatus status) {
+        EpisodeEvent event = new EpisodeEvent();
+        event.setAgentId("agent-1");
+        event.setScope(scope);
+        event.setScopeId(scopeId);
+        event.setType(EpisodeEventType.RESULT);
+        event.setStatus(status);
+        event.setAction(action);
+        event.setDetails(action + "-details");
+        return event;
     }
 }
