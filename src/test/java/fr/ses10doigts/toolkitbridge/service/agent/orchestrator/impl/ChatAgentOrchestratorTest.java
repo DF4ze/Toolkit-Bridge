@@ -87,6 +87,38 @@ class ChatAgentOrchestratorTest {
     }
 
     @Test
+    void propagatesProjectIdToContextRequest() {
+        AgentDefinition agentDefinition = agentDefinition();
+        AgentRequest request = request("hello", "project-42", Map.of("traceId", "t-1"));
+
+        when(contextAssembler.buildContext(any(ContextRequest.class))).thenReturn("CTX");
+        when(llmService.chat(eq("provider"), eq("model"), eq("system"), eq("CTX"), eq(true)))
+                .thenReturn("assistant response");
+
+        orchestrator.handle(agentDefinition, request);
+
+        ArgumentCaptor<ContextRequest> contextCaptor = ArgumentCaptor.forClass(ContextRequest.class);
+        verify(contextAssembler).buildContext(contextCaptor.capture());
+        assertThat(contextCaptor.getValue().projectId()).isEqualTo("project-42");
+    }
+
+    @Test
+    void usesProjectIdFromContextWhenFieldMissing() {
+        AgentDefinition agentDefinition = agentDefinition();
+        AgentRequest request = request("hello", null, Map.of("projectId", "ctx-99"));
+
+        when(contextAssembler.buildContext(any(ContextRequest.class))).thenReturn("CTX");
+        when(llmService.chat(eq("provider"), eq("model"), eq("system"), eq("CTX"), eq(true)))
+                .thenReturn("assistant response");
+
+        orchestrator.handle(agentDefinition, request);
+
+        ArgumentCaptor<ContextRequest> contextCaptor = ArgumentCaptor.forClass(ContextRequest.class);
+        verify(contextAssembler).buildContext(contextCaptor.capture());
+        assertThat(contextCaptor.getValue().projectId()).isEqualTo("ctx-99");
+    }
+
+    @Test
     void recordsEpisodicFailureAndPropagatesError() {
         AgentDefinition agentDefinition = agentDefinition();
         AgentRequest request = request("hello", Map.of());
@@ -127,11 +159,16 @@ class ChatAgentOrchestratorTest {
     }
 
     private AgentRequest request(String message, Map<String, Object> context) {
+        return request(message, null, context);
+    }
+
+    private AgentRequest request(String message, String projectId, Map<String, Object> context) {
         return new AgentRequest(
                 "agent-1",
                 "telegram",
                 "user-1",
                 "chat-1",
+                projectId,
                 message,
                 context
         );

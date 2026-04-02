@@ -4,6 +4,7 @@ import fr.ses10doigts.toolkitbridge.memory.retrieval.model.MemoryQuery;
 import fr.ses10doigts.toolkitbridge.memory.retrieval.port.MemoryRetriever;
 import fr.ses10doigts.toolkitbridge.memory.scoring.service.MemoryScoringService;
 import fr.ses10doigts.toolkitbridge.memory.semantic.model.MemoryEntry;
+import fr.ses10doigts.toolkitbridge.memory.semantic.model.MemoryScope;
 import fr.ses10doigts.toolkitbridge.memory.semantic.model.MemoryStatus;
 import fr.ses10doigts.toolkitbridge.memory.semantic.repository.MemoryEntryRepository;
 import lombok.RequiredArgsConstructor;
@@ -34,9 +35,18 @@ public class DefaultMemoryRetriever implements MemoryRetriever {
         return candidates.stream()
                 .filter(entry -> entry.getStatus() == MemoryStatus.ACTIVE)
                 .filter(entry -> query.scopes().isEmpty() || query.scopes().contains(entry.getScope()))
+                .filter(entry -> isAllowedProjectEntry(entry, query))
                 .filter(entry -> query.types().isEmpty() || query.types().contains(entry.getType()))
                 .sorted(Comparator.comparingDouble(scoringService::computeScore).reversed())
                 .limit(query.limit())
                 .toList();
+    }
+
+    private boolean isAllowedProjectEntry(MemoryEntry entry, MemoryQuery query) {
+        if (entry.getScope() != MemoryScope.PROJECT) {
+            return true;
+        }
+        String projectId = query.projectId();
+        return projectId != null && projectId.equals(entry.getScopeId());
     }
 }

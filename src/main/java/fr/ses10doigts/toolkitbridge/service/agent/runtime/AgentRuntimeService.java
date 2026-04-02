@@ -131,6 +131,7 @@ public class AgentRuntimeService {
                 CHANNEL_TELEGRAM,
                 String.valueOf(userId),
                 String.valueOf(chatId),
+                null,
                 message.trim(),
                 context
         );

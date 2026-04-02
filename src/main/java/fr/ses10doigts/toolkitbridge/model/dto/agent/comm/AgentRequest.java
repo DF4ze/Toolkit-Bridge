@@ -7,6 +7,7 @@ public record AgentRequest(
         String channelType,
         String channelUserId,
         String channelConversationId,
+        String projectId,
         String message,
         Map<String, Object> context
 ) {

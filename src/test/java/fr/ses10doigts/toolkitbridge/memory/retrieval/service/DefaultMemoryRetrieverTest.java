@@ -91,13 +91,58 @@ class DefaultMemoryRetrieverTest {
                 .hasMessageContaining("query");
     }
 
+    @Test
+    void filtersProjectScopeAccordingToProjectId() {
+        MemoryEntryRepository repository = mock(MemoryEntryRepository.class);
+        MemoryScoringService scoringService = mock(MemoryScoringService.class);
+        DefaultMemoryRetriever retriever = new DefaultMemoryRetriever(repository, scoringService);
+
+        MemoryEntry projectEntry = entry(MemoryScope.PROJECT, MemoryType.FACT, MemoryStatus.ACTIVE, "project-1");
+        MemoryEntry agentEntry = entry(MemoryScope.AGENT, MemoryType.FACT, MemoryStatus.ACTIVE);
+
+        List<MemoryEntry> allEntries = List.of(projectEntry, agentEntry);
+
+        when(repository.searchCandidates("agent-1", MemoryStatus.ACTIVE, null))
+                .thenReturn(allEntries);
+
+        when(scoringService.computeScore(projectEntry)).thenReturn(2.0);
+        when(scoringService.computeScore(agentEntry)).thenReturn(1.0);
+
+        MemoryQuery withProject = new MemoryQuery(
+                "agent-1",
+                "project-1",
+                null,
+                Set.of(MemoryScope.PROJECT),
+                Set.of(MemoryType.FACT),
+                10
+        );
+        List<MemoryEntry> resultWithProject = retriever.retrieve(withProject);
+        assertThat(resultWithProject).containsExactly(projectEntry);
+
+        MemoryQuery withoutProject = new MemoryQuery(
+                "agent-1",
+                null,
+                null,
+                Set.of(MemoryScope.AGENT, MemoryScope.PROJECT),
+                Set.of(MemoryType.FACT),
+                10
+        );
+        List<MemoryEntry> resultWithoutProject = retriever.retrieve(withoutProject);
+        assertThat(resultWithoutProject).containsExactly(agentEntry);
+    }
+
     private MemoryEntry entry(MemoryScope scope, MemoryType type, MemoryStatus status) {
+        return entry(scope, type, status, null);
+    }
+
+    private MemoryEntry entry(MemoryScope scope, MemoryType type, MemoryStatus status, String scopeId) {
         MemoryEntry entry = new MemoryEntry();
         entry.setAgentId("agent-1");
         entry.setScope(scope);
         entry.setType(type);
         entry.setContent("content");
         entry.setStatus(status);
+        entry.setScopeId(scopeId);
         return entry;
     }
 }

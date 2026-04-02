@@ -66,13 +66,14 @@ public class ChatAgentOrchestrator implements AgentOrchestrator {
                 request.message().length());
         log.debug("Orchestrator message preview traceId={} text='{}'", traceId, snippet(request.message()));
 
+        String projectId = extractProjectId(request);
         try {
             appendUserMessage(memoryKey, request, traceId);
 
             String context = contextAssembler.buildContext(new ContextRequest(
                     agentId,
                     conversationId,
-                    null,
+                    projectId,
                     request.message()
             ));
             log.debug("Memory context=\n'{}'", context);
@@ -260,6 +261,7 @@ public class ChatAgentOrchestrator implements AgentOrchestrator {
             putIfNotBlank(metadata, "channelUserId", request.channelUserId());
             putIfNotBlank(metadata, "channelConversationId", request.channelConversationId());
         }
+        putIfNotBlank(metadata, "projectId", extractProjectId(request));
         if (traceId != null && !traceId.isBlank()) {
             metadata.put("traceId", traceId);
         }
@@ -267,6 +269,32 @@ public class ChatAgentOrchestrator implements AgentOrchestrator {
             metadata.put("context", request.context());
         }
         return metadata.isEmpty() ? Map.of() : Map.copyOf(metadata);
+    }
+
+    private String extractProjectId(AgentRequest request) {
+        if (request == null) {
+            return null;
+        }
+        if (request.projectId() != null && !request.projectId().isBlank()) {
+            return request.projectId().trim();
+        }
+        Map<String, Object> context = request.context();
+        if (context == null || context.isEmpty()) {
+            return null;
+        }
+        String candidate = asString(context.get("projectId"));
+        if (candidate != null) {
+            return candidate;
+        }
+        return asString(context.get("project_id"));
+    }
+
+    private String asString(Object value) {
+        if (value == null) {
+            return null;
+        }
+        String text = value.toString().trim();
+        return text.isEmpty() ? null : text;
     }
 
     private void recordEpisodeSuccess(String agentId, String conversationId, String response) {
