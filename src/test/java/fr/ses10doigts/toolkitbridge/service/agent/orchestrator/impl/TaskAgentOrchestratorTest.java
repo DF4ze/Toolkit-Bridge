@@ -21,6 +21,7 @@ import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentRuntime;
 import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentRuntimeState;
 import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentToolAccess;
 import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentWorkspaceScope;
+import fr.ses10doigts.toolkitbridge.service.agent.task.service.TaskFactory;
 import fr.ses10doigts.toolkitbridge.service.llm.LlmService;
 import fr.ses10doigts.toolkitbridge.service.llm.debug.LlmDebugStore;
 import org.junit.jupiter.api.Test;
@@ -59,7 +60,8 @@ class TaskAgentOrchestratorTest {
             new LlmOrchestrationValidator(),
             new OrchestrationRequestContextFactory(),
             new MemoryRequestFactory(),
-            new OrchestrationResponseSanitizer()
+            new OrchestrationResponseSanitizer(),
+            new TaskFactory()
     );
 
     @Test
@@ -69,7 +71,7 @@ class TaskAgentOrchestratorTest {
 
         when(memoryFacade.buildContext(any(MemoryContextRequest.class)))
                 .thenReturn(new MemoryContext("CTX", java.util.List.of(7L)));
-        when(taskPromptBuilder.build(any(), any(), any(), any()))
+        when(taskPromptBuilder.build(any(), any(), any(), any(), any()))
                 .thenReturn(new TaskPrompt("TASK_SYSTEM", "TASK_USER"));
         when(llmService.chat(eq("provider"), eq("model"), eq("TASK_SYSTEM"), eq("TASK_USER"), eq(true)))
                 .thenReturn("done");
@@ -79,7 +81,7 @@ class TaskAgentOrchestratorTest {
         assertThat(response.error()).isFalse();
         assertThat(response.message()).isEqualTo("done");
         verify(memoryFacade).onUserMessage(any(MemoryContextRequest.class));
-        verify(taskPromptBuilder).build(any(), any(), any(), any());
+        verify(taskPromptBuilder).build(any(), any(), any(), any(), any());
         verify(memoryFacade).onAssistantMessage(any(MemoryContextRequest.class), eq("done"));
         verify(memoryFacade).markContextMemoriesUsed(eq(java.util.List.of(7L)));
     }
@@ -91,7 +93,7 @@ class TaskAgentOrchestratorTest {
 
         when(memoryFacade.buildContext(any(MemoryContextRequest.class)))
                 .thenReturn(new MemoryContext("CTX", java.util.List.of()));
-        when(taskPromptBuilder.build(any(), any(), any(), any()))
+        when(taskPromptBuilder.build(any(), any(), any(), any(), any()))
                 .thenReturn(new TaskPrompt("TASK_SYSTEM", "TASK_USER"));
         when(llmService.chat(eq("provider"), eq("model"), eq("TASK_SYSTEM"), eq("TASK_USER"), eq(true)))
                 .thenThrow(new LlmProviderException("boom"));

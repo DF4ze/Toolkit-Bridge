@@ -1,0 +1,111 @@
+2.preAnalyse.md exécuté
+Analyse faite sur le dépôt avant implémentation (classes impactées, points sensibles d’architecture, risques, plan). Puis exécution des phases 3.A et 3.B.
+
+3.A implémenté (TaskModel minimal et extensible)
+Choix structurants :
+
+Nouveau vrai modèle métier Task (pas un DTO d’orchestrateur), immuable, avec validations de base.
+Champs de base demandés couverts : taskId, objective, initiator, assignedAgentId, parentTaskId, metadata.
+Point d’accroche artefacts ajouté via TaskArtifactRef (+ liste artifacts sur Task).
+Corrélation tracing préparée via traceId dans Task.
+Clarification des entrées métier via TaskEntryPointPolicy et TaskFactory :
+CHAT reste conversationnel.
+TASK crée une tâche orientée objectif.
+la délégation crée une sous-tâche (parentTaskId requis).
+3.B implémenté (cycle de vie V1 + transitions centralisées)
+Choix structurants :
+
+Statuts V1 ajoutés : CREATED, RUNNING, WAITING, DONE, FAILED, CANCELLED.
+Validation centralisée des transitions dans TaskLifecycle.
+Blocage explicite des transitions invalides via InvalidTaskStatusTransitionException.
+API métier unique côté Task pour changer d’état : transitionTo(...).
+États terminaux fermés (pas de reprise implicite depuis DONE/FAILED/CANCELLED).
+Tests ajoutés/ajustés
+
+Ajusté : TaskAgentOrchestratorTest.java
+Ajouté : TaskTest.java
+Ajouté : TaskLifecycleTest.java
+Ajouté : TaskFactoryTest.java
+Commande exécutée :
+
+./mvnw -q "-Dtest=TaskAgentOrchestratorTest,TaskTest,TaskLifecycleTest,TaskFactoryTest" test (OK)
+Fichiers créés/modifiés
+Créés :
+
+Task.java
+TaskStatus.java
+TaskLifecycle.java
+InvalidTaskStatusTransitionException.java
+TaskArtifactRef.java
+TaskEntryPoint.java
+TaskFactory.java
+TaskEntryPointPolicy.java
+TaskTest.java
+TaskLifecycleTest.java
+TaskFactoryTest.java
+Modifiés :
+
+TaskAgentOrchestrator.java
+TaskPromptBuilder.java
+DefaultTaskPromptBuilder.java
+TaskAgentOrchestratorTest.java
+Points volontairement laissés ouverts
+
+Persistance des tâches (repo/JPA) non introduite.
+Historique d’état (audit trail détaillé) non introduit.
+Bus inter-agent, délégation distribuée, orchestration avancée non introduits.
+Dashboard/supervision avancée non introduits.
+Mécanismes de retry/reprise automatique avancés non introduits.
+
+
+
+Après relecture :
+Faiblesses / points discutables (revue critique)
+
+[P1] Couplage trop fort du factory de domaine au runtime/orchestrator dans l’implémentation initiale (AgentRuntime, AgentRequest, OrchestrationRequestContext) : cela mélangeait domaine Task et couche d’orchestration, et aurait freiné les phases futures.
+
+Corrigé dans TaskFactory.java
+[P2] Invariance incomplète du modèle Task : une task root pouvait porter un parentTaskId, incohérent pour un point d’entrée TASK_ORCHESTRATOR.
+
+Corrigé dans Task.java
+[P3] Tests de factory trop “intégration-runtime” pour un composant purement métier (beaucoup de mocks non utiles), lisibilité moyenne.
+
+Corrigé dans TaskFactoryTest.java
+[P3] Composant TaskEntryPointPolicy ad hoc, faible valeur, ajoutait du couplage à AgentOrchestratorType dans la couche task.
+
+Supprimé (fichier retiré)
+Corrections utiles proposées
+
+Rendre TaskFactory indépendant du runtime/orchestrator (entrées métier simples).
+
+Renforcer les invariants de Task sur entryPoint/parentTaskId.
+
+Simplifier les tests TaskFactory pour tester uniquement la logique métier.
+
+Supprimer le composant policy intermédiaire non essentiel.
+
+Corrections réellement appliquées
+
+TaskFactory découplé de l’orchestrateur/runtime, API métier simple :
+
+TaskFactory.java
+TaskAgentOrchestrator adapte les données runtime vers la factory (découplage propre des couches) :
+
+TaskAgentOrchestrator.java
+Invariance Task renforcée pour root/subtask :
+
+Task.java
+Tests adaptés/renforcés :
+
+TaskFactoryTest.java
+TaskTest.java
+TaskAgentOrchestratorTest.java
+Périmètre respecté
+
+Aucune nouvelle feature hors 3.A/3.B.
+Pas d’ajout de workflow distribué, bus, dashboard, ou supervision avancée.
+Résumé final propre
+
+L’architecture est maintenant plus saine sur les axes demandés : meilleure séparation runtime/domaine, modèle Task plus robuste, moins de logique ad hoc, tests plus utiles.
+Le découplage orchestrator/mémoire/tooling/policy/workspace n’a pas été dégradé ; au contraire, la création de tâche est désormais mieux isolée dans le domaine.
+Validation effectuée avec tests ciblés : TaskAgentOrchestratorTest, TaskTest, TaskLifecycleTest, TaskFactoryTest (OK).

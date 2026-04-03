@@ -4,6 +4,7 @@ import fr.ses10doigts.toolkitbridge.memory.facade.model.MemoryContext;
 import fr.ses10doigts.toolkitbridge.model.dto.agent.comm.AgentRequest;
 import fr.ses10doigts.toolkitbridge.service.agent.orchestrator.model.OrchestrationRequestContext;
 import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentRuntime;
+import fr.ses10doigts.toolkitbridge.service.agent.task.model.Task;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -13,6 +14,7 @@ public class DefaultTaskPromptBuilder implements TaskPromptBuilder {
     public TaskPrompt build(AgentRuntime runtime,
                             AgentRequest request,
                             OrchestrationRequestContext context,
+                            Task task,
                             MemoryContext memoryContext) {
 
         String systemPrompt = runtime.definition().systemPrompt() + "\n\n"
@@ -23,7 +25,12 @@ public class DefaultTaskPromptBuilder implements TaskPromptBuilder {
 
         // Extension point for future task model enrichment (subtasks, delegates, planners).
         String userPrompt = "Task objective:\n"
-                + context.userMessage()
+                + task.objective()
+                + "\n\nTask metadata:\n"
+                + "taskId=" + task.taskId()
+                + ", parentTaskId=" + (task.parentTaskId() == null ? "none" : task.parentTaskId())
+                + ", traceId=" + task.traceId()
+                + ", entryPoint=" + task.entryPoint()
                 + "\n\nExecution contract:\n"
                 + "1. Restate the objective briefly.\n"
                 + "2. Provide a concrete step-by-step execution flow.\n"

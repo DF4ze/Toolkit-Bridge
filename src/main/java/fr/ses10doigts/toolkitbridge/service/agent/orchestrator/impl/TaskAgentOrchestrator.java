@@ -18,6 +18,8 @@ import fr.ses10doigts.toolkitbridge.service.agent.orchestrator.support.Orchestra
 import fr.ses10doigts.toolkitbridge.service.agent.orchestrator.task.TaskPrompt;
 import fr.ses10doigts.toolkitbridge.service.agent.orchestrator.task.TaskPromptBuilder;
 import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentRuntime;
+import fr.ses10doigts.toolkitbridge.service.agent.task.model.Task;
+import fr.ses10doigts.toolkitbridge.service.agent.task.service.TaskFactory;
 import fr.ses10doigts.toolkitbridge.service.llm.LlmService;
 import fr.ses10doigts.toolkitbridge.service.llm.debug.LlmDebugStore;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +38,7 @@ public class TaskAgentOrchestrator implements AgentOrchestrator {
     private final OrchestrationRequestContextFactory contextFactory;
     private final MemoryRequestFactory memoryRequestFactory;
     private final OrchestrationResponseSanitizer responseSanitizer;
+    private final TaskFactory taskFactory;
 
     @Override
     public AgentOrchestratorType getType() {
@@ -59,12 +62,20 @@ public class TaskAgentOrchestrator implements AgentOrchestrator {
 
         MemoryContextRequest memoryRequest = memoryRequestFactory.from(definition, request, context);
         TaskPrompt prompt = null;
+        Task task = null;
 
         try {
             memoryFacade.onUserMessage(memoryRequest);
             MemoryContext memoryContext = memoryFacade.buildContext(memoryRequest);
+            task = taskFactory.createObjectiveTask(
+                    context.userMessage(),
+                    request.channelUserId(),
+                    runtime.agentId(),
+                    context.traceId(),
+                    request.context()
+            );
 
-            prompt = taskPromptBuilder.build(runtime, request, context, memoryContext);
+            prompt = taskPromptBuilder.build(runtime, request, context, task, memoryContext);
 
             long llmStartNanos = System.nanoTime();
             String llmResponse = llmService.chat(
