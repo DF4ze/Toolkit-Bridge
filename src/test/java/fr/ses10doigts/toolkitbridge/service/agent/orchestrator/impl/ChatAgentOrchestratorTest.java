@@ -9,6 +9,12 @@ import fr.ses10doigts.toolkitbridge.model.dto.agent.comm.AgentRequest;
 import fr.ses10doigts.toolkitbridge.model.dto.agent.comm.AgentResponse;
 import fr.ses10doigts.toolkitbridge.model.dto.agent.definition.AgentDefinition;
 import fr.ses10doigts.toolkitbridge.model.dto.agent.definition.AgentOrchestratorType;
+import fr.ses10doigts.toolkitbridge.model.dto.agent.definition.AgentRole;
+import fr.ses10doigts.toolkitbridge.service.agent.policy.AgentPolicy;
+import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentRuntime;
+import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentRuntimeState;
+import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentToolAccess;
+import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentWorkspaceScope;
 import fr.ses10doigts.toolkitbridge.service.llm.LlmService;
 import fr.ses10doigts.toolkitbridge.service.llm.debug.LlmDebugStore;
 import org.junit.jupiter.api.Test;
@@ -18,6 +24,7 @@ import org.mockito.InOrder;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Map;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -30,10 +37,20 @@ class ChatAgentOrchestratorTest {
     private final LlmService llmService = mock(LlmService.class);
     private final MemoryFacade memoryFacade = mock(MemoryFacade.class);
     private final LlmDebugStore llmDebugStore = mock(LlmDebugStore.class);
+    private final AgentPolicy policy = new AgentPolicy() {
+        @Override
+        public String name() {
+            return "test";
+        }
+
+        @Override
+        public boolean allowTools(AgentRuntime runtime, AgentRequest request) {
+            return true;
+        }
+    };
 
     private final ChatAgentOrchestrator orchestrator = new ChatAgentOrchestrator(
             llmService,
-            memoryFacade,
             llmDebugStore
     );
 
@@ -47,7 +64,7 @@ class ChatAgentOrchestratorTest {
         when(llmService.chat(eq("provider"), eq("model"), eq("system"), eq("CTX"), eq(true)))
                 .thenReturn("assistant response");
 
-        AgentResponse response = orchestrator.handle(agentDefinition, request);
+        AgentResponse response = orchestrator.handle(runtime(agentDefinition), request);
 
         assertThat(response.error()).isFalse();
         assertThat(response.message()).isEqualTo("assistant response");
@@ -69,7 +86,7 @@ class ChatAgentOrchestratorTest {
                 .thenReturn(new MemoryContext("CTX", java.util.List.of()));
         when(llmService.chat(any(), any(), any(), any(), anyBoolean())).thenReturn("assistant response");
 
-        orchestrator.handle(agentDefinition, request);
+        orchestrator.handle(runtime(agentDefinition), request);
 
         ArgumentCaptor<MemoryContextRequest> captor = ArgumentCaptor.forClass(MemoryContextRequest.class);
         verify(memoryFacade).onUserMessage(captor.capture());
@@ -86,7 +103,7 @@ class ChatAgentOrchestratorTest {
         when(llmService.chat(eq("provider"), eq("model"), eq("system"), eq("CTX"), eq(true)))
                 .thenThrow(new LlmProviderException("boom"));
 
-        AgentResponse response = orchestrator.handle(agentDefinition, request);
+        AgentResponse response = orchestrator.handle(runtime(agentDefinition), request);
 
         assertThat(response.error()).isTrue();
         verify(memoryFacade).onToolExecution(any(MemoryContextRequest.class), any(ToolExecutionRecord.class));
@@ -97,11 +114,25 @@ class ChatAgentOrchestratorTest {
                 "agent-1",
                 "Agent",
                 "bot-1",
+                AgentRole.ASSISTANT,
                 AgentOrchestratorType.CHAT,
                 "provider",
                 "model",
                 "system",
+                "default",
                 true
+        );
+    }
+
+    private AgentRuntime runtime(AgentDefinition definition) {
+        return new AgentRuntime(
+                definition,
+                orchestrator,
+                memoryFacade,
+                new AgentToolAccess(true, Set.of("run_command")),
+                policy,
+                new AgentWorkspaceScope(null, null),
+                new AgentRuntimeState("trace", "telegram", "user-1", "chat-1", java.time.Instant.now())
         );
     }
 

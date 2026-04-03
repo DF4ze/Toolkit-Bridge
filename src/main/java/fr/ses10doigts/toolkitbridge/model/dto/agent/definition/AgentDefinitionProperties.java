@@ -27,5 +27,11 @@ public class AgentDefinitionProperties {
     @NotBlank
     private String systemPrompt;
 
+    @NotBlank
+    private String role = "ASSISTANT";
+
+    @NotBlank
+    private String policyName = "default";
+
     private Boolean toolsEnabled = true;
 }

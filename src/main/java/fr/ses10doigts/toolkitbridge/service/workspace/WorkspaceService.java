@@ -37,7 +37,11 @@ public class WorkspaceService {
 
     public Path getCurrentAgentWorkspace() throws IOException {
         AuthenticatedAgent agent = currentAgentService.getCurrentAgent();
-        String safeAgentFolderName = WorkspacePathSanitizer.sanitizeAgentFolderName(agent.agentIdent());
+        return getAgentWorkspace(agent.agentIdent());
+    }
+
+    public Path getAgentWorkspace(String agentIdent) throws IOException {
+        String safeAgentFolderName = WorkspacePathSanitizer.sanitizeAgentFolderName(agentIdent);
 
         Path agentWorkspace = agentsRoot.resolve(safeAgentFolderName).normalize();
 

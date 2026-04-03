@@ -11,6 +11,7 @@ import fr.ses10doigts.toolkitbridge.model.dto.agent.comm.AgentResponse;
 import fr.ses10doigts.toolkitbridge.model.dto.agent.definition.AgentDefinition;
 import fr.ses10doigts.toolkitbridge.model.dto.agent.definition.AgentOrchestratorType;
 import fr.ses10doigts.toolkitbridge.service.agent.orchestrator.AgentOrchestrator;
+import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentRuntime;
 import fr.ses10doigts.toolkitbridge.service.llm.LlmService;
 import fr.ses10doigts.toolkitbridge.service.llm.debug.LlmDebugStore;
 import lombok.RequiredArgsConstructor;
@@ -28,7 +29,6 @@ public class ChatAgentOrchestrator implements AgentOrchestrator {
     private static final int MAX_LLM_RESPONSE_LENGTH = 20_000;
 
     private final LlmService llmService;
-    private final MemoryFacade memoryFacade;
     private final LlmDebugStore llmDebugStore;
 
     @Override
@@ -37,8 +37,12 @@ public class ChatAgentOrchestrator implements AgentOrchestrator {
     }
 
     @Override
-    public AgentResponse handle(AgentDefinition agentDefinition, AgentRequest request) {
-        validate(agentDefinition, request);
+    public AgentResponse handle(AgentRuntime runtime, AgentRequest request) {
+        validate(runtime, request);
+
+        AgentDefinition agentDefinition = runtime.definition();
+        MemoryFacade memoryFacade = runtime.memory();
+        boolean toolsEnabled = runtime.policy().allowTools(runtime, request);
 
         String agentId = resolveAgentId(agentDefinition, request);
         String conversationId = resolveConversationId(request, agentId);
@@ -75,7 +79,7 @@ public class ChatAgentOrchestrator implements AgentOrchestrator {
                     agentDefinition.model(),
                     agentDefinition.systemPrompt(),
                     memoryContext.text(),
-                    agentDefinition.toolsEnabled()
+                    toolsEnabled
             );
             log.info("LLM response received traceId={} length={} durationMs={}",
                     traceId,
@@ -86,7 +90,7 @@ public class ChatAgentOrchestrator implements AgentOrchestrator {
                     agentId,
                     agentDefinition.llmProvider(),
                     agentDefinition.model(),
-                    agentDefinition.toolsEnabled(),
+                    toolsEnabled,
                     traceId,
                     agentDefinition.systemPrompt(),
                     memoryContext.text(),
@@ -115,7 +119,7 @@ public class ChatAgentOrchestrator implements AgentOrchestrator {
                     agentId,
                     agentDefinition.llmProvider(),
                     agentDefinition.model(),
-                    agentDefinition.toolsEnabled(),
+                    toolsEnabled,
                     traceId,
                     agentDefinition.systemPrompt(),
                     request.message(),
@@ -130,7 +134,7 @@ public class ChatAgentOrchestrator implements AgentOrchestrator {
                     agentId,
                     agentDefinition.llmProvider(),
                     agentDefinition.model(),
-                    agentDefinition.toolsEnabled(),
+                    toolsEnabled,
                     traceId,
                     agentDefinition.systemPrompt(),
                     request.message(),
@@ -143,12 +147,16 @@ public class ChatAgentOrchestrator implements AgentOrchestrator {
         }
     }
 
-    private void validate(AgentDefinition agentDefinition, AgentRequest request) {
-        if (agentDefinition == null) {
-            throw new AgentException("agentDefinition must not be null");
+    private void validate(AgentRuntime runtime, AgentRequest request) {
+        if (runtime == null) {
+            throw new AgentException("runtime must not be null");
         }
         if (request == null) {
             throw new AgentException("request must not be null");
+        }
+        AgentDefinition agentDefinition = runtime.definition();
+        if (agentDefinition == null) {
+            throw new AgentException("runtime definition must not be null");
         }
         if (agentDefinition.name() == null || agentDefinition.name().isBlank()) {
             throw new AgentException("Agent LLM provider name must not be blank");

@@ -8,6 +8,12 @@ import fr.ses10doigts.toolkitbridge.model.dto.agent.comm.AgentRequest;
 import fr.ses10doigts.toolkitbridge.model.dto.agent.comm.AgentResponse;
 import fr.ses10doigts.toolkitbridge.model.dto.agent.definition.AgentDefinition;
 import fr.ses10doigts.toolkitbridge.model.dto.agent.definition.AgentOrchestratorType;
+import fr.ses10doigts.toolkitbridge.model.dto.agent.definition.AgentRole;
+import fr.ses10doigts.toolkitbridge.service.agent.policy.AgentPolicy;
+import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentRuntime;
+import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentRuntimeState;
+import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentToolAccess;
+import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentWorkspaceScope;
 import fr.ses10doigts.toolkitbridge.service.llm.LlmService;
 import fr.ses10doigts.toolkitbridge.service.llm.debug.LlmDebugStore;
 import org.junit.jupiter.api.Test;
@@ -15,6 +21,7 @@ import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -30,24 +37,27 @@ class ChatAgentOrchestratorMemoryIntegrationTest {
         InMemoryMemoryFacade memoryFacade = new InMemoryMemoryFacade();
         LlmDebugStore llmDebugStore = mock(LlmDebugStore.class);
 
-        ChatAgentOrchestrator orchestrator = new ChatAgentOrchestrator(llmService, memoryFacade, llmDebugStore);
+        ChatAgentOrchestrator orchestrator = new ChatAgentOrchestrator(llmService, llmDebugStore);
 
         AgentDefinition definition = new AgentDefinition(
                 "agent-1",
                 "Agent",
                 "bot-1",
+                AgentRole.ASSISTANT,
                 AgentOrchestratorType.CHAT,
                 "provider",
                 "model",
                 "system",
+                "default",
                 true
         );
 
         when(llmService.chat(eq("provider"), eq("model"), eq("system"), any(), eq(true)))
                 .thenReturn("ok");
 
-        AgentResponse first = orchestrator.handle(definition, request("first message"));
-        AgentResponse second = orchestrator.handle(definition, request("second message"));
+        AgentRuntime runtime = runtime(orchestrator, definition, memoryFacade);
+        AgentResponse first = orchestrator.handle(runtime, request("first message"));
+        AgentResponse second = orchestrator.handle(runtime, request("second message"));
 
         assertThat(first.error()).isFalse();
         assertThat(second.error()).isFalse();
@@ -57,6 +67,29 @@ class ChatAgentOrchestratorMemoryIntegrationTest {
 
     private AgentRequest request(String message) {
         return new AgentRequest("agent-1", "telegram", "user-1", "chat-1", null, message, Map.of());
+    }
+
+    private AgentRuntime runtime(ChatAgentOrchestrator orchestrator, AgentDefinition definition, MemoryFacade memoryFacade) {
+        AgentPolicy policy = new AgentPolicy() {
+            @Override
+            public String name() {
+                return "test";
+            }
+
+            @Override
+            public boolean allowTools(AgentRuntime runtime, AgentRequest request) {
+                return true;
+            }
+        };
+        return new AgentRuntime(
+                definition,
+                orchestrator,
+                memoryFacade,
+                new AgentToolAccess(true, Set.of("run_command")),
+                policy,
+                new AgentWorkspaceScope(null, null),
+                new AgentRuntimeState("trace", "telegram", "user-1", "chat-1", java.time.Instant.now())
+        );
     }
 
     private static class InMemoryMemoryFacade implements MemoryFacade {
