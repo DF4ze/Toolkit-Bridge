@@ -12,6 +12,8 @@ import fr.ses10doigts.toolkitbridge.model.dto.agent.definition.AgentOrchestrator
 import fr.ses10doigts.toolkitbridge.model.dto.agent.definition.AgentRole;
 import fr.ses10doigts.toolkitbridge.service.agent.orchestrator.support.OrchestrationRequestContextFactory;
 import fr.ses10doigts.toolkitbridge.service.agent.orchestrator.support.OrchestrationResponseSanitizer;
+import fr.ses10doigts.toolkitbridge.service.agent.orchestrator.task.TaskPrompt;
+import fr.ses10doigts.toolkitbridge.service.agent.orchestrator.task.TaskPromptBuilder;
 import fr.ses10doigts.toolkitbridge.service.agent.policy.AgentPolicy;
 import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentRuntime;
 import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentRuntimeState;
@@ -20,10 +22,6 @@ import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentWorkspaceSc
 import fr.ses10doigts.toolkitbridge.service.llm.LlmService;
 import fr.ses10doigts.toolkitbridge.service.llm.debug.LlmDebugStore;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
-import org.mockito.InOrder;
-import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Map;
 import java.util.Set;
@@ -33,12 +31,13 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
-@ExtendWith(MockitoExtension.class)
-class ChatAgentOrchestratorTest {
+class TaskAgentOrchestratorTest {
 
     private final LlmService llmService = mock(LlmService.class);
     private final MemoryFacade memoryFacade = mock(MemoryFacade.class);
     private final LlmDebugStore llmDebugStore = mock(LlmDebugStore.class);
+    private final TaskPromptBuilder taskPromptBuilder = mock(TaskPromptBuilder.class);
+
     private final AgentPolicy policy = new AgentPolicy() {
         @Override
         public String name() {
@@ -51,63 +50,49 @@ class ChatAgentOrchestratorTest {
         }
     };
 
-    private final ChatAgentOrchestrator orchestrator = new ChatAgentOrchestrator(
+    private final TaskAgentOrchestrator orchestrator = new TaskAgentOrchestrator(
             llmService,
             llmDebugStore,
+            taskPromptBuilder,
             new OrchestrationRequestContextFactory(),
             new OrchestrationResponseSanitizer()
     );
 
     @Test
-    void runsMemoryFlowBeforeAndAfterLlm() {
-        AgentDefinition agentDefinition = agentDefinition();
-        AgentRequest request = request("hello", Map.of("traceId", "t-1"));
+    void runsTaskFlowWithExtensionPromptBuilder() {
+        AgentDefinition definition = agentDefinition();
+        AgentRequest request = request("build release checklist", Map.of("traceId", "trace-1"));
 
         when(memoryFacade.buildContext(any(MemoryContextRequest.class)))
-                .thenReturn(new MemoryContext("CTX", java.util.List.of(10L)));
-        when(llmService.chat(eq("provider"), eq("model"), eq("system"), eq("CTX"), eq(true)))
-                .thenReturn("assistant response");
+                .thenReturn(new MemoryContext("CTX", java.util.List.of(7L)));
+        when(taskPromptBuilder.build(any(), any(), any(), any()))
+                .thenReturn(new TaskPrompt("TASK_SYSTEM", "TASK_USER"));
+        when(llmService.chat(eq("provider"), eq("model"), eq("TASK_SYSTEM"), eq("TASK_USER"), eq(true)))
+                .thenReturn("done");
 
-        AgentResponse response = orchestrator.handle(runtime(agentDefinition), request);
+        AgentResponse response = orchestrator.handle(runtime(definition), request);
 
         assertThat(response.error()).isFalse();
-        assertThat(response.message()).isEqualTo("assistant response");
-
-        InOrder inOrder = inOrder(memoryFacade, llmService);
-        inOrder.verify(memoryFacade).onUserMessage(any(MemoryContextRequest.class));
-        inOrder.verify(memoryFacade).buildContext(any(MemoryContextRequest.class));
-        inOrder.verify(llmService).chat(eq("provider"), eq("model"), eq("system"), eq("CTX"), eq(true));
-        inOrder.verify(memoryFacade).onAssistantMessage(any(MemoryContextRequest.class), eq("assistant response"));
-        inOrder.verify(memoryFacade).markContextMemoriesUsed(eq(java.util.List.of(10L)));
+        assertThat(response.message()).isEqualTo("done");
+        verify(memoryFacade).onUserMessage(any(MemoryContextRequest.class));
+        verify(taskPromptBuilder).build(any(), any(), any(), any());
+        verify(memoryFacade).onAssistantMessage(any(MemoryContextRequest.class), eq("done"));
+        verify(memoryFacade).markContextMemoriesUsed(eq(java.util.List.of(7L)));
     }
 
     @Test
-    void propagatesProjectIdToMemoryRequest() {
-        AgentDefinition agentDefinition = agentDefinition();
-        AgentRequest request = request("hello", "project-42", Map.of("traceId", "t-1"));
+    void recordsFailureWhenProviderFails() {
+        AgentDefinition definition = agentDefinition();
+        AgentRequest request = request("ship release", Map.of());
 
         when(memoryFacade.buildContext(any(MemoryContextRequest.class)))
                 .thenReturn(new MemoryContext("CTX", java.util.List.of()));
-        when(llmService.chat(any(), any(), any(), any(), anyBoolean())).thenReturn("assistant response");
-
-        orchestrator.handle(runtime(agentDefinition), request);
-
-        ArgumentCaptor<MemoryContextRequest> captor = ArgumentCaptor.forClass(MemoryContextRequest.class);
-        verify(memoryFacade).onUserMessage(captor.capture());
-        assertThat(captor.getValue().projectId()).isEqualTo("project-42");
-    }
-
-    @Test
-    void recordsFailureThroughToolExecution() {
-        AgentDefinition agentDefinition = agentDefinition();
-        AgentRequest request = request("hello", Map.of());
-
-        when(memoryFacade.buildContext(any(MemoryContextRequest.class)))
-                .thenReturn(new MemoryContext("CTX", java.util.List.of()));
-        when(llmService.chat(eq("provider"), eq("model"), eq("system"), eq("CTX"), eq(true)))
+        when(taskPromptBuilder.build(any(), any(), any(), any()))
+                .thenReturn(new TaskPrompt("TASK_SYSTEM", "TASK_USER"));
+        when(llmService.chat(eq("provider"), eq("model"), eq("TASK_SYSTEM"), eq("TASK_USER"), eq(true)))
                 .thenThrow(new LlmProviderException("boom"));
 
-        AgentResponse response = orchestrator.handle(runtime(agentDefinition), request);
+        AgentResponse response = orchestrator.handle(runtime(definition), request);
 
         assertThat(response.error()).isTrue();
         verify(memoryFacade).onToolExecution(any(MemoryContextRequest.class), any(ToolExecutionRecord.class));
@@ -119,7 +104,7 @@ class ChatAgentOrchestratorTest {
                 "Agent",
                 "bot-1",
                 AgentRole.ASSISTANT,
-                AgentOrchestratorType.CHAT,
+                AgentOrchestratorType.TASK,
                 "provider",
                 "model",
                 "system",
@@ -141,16 +126,12 @@ class ChatAgentOrchestratorTest {
     }
 
     private AgentRequest request(String message, Map<String, Object> context) {
-        return request(message, null, context);
-    }
-
-    private AgentRequest request(String message, String projectId, Map<String, Object> context) {
         return new AgentRequest(
                 "agent-1",
                 "telegram",
                 "user-1",
                 "chat-1",
-                projectId,
+                null,
                 message,
                 context
         );

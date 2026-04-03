@@ -4,7 +4,7 @@ import fr.ses10doigts.toolkitbridge.memory.facade.MemoryFacade;
 import fr.ses10doigts.toolkitbridge.model.dto.agent.definition.AgentDefinition;
 import fr.ses10doigts.toolkitbridge.model.dto.auth.AuthenticatedAgent;
 import fr.ses10doigts.toolkitbridge.service.agent.orchestrator.AgentOrchestrator;
-import fr.ses10doigts.toolkitbridge.service.agent.orchestrator.AgentOrchestratorRegistry;
+import fr.ses10doigts.toolkitbridge.service.agent.orchestrator.AgentOrchestratorResolver;
 import fr.ses10doigts.toolkitbridge.service.agent.policy.AgentPolicy;
 import fr.ses10doigts.toolkitbridge.service.agent.policy.AgentPolicyRegistry;
 import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentRuntime;
@@ -22,14 +22,14 @@ import java.io.IOException;
 @RequiredArgsConstructor
 public class AgentRuntimeFactory {
 
-    private final AgentOrchestratorRegistry orchestratorRegistry;
+    private final AgentOrchestratorResolver orchestratorResolver;
     private final AgentPolicyRegistry policyRegistry;
     private final MemoryFacade memoryFacade;
     private final ToolRegistryService toolRegistryService;
     private final WorkspaceService workspaceService;
 
     public AgentRuntime create(AgentDefinition definition, AuthenticatedAgent authenticatedAgent) {
-        AgentOrchestrator orchestrator = orchestratorRegistry.getByType(definition.orchestratorType());
+        AgentOrchestrator orchestrator = orchestratorResolver.resolve(definition);
         AgentPolicy policy = policyRegistry.getRequired(definition.policyName());
 
         AgentToolAccess toolAccess = new AgentToolAccess(

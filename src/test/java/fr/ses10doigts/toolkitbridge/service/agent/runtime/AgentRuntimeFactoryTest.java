@@ -7,6 +7,7 @@ import fr.ses10doigts.toolkitbridge.model.dto.agent.definition.AgentRole;
 import fr.ses10doigts.toolkitbridge.model.dto.auth.AuthenticatedAgent;
 import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentAvailability;
 import fr.ses10doigts.toolkitbridge.service.agent.orchestrator.AgentOrchestrator;
+import fr.ses10doigts.toolkitbridge.service.agent.orchestrator.AgentOrchestratorResolver;
 import fr.ses10doigts.toolkitbridge.service.agent.orchestrator.AgentOrchestratorRegistry;
 import fr.ses10doigts.toolkitbridge.service.agent.policy.AgentPolicy;
 import fr.ses10doigts.toolkitbridge.service.agent.policy.AgentPolicyRegistry;
@@ -41,7 +42,7 @@ class AgentRuntimeFactoryTest {
         when(workspaceService.getSharedWorkspace()).thenReturn(Path.of("/tmp/shared"));
 
         AgentRuntimeFactory factory = new AgentRuntimeFactory(
-                new AgentOrchestratorRegistry(java.util.List.of(orchestrator)),
+                new AgentOrchestratorResolver(new AgentOrchestratorRegistry(java.util.List.of(orchestrator))),
                 new AgentPolicyRegistry(java.util.List.of(policy)),
                 memoryFacade,
                 toolRegistry,

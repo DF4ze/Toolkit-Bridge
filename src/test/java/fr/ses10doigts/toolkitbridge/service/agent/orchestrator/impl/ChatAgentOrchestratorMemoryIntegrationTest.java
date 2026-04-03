@@ -9,6 +9,8 @@ import fr.ses10doigts.toolkitbridge.model.dto.agent.comm.AgentResponse;
 import fr.ses10doigts.toolkitbridge.model.dto.agent.definition.AgentDefinition;
 import fr.ses10doigts.toolkitbridge.model.dto.agent.definition.AgentOrchestratorType;
 import fr.ses10doigts.toolkitbridge.model.dto.agent.definition.AgentRole;
+import fr.ses10doigts.toolkitbridge.service.agent.orchestrator.support.OrchestrationRequestContextFactory;
+import fr.ses10doigts.toolkitbridge.service.agent.orchestrator.support.OrchestrationResponseSanitizer;
 import fr.ses10doigts.toolkitbridge.service.agent.policy.AgentPolicy;
 import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentRuntime;
 import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentRuntimeState;
@@ -37,7 +39,12 @@ class ChatAgentOrchestratorMemoryIntegrationTest {
         InMemoryMemoryFacade memoryFacade = new InMemoryMemoryFacade();
         LlmDebugStore llmDebugStore = mock(LlmDebugStore.class);
 
-        ChatAgentOrchestrator orchestrator = new ChatAgentOrchestrator(llmService, llmDebugStore);
+        ChatAgentOrchestrator orchestrator = new ChatAgentOrchestrator(
+                llmService,
+                llmDebugStore,
+                new OrchestrationRequestContextFactory(),
+                new OrchestrationResponseSanitizer()
+        );
 
         AgentDefinition definition = new AgentDefinition(
                 "agent-1",

@@ -13,6 +13,8 @@ import fr.ses10doigts.toolkitbridge.service.agent.orchestrator.AgentOrchestrator
 import fr.ses10doigts.toolkitbridge.service.agent.orchestrator.model.OrchestrationRequestContext;
 import fr.ses10doigts.toolkitbridge.service.agent.orchestrator.support.OrchestrationRequestContextFactory;
 import fr.ses10doigts.toolkitbridge.service.agent.orchestrator.support.OrchestrationResponseSanitizer;
+import fr.ses10doigts.toolkitbridge.service.agent.orchestrator.task.TaskPrompt;
+import fr.ses10doigts.toolkitbridge.service.agent.orchestrator.task.TaskPromptBuilder;
 import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentRuntime;
 import fr.ses10doigts.toolkitbridge.service.llm.LlmService;
 import fr.ses10doigts.toolkitbridge.service.llm.debug.LlmDebugStore;
@@ -23,16 +25,17 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 @Slf4j
-public class ChatAgentOrchestrator implements AgentOrchestrator {
+public class TaskAgentOrchestrator implements AgentOrchestrator {
 
     private final LlmService llmService;
     private final LlmDebugStore llmDebugStore;
+    private final TaskPromptBuilder taskPromptBuilder;
     private final OrchestrationRequestContextFactory contextFactory;
     private final OrchestrationResponseSanitizer responseSanitizer;
 
     @Override
     public AgentOrchestratorType getType() {
-        return AgentOrchestratorType.CHAT;
+        return AgentOrchestratorType.TASK;
     }
 
     @Override
@@ -42,7 +45,7 @@ public class ChatAgentOrchestrator implements AgentOrchestrator {
         MemoryFacade memoryFacade = runtime.memory();
         long startNanos = System.nanoTime();
 
-        log.info("Chat orchestrator start traceId={} agentId={} provider={} model={} messageLength={}",
+        log.info("Task orchestrator start traceId={} agentId={} provider={} model={} objectiveLength={}",
                 context.traceId(),
                 context.agentId(),
                 definition.llmProvider(),
@@ -55,15 +58,17 @@ public class ChatAgentOrchestrator implements AgentOrchestrator {
             memoryFacade.onUserMessage(memoryRequest);
             MemoryContext memoryContext = memoryFacade.buildContext(memoryRequest);
 
+            TaskPrompt prompt = taskPromptBuilder.build(runtime, request, context, memoryContext);
+
             long llmStartNanos = System.nanoTime();
             String llmResponse = llmService.chat(
                     definition.llmProvider(),
                     definition.model(),
-                    definition.systemPrompt(),
-                    memoryContext.text(),
+                    prompt.systemPrompt(),
+                    prompt.userPrompt(),
                     context.toolsEnabled()
             );
-            log.info("Chat orchestrator LLM response traceId={} length={} durationMs={}",
+            log.info("Task orchestrator LLM response traceId={} length={} durationMs={}",
                     context.traceId(),
                     llmResponse == null ? 0 : llmResponse.length(),
                     elapsedMs(llmStartNanos));
@@ -74,24 +79,24 @@ public class ChatAgentOrchestrator implements AgentOrchestrator {
                     definition.model(),
                     context.toolsEnabled(),
                     context.traceId(),
-                    definition.systemPrompt(),
-                    memoryContext.text(),
+                    prompt.systemPrompt(),
+                    prompt.userPrompt(),
                     llmResponse
             );
 
             String safeResponse = responseSanitizer.normalizeAssistantResponse(llmResponse);
             if (safeResponse.isBlank()) {
-                memoryFacade.onToolExecution(memoryRequest, new ToolExecutionRecord("chat_orchestrator", false, "empty_response"));
-                return AgentResponse.error("The agent returned an empty response.");
+                memoryFacade.onToolExecution(memoryRequest, new ToolExecutionRecord("task_orchestrator", false, "empty_response"));
+                return AgentResponse.error("The task orchestrator returned an empty response.");
             }
 
             memoryFacade.onAssistantMessage(memoryRequest, safeResponse);
             memoryFacade.markContextMemoriesUsed(memoryContext.injectedSemanticMemoryIds());
 
-            log.info("Chat orchestrator completed traceId={} durationMs={}", context.traceId(), elapsedMs(startNanos));
+            log.info("Task orchestrator completed traceId={} durationMs={}", context.traceId(), elapsedMs(startNanos));
             return AgentResponse.success(safeResponse);
         } catch (LlmProviderException e) {
-            log.warn("Chat orchestrator provider failure traceId={} agentId={} provider={} model={}",
+            log.warn("Task orchestrator provider failure traceId={} agentId={} provider={} model={}",
                     context.traceId(),
                     context.agentId(),
                     definition.llmProvider(),
@@ -109,10 +114,10 @@ public class ChatAgentOrchestrator implements AgentOrchestrator {
                     e.getMessage()
             );
 
-            memoryFacade.onToolExecution(memoryRequest, new ToolExecutionRecord("chat_orchestrator", false, "provider_failure"));
+            memoryFacade.onToolExecution(memoryRequest, new ToolExecutionRecord("task_orchestrator", false, "provider_failure"));
             return AgentResponse.error("The AI service is temporarily unavailable.");
         } catch (Exception e) {
-            log.error("Chat orchestrator unexpected error traceId={} agentId={}", context.traceId(), context.agentId(), e);
+            log.error("Task orchestrator unexpected error traceId={} agentId={}", context.traceId(), context.agentId(), e);
 
             llmDebugStore.recordFailure(
                     context.agentId(),
@@ -125,10 +130,10 @@ public class ChatAgentOrchestrator implements AgentOrchestrator {
                     e.getMessage()
             );
 
-            memoryFacade.onToolExecution(memoryRequest, new ToolExecutionRecord("chat_orchestrator", false, "orchestration_error"));
+            memoryFacade.onToolExecution(memoryRequest, new ToolExecutionRecord("task_orchestrator", false, "orchestration_error"));
             return AgentResponse.error("An unexpected error occurred.");
         } finally {
-            log.debug("Chat orchestrator finished traceId={} durationMs={}", context.traceId(), elapsedMs(startNanos));
+            log.debug("Task orchestrator finished traceId={} durationMs={}", context.traceId(), elapsedMs(startNanos));
         }
     }
 
