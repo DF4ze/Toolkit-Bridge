@@ -10,6 +10,8 @@ import fr.ses10doigts.toolkitbridge.model.dto.agent.comm.AgentResponse;
 import fr.ses10doigts.toolkitbridge.model.dto.agent.definition.AgentDefinition;
 import fr.ses10doigts.toolkitbridge.model.dto.agent.definition.AgentOrchestratorType;
 import fr.ses10doigts.toolkitbridge.model.dto.agent.definition.AgentRole;
+import fr.ses10doigts.toolkitbridge.service.agent.orchestrator.support.LlmOrchestrationValidator;
+import fr.ses10doigts.toolkitbridge.service.agent.orchestrator.support.MemoryRequestFactory;
 import fr.ses10doigts.toolkitbridge.service.agent.orchestrator.support.OrchestrationRequestContextFactory;
 import fr.ses10doigts.toolkitbridge.service.agent.orchestrator.support.OrchestrationResponseSanitizer;
 import fr.ses10doigts.toolkitbridge.service.agent.orchestrator.task.TaskPrompt;
@@ -54,7 +56,9 @@ class TaskAgentOrchestratorTest {
             llmService,
             llmDebugStore,
             taskPromptBuilder,
+            new LlmOrchestrationValidator(),
             new OrchestrationRequestContextFactory(),
+            new MemoryRequestFactory(),
             new OrchestrationResponseSanitizer()
     );
 

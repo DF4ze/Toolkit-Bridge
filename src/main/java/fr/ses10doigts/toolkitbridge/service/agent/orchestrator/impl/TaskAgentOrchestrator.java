@@ -11,6 +11,8 @@ import fr.ses10doigts.toolkitbridge.model.dto.agent.definition.AgentDefinition;
 import fr.ses10doigts.toolkitbridge.model.dto.agent.definition.AgentOrchestratorType;
 import fr.ses10doigts.toolkitbridge.service.agent.orchestrator.AgentOrchestrator;
 import fr.ses10doigts.toolkitbridge.service.agent.orchestrator.model.OrchestrationRequestContext;
+import fr.ses10doigts.toolkitbridge.service.agent.orchestrator.support.LlmOrchestrationValidator;
+import fr.ses10doigts.toolkitbridge.service.agent.orchestrator.support.MemoryRequestFactory;
 import fr.ses10doigts.toolkitbridge.service.agent.orchestrator.support.OrchestrationRequestContextFactory;
 import fr.ses10doigts.toolkitbridge.service.agent.orchestrator.support.OrchestrationResponseSanitizer;
 import fr.ses10doigts.toolkitbridge.service.agent.orchestrator.task.TaskPrompt;
@@ -30,7 +32,9 @@ public class TaskAgentOrchestrator implements AgentOrchestrator {
     private final LlmService llmService;
     private final LlmDebugStore llmDebugStore;
     private final TaskPromptBuilder taskPromptBuilder;
+    private final LlmOrchestrationValidator llmValidator;
     private final OrchestrationRequestContextFactory contextFactory;
+    private final MemoryRequestFactory memoryRequestFactory;
     private final OrchestrationResponseSanitizer responseSanitizer;
 
     @Override
@@ -42,6 +46,7 @@ public class TaskAgentOrchestrator implements AgentOrchestrator {
     public AgentResponse handle(AgentRuntime runtime, AgentRequest request) {
         OrchestrationRequestContext context = contextFactory.create(runtime, request);
         AgentDefinition definition = runtime.definition();
+        llmValidator.validate(definition);
         MemoryFacade memoryFacade = runtime.memory();
         long startNanos = System.nanoTime();
 
@@ -52,13 +57,14 @@ public class TaskAgentOrchestrator implements AgentOrchestrator {
                 definition.model(),
                 context.userMessage().length());
 
-        MemoryContextRequest memoryRequest = toMemoryRequest(definition, request, context);
+        MemoryContextRequest memoryRequest = memoryRequestFactory.from(definition, request, context);
+        TaskPrompt prompt = null;
 
         try {
             memoryFacade.onUserMessage(memoryRequest);
             MemoryContext memoryContext = memoryFacade.buildContext(memoryRequest);
 
-            TaskPrompt prompt = taskPromptBuilder.build(runtime, request, context, memoryContext);
+            prompt = taskPromptBuilder.build(runtime, request, context, memoryContext);
 
             long llmStartNanos = System.nanoTime();
             String llmResponse = llmService.chat(
@@ -109,8 +115,8 @@ public class TaskAgentOrchestrator implements AgentOrchestrator {
                     definition.model(),
                     context.toolsEnabled(),
                     context.traceId(),
-                    definition.systemPrompt(),
-                    request.message(),
+                    prompt == null ? definition.systemPrompt() : prompt.systemPrompt(),
+                    prompt == null ? request.message() : prompt.userPrompt(),
                     e.getMessage()
             );
 
@@ -125,8 +131,8 @@ public class TaskAgentOrchestrator implements AgentOrchestrator {
                     definition.model(),
                     context.toolsEnabled(),
                     context.traceId(),
-                    definition.systemPrompt(),
-                    request.message(),
+                    prompt == null ? definition.systemPrompt() : prompt.systemPrompt(),
+                    prompt == null ? request.message() : prompt.userPrompt(),
                     e.getMessage()
             );
 
@@ -135,23 +141,6 @@ public class TaskAgentOrchestrator implements AgentOrchestrator {
         } finally {
             log.debug("Task orchestrator finished traceId={} durationMs={}", context.traceId(), elapsedMs(startNanos));
         }
-    }
-
-    private MemoryContextRequest toMemoryRequest(AgentDefinition definition,
-                                                 AgentRequest request,
-                                                 OrchestrationRequestContext context) {
-        return new MemoryContextRequest(
-                context.agentId(),
-                request.channelUserId(),
-                definition.telegramBotId(),
-                context.projectId(),
-                context.userMessage(),
-                context.conversationId(),
-                null,
-                null,
-                null,
-                null
-        );
     }
 
     private long elapsedMs(long startNanos) {

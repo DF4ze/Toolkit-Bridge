@@ -42,15 +42,6 @@ public class OrchestrationRequestContextFactory {
         if (agentDefinition == null) {
             throw new AgentException("runtime definition must not be null");
         }
-        if (agentDefinition.llmProvider() == null || agentDefinition.llmProvider().isBlank()) {
-            throw new AgentException("Agent LLM provider must not be blank");
-        }
-        if (agentDefinition.model() == null || agentDefinition.model().isBlank()) {
-            throw new AgentException("Agent model must not be blank");
-        }
-        if (agentDefinition.systemPrompt() == null || agentDefinition.systemPrompt().isBlank()) {
-            throw new AgentException("Agent system prompt must not be blank");
-        }
         if (request.message() == null || request.message().isBlank()) {
             throw new AgentException("Request message must not be blank");
         }

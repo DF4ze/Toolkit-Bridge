@@ -1,0 +1,90 @@
+Implémentation terminée sur 2.A → 2.B → 2.C, avec compilation OK et tests ciblés OK.
+
+Ce qui a été fait
+
+2.A (chat isolé proprement)
+ChatAgentOrchestrator reste conversationnel, sans logique task implicite.
+Extraction des briques communes de contexte/reponse pour éviter que chat devienne un point d’entrée “fourre-tout”.
+2.B (nouveau task orchestrator, flux de base + extension points)
+Ajout de TaskAgentOrchestrator distinct de chat.
+Flux posé: validation/contexte → mémoire → construction prompt task → appel LLM → persistance réponse.
+Ajout du point d’extension TaskPromptBuilder (avec implémentation par défaut) pour préparer le futur taskModel sans figer la logique complète.
+2.C (multi-orchestrator propre)
+Ajout de AgentOrchestratorResolver pour une résolution explicite agent → orchestrator.
+AgentRuntimeFactory passe par le resolver.
+AgentOrchestratorRegistry factorisé en map par type + garde-fou sur doublons.
+Frontières définies (chat)
+
+chat = conversation simple et directe.
+task = exécution orientée objectif.
+Les briques partagées sont techniques (contexte/reponse), pas métier.
+Points volontairement ouverts (suite)
+
+Pas de planner/critic orchestrator.
+Pas de délégation réelle ni bus inter-agent avancé.
+taskModel enrichi, sous-tâches distribuées et orchestration autonome avancée laissés pour phase suivante.
+Sélection dynamique sophistiquée non implémentée (dispatch explicite via orchestratorType).
+Tests exécutés
+
+Compilation: .\mvnw.cmd -q -DskipTests compile OK
+Tests ciblés: ChatAgentOrchestratorTest, ChatAgentOrchestratorMemoryIntegrationTest, TaskAgentOrchestratorTest, AgentRuntimeFactoryTest, AgentOrchestratorRegistryTest, AgentOrchestratorResolverTest OK
+Fichiers modifiés
+
+AgentOrchestratorType.java
+AgentOrchestratorRegistry.java
+ChatAgentOrchestrator.java
+AgentRuntimeFactory.java
+ChatAgentOrchestratorTest.java
+ChatAgentOrchestratorMemoryIntegrationTest.java
+AgentRuntimeFactoryTest.java
+Fichiers créés
+
+OrchestrationRequestContext.java
+OrchestrationRequestContextFactory.java
+OrchestrationResponseSanitizer.java
+TaskAgentOrchestrator.java
+TaskPrompt.java
+TaskPromptBuilder.java
+DefaultTaskPromptBuilder.java
+AgentOrchestratorResolver.java
+TaskAgentOrchestratorTest.java
+AgentOrchestratorRegistryTest.java
+AgentOrchestratorResolverTest.java
+
+Après relecture :
+Faiblesses / points discutables identifiés
+OrchestrationRequestContextFactory contenait des validations LLM (provider/model/prompt) qui le couplaient à des orchestrators LLM uniquement, ce qui freinait l’ajout futur d’orchestrators non-LLM.
+Mapping MemoryContextRequest dupliqué entre chat et task (risque de divergence à la prochaine phase).
+En task, en cas d’erreur après construction du prompt, le debug de failure utilisait le couple definition.systemPrompt()/request.message() au lieu du prompt effectivement construit.
+Les tests couvraient bien le flux, mais pas explicitement le découplage du factory de contexte ni la validation LLM dédiée.
+Corrections utiles proposées
+Extraire une validation LLM dédiée, consommée par les orchestrators LLM (chat/task) uniquement.
+Centraliser la construction de MemoryContextRequest dans un composant partagé.
+Aligner le recordFailure du task orchestrator sur le prompt réellement utilisé.
+Ajouter des tests unitaires ciblés sur ces points d’architecture.
+Corrections appliquées (pertinentes uniquement)
+Découplage context/runtime:
+suppression des checks LLM de OrchestrationRequestContextFactory.java
+ajout de LlmOrchestrationValidator.java
+branchement dans ChatAgentOrchestrator.java et TaskAgentOrchestrator.java
+Réduction du couplage/duplication:
+ajout de MemoryRequestFactory.java
+utilisation dans chat et task (suppression du mapping dupliqué).
+Qualité debug task:
+TaskAgentOrchestrator utilise désormais le TaskPrompt effectivement construit pour llmDebugStore.recordFailure quand disponible.
+Tests ajoutés/ajustés:
+nouveaux tests:
+OrchestrationRequestContextFactoryTest.java
+LlmOrchestrationValidatorTest.java
+tests orchestrators mis à jour pour les nouvelles dépendances:
+ChatAgentOrchestratorTest.java
+ChatAgentOrchestratorMemoryIntegrationTest.java
+TaskAgentOrchestratorTest.java
+Vérifications
+Compilation: .\mvnw.cmd -q -DskipTests compile OK
+Tests ciblés architecture/orchestrators: OK
+Résumé final
+Séparation config/runtime renforcée: le factory de contexte est redevenu générique, la validation LLM est explicite et localisée.
+Découplage amélioré: orchestration/mémoire mieux isolées via MemoryRequestFactory.
+Modèle AgentRuntime reste cohérent pour la phase: il porte les capacités runtime sans logique métier embarquée.
+Dette technique évitable traitée maintenant: duplication supprimée et couplage latent réduit, sans ajouter de fonctionnalité hors périmètre.
