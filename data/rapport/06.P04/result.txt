@@ -1,0 +1,65 @@
+Pré-analyse, puis implémentation 4.A et 4.B réalisées dans l’ordre demandé.
+
+Pré-analyse (2.preAnalyse)
+
+Classes/fichiers concernés: runtime (AgentRuntimeRegistry, AgentRuntimeState), définition/rôles (AgentDefinitionService, AgentRole), orchestration (AgentOrchestrator + impl), contrats de requête (AgentRequest), modèle task (Task, TaskFactory).
+Points sensibles: ne pas mettre la résolution d’adressage dans le bus; ne pas coupler Telegram; garder la stratégie de rôle interchangeable.
+Risques identifiés: duplication de logique d’exécution runtime, couplage bus↔routing si séparation faible, impact tests si mutation des contrats existants.
+Plan exécuté: 8 étapes (modèle message typé, bus, résultat de dispatch, abstraction resolver, stratégie rôle V1, impl runtime-backed, tests unitaires, validation non-régression).
+Implémentation 4.A + 4.B
+
+Bus interne ajouté: AgentMessageBus + impl in-memory InMemoryAgentMessageBus.
+Enveloppe de message typée ajoutée avec:
+messageId, correlationId, senderAgentId, recipient, timestamp, type, payload.
+Types V1 ajoutés: TASK_REQUEST, TASK_RESPONSE, QUESTION, ANSWER, EVENT, CRITIQUE.
+Adressage ajouté:
+soit agent (AgentRecipientKind.AGENT)
+soit rôle (AgentRecipientKind.ROLE)
+Résolution découplée du bus:
+AgentRecipientResolver
+AgentRuntimeDirectory
+AgentRoleSelectionStrategy
+Stratégie V1 interchangeable implémentée:
+FirstAvailableAgentRoleSelectionStrategy (agent disponible/non occupé en priorité, fallback minimal).
+Résolution runtime branchée proprement via RegistryBackedAgentRuntimeDirectory (definitions + runtime registry + account auth), sans load balancing avancé.
+Tests
+
+Ajoutés et passants:
+AgentMessageTest
+InMemoryAgentMessageBusTest
+DefaultAgentRecipientResolverTest
+FirstAvailableAgentRoleSelectionStrategyTest
+Validation exécutée: .\mvnw.cmd -q test (succès).
+Fichiers créés
+
+AgentMessageType.java
+AgentRecipientKind.java
+AgentRecipient.java
+AgentMessagePayload.java
+AgentMessage.java
+AgentMessageBus.java
+AgentMessageDispatchStatus.java
+AgentMessageDispatchResult.java
+InMemoryAgentMessageBus.java
+ResolvedRecipient.java
+AgentRecipientResolver.java
+AgentRuntimeDirectory.java
+AgentRoleSelectionStrategy.java
+FirstAvailableAgentRoleSelectionStrategy.java
+RegistryBackedAgentRuntimeDirectory.java
+DefaultAgentRecipientResolver.java
+AgentMessageTest.java
+InMemoryAgentMessageBusTest.java
+DefaultAgentRecipientResolverTest.java
+FirstAvailableAgentRoleSelectionStrategyTest.java
+Points volontairement laissés ouverts (phases suivantes)
+
+Load balancing avancé et scheduling multi-critères.
+Routage distribué/asynchrone.
+Persistance durable du bus.
+Supervision complète du routage et des messages.
+
+
+Après relecture :
+J’ai identifié un point réellement critique: le bus exécute l’orchestrator sans poser le contexte d’agent authentifié (AgentContextHolder), ce qui peut casser les outils/workspace en exécution interne. Je corrige ce point maintenant, et j’ajuste les tests pour verrouiller ce comportement.
+J’applique aussi une petite correction de maintenabilité: ne plus avaler silencieusement les erreurs de création runtime dans le répertoire de résolution (log debug explicite). Je lance maintenant les tests pour valider les corrections.
