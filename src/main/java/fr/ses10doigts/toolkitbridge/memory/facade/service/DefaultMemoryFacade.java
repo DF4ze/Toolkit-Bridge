@@ -54,12 +54,8 @@ public class DefaultMemoryFacade implements MemoryFacade {
 
         ContextRequest contextRequest = toContextRequest(request);
         RetrievedMemories retrieved = memoryRetrievalFacade.retrieve(contextRequest);
-        RetrievedMemories filtered = enforceLimits(request, retrieved);
-
-        AssembledContext assembled = contextAssembler.buildContext(contextRequest, filtered);
-        String bounded = enforceCharacterBudget(assembled.text(), request.tokenBudgetHint());
-
-        return new MemoryContext(bounded, assembled.injectedSemanticMemoryIds());
+        AssembledContext assembled = contextAssembler.buildContext(contextRequest, retrieved);
+        return new MemoryContext(assembled.text(), assembled.injectedSemanticMemoryIds());
     }
 
     @Override
@@ -117,47 +113,6 @@ public class DefaultMemoryFacade implements MemoryFacade {
                 log.warn("Unable to mark semantic memory as used id={}", id, e);
             }
         }
-    }
-
-    private RetrievedMemories enforceLimits(MemoryContextRequest request, RetrievedMemories input) {
-        int maxRules = positive(properties.getMaxRules(), 10);
-        int maxSemantic = positive(
-                request.maxSemanticMemories() == null ? properties.getMaxSemanticMemories() : request.maxSemanticMemories(),
-                10
-        );
-        int maxEpisodes = positive(
-                request.maxEpisodes() == null ? properties.getMaxEpisodes() : request.maxEpisodes(),
-                5
-        );
-
-        return new RetrievedMemories(
-                limit(input.rules(), maxRules),
-                limit(input.semanticMemories(), maxSemantic),
-                properties.isEnableEpisodicInjection() ? limit(input.episodicMemories(), maxEpisodes) : List.of(),
-                input.conversationSlice()
-        );
-    }
-
-    private String enforceCharacterBudget(String text, Integer tokenBudgetHint) {
-        int charBudget = positive(properties.getMaxContextCharacters(), 15000);
-        if (tokenBudgetHint != null && tokenBudgetHint > 0) {
-            charBudget = Math.min(charBudget, tokenBudgetHint * 4);
-        }
-        if (text == null || text.length() <= charBudget) {
-            return text == null ? "" : text;
-        }
-        return text.substring(text.length() - charBudget);
-    }
-
-    private <T> List<T> limit(List<T> values, int max) {
-        if (values == null || values.isEmpty() || max <= 0) {
-            return List.of();
-        }
-        return values.stream().limit(max).toList();
-    }
-
-    private int positive(int value, int fallback) {
-        return value > 0 ? value : fallback;
     }
 
     private void appendConversationMessage(MemoryContextRequest request, ConversationRole role, String content) {
@@ -260,6 +215,7 @@ public class DefaultMemoryFacade implements MemoryFacade {
     private ContextRequest toContextRequest(MemoryContextRequest request) {
         return new ContextRequest(
                 request.agentId(),
+                request.userId(),
                 request.conversationId(),
                 request.projectId(),
                 request.currentUserMessage() == null ? "(no user message)" : request.currentUserMessage(),

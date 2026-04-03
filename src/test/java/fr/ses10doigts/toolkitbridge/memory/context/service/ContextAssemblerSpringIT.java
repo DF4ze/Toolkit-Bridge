@@ -55,7 +55,8 @@ class ContextAssemblerSpringIT {
         );
 
         assertThat(context.text()).contains("## Rules");
-        assertThat(context.text()).contains("## Known Facts");
+        assertThat(context.text()).contains("## Facts");
+        assertThat(context.text()).contains("### Agent Context");
         assertThat(context.text()).contains("## Conversation");
         assertThat(context.text()).contains("## User Input");
         assertThat(context.text()).contains("User says hello");

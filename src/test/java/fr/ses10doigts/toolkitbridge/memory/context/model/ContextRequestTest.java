@@ -11,6 +11,7 @@ class ContextRequestTest {
     void normalizesValues() {
         ContextRequest request = new ContextRequest(
                 " agent-1 ",
+                " user-1 ",
                 " conv-1 ",
                 " ",
                 " hello ",
@@ -19,6 +20,7 @@ class ContextRequestTest {
         );
 
         assertThat(request.agentId()).isEqualTo("agent-1");
+        assertThat(request.userId()).isEqualTo("user-1");
         assertThat(request.conversationId()).isEqualTo("conv-1");
         assertThat(request.projectId()).isNull();
         assertThat(request.currentUserMessage()).isEqualTo("hello");

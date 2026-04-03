@@ -2,6 +2,7 @@ package fr.ses10doigts.toolkitbridge.memory.context.model;
 
 public record ContextRequest(
         String agentId,
+        String userId,
         String conversationId,
         String projectId,
         String currentUserMessage,
@@ -10,6 +11,7 @@ public record ContextRequest(
 ) {
     public ContextRequest {
         agentId = normalize(agentId);
+        userId = normalize(userId);
         conversationId = normalize(conversationId);
         projectId = normalize(projectId);
         currentUserMessage = normalize(currentUserMessage);
@@ -37,7 +39,18 @@ public record ContextRequest(
             String projectId,
             String currentUserMessage
     ) {
-        this(agentId, conversationId, projectId, currentUserMessage, null, null);
+        this(agentId, null, conversationId, projectId, currentUserMessage, null, null);
+    }
+
+    public ContextRequest(
+            String agentId,
+            String conversationId,
+            String projectId,
+            String currentUserMessage,
+            Integer maxSemanticMemories,
+            Integer maxEpisodes
+    ) {
+        this(agentId, null, conversationId, projectId, currentUserMessage, maxSemanticMemories, maxEpisodes);
     }
 
     private static String normalize(String value) {

@@ -2,7 +2,9 @@ package fr.ses10doigts.toolkitbridge.memory.semantic.extractor;
 
 import fr.ses10doigts.toolkitbridge.memory.facade.model.MemoryContextRequest;
 import fr.ses10doigts.toolkitbridge.memory.semantic.model.MemoryEntry;
+import fr.ses10doigts.toolkitbridge.memory.semantic.model.MemoryScope;
 import fr.ses10doigts.toolkitbridge.memory.semantic.model.MemoryType;
+import fr.ses10doigts.toolkitbridge.memory.semantic.scope.MemoryScopePolicy;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -11,7 +13,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class DefaultSemanticMemoryExtractorTest {
 
-    private final DefaultSemanticMemoryExtractor extractor = new DefaultSemanticMemoryExtractor();
+    private final DefaultSemanticMemoryExtractor extractor = new DefaultSemanticMemoryExtractor(new MemoryScopePolicy());
 
     @Test
     void storesDurablePreference() {
@@ -42,6 +44,17 @@ class DefaultSemanticMemoryExtractorTest {
         assertThat(result).hasSize(1);
         assertThat(result.getFirst().getType()).isEqualTo(MemoryType.CONTEXT);
         assertThat(result.getFirst().getContent()).contains("noms de classes");
+    }
+
+    @Test
+    void storesUserScopedMemoryWhenNoProject() {
+        MemoryContextRequest request = request();
+
+        List<MemoryEntry> result = extractor.extract(request, "I prefer concise answers.", "user");
+
+        assertThat(result).hasSize(1);
+        assertThat(result.getFirst().getScope()).isEqualTo(MemoryScope.USER);
+        assertThat(result.getFirst().getScopeId()).isEqualTo("user-1");
     }
 
     private MemoryContextRequest request() {

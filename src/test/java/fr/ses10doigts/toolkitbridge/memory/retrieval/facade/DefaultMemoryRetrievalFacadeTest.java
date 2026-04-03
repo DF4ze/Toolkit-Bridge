@@ -20,11 +20,11 @@ import fr.ses10doigts.toolkitbridge.memory.semantic.model.MemoryEntry;
 import fr.ses10doigts.toolkitbridge.memory.semantic.model.MemoryScope;
 import fr.ses10doigts.toolkitbridge.memory.semantic.model.MemoryType;
 import fr.ses10doigts.toolkitbridge.memory.semantic.model.MemoryStatus;
+import fr.ses10doigts.toolkitbridge.memory.semantic.scope.MemoryScopePolicy;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -53,7 +53,8 @@ class DefaultMemoryRetrievalFacadeTest {
                 memoryRetriever,
                 episodicMemoryService,
                 conversationMemoryService,
-                properties
+                properties,
+                new MemoryScopePolicy()
         );
 
         RuleEntry firstRule = rule("rule-1");
@@ -105,7 +106,8 @@ class DefaultMemoryRetrievalFacadeTest {
                 memoryRetriever,
                 episodicMemoryService,
                 conversationMemoryService,
-                properties
+                properties,
+                new MemoryScopePolicy()
         );
 
         when(ruleService.getApplicableRules(any(), any())).thenReturn(List.of());
@@ -133,7 +135,8 @@ class DefaultMemoryRetrievalFacadeTest {
                 memoryRetriever,
                 episodicMemoryService,
                 conversationMemoryService,
-                properties
+                properties,
+                new MemoryScopePolicy()
         );
 
         when(ruleService.getApplicableRules(any(), any())).thenReturn(List.of());
@@ -175,7 +178,8 @@ class DefaultMemoryRetrievalFacadeTest {
                 memoryRetriever,
                 episodicMemoryService,
                 conversationMemoryService,
-                properties
+                properties,
+                new MemoryScopePolicy()
         );
 
         when(ruleService.getApplicableRules(any(), any())).thenReturn(List.of());
@@ -208,7 +212,8 @@ class DefaultMemoryRetrievalFacadeTest {
                 memoryRetriever,
                 episodicMemoryService,
                 conversationMemoryService,
-                properties
+                properties,
+                new MemoryScopePolicy()
         );
 
         when(ruleService.getApplicableRules(any(), any())).thenReturn(List.of());
@@ -223,6 +228,13 @@ class DefaultMemoryRetrievalFacadeTest {
                 ArgumentCaptor.forClass(fr.ses10doigts.toolkitbridge.memory.retrieval.model.MemoryQuery.class);
         verify(memoryRetriever).retrieve(queryCaptor.capture());
         assertThat(queryCaptor.getValue().limit()).isEqualTo(3);
+        assertThat(queryCaptor.getValue().scopes()).containsExactlyInAnyOrder(
+                MemoryScope.SYSTEM,
+                MemoryScope.AGENT,
+                MemoryScope.USER,
+                MemoryScope.PROJECT,
+                MemoryScope.SHARED
+        );
         verify(episodicMemoryService).findRecent("agent-1", 2);
     }
 

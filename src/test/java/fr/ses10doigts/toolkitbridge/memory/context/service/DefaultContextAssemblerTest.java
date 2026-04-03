@@ -41,7 +41,7 @@ class DefaultContextAssemblerTest {
         String context = assembled.text();
 
         int rulesIndex = context.indexOf("## Rules");
-        int factsIndex = context.indexOf("## Known Facts");
+        int factsIndex = context.indexOf("## Facts");
         int episodesIndex = context.indexOf("## Recent Episodes");
         int conversationIndex = context.indexOf("## Conversation");
         int userIndex = context.indexOf("## User Input");
@@ -52,6 +52,7 @@ class DefaultContextAssemblerTest {
         assertThat(conversationIndex).isGreaterThan(episodesIndex);
         assertThat(userIndex).isGreaterThan(conversationIndex);
 
+        assertThat(context).contains("### Agent Context");
         assertThat(context).contains("- [HIGH] Always be safe");
         assertThat(context).contains("- Remember X");
         assertThat(context).contains("- [SUCCESS] agent-exchange");
@@ -116,7 +117,9 @@ class DefaultContextAssemblerTest {
         ).text();
 
         assertThat(trimmed.length()).isEqualTo(50);
-        assertThat(trimmed).isEqualTo(full.substring(full.length() - 50));
+        assertThat(trimmed).contains("## User Input");
+        assertThat(trimmed).contains("User says hello");
+        assertThat(trimmed).startsWith("## Rules");
     }
 
     @Test
@@ -186,6 +189,28 @@ class DefaultContextAssemblerTest {
         assertThat(countOccurrences(context, "- M")).isEqualTo(1);
         assertThat(countOccurrences(context, "- [SUCCESS] E")).isEqualTo(1);
         assertThat(assembled.injectedSemanticMemoryIds()).containsExactly(1L);
+    }
+
+    @Test
+    void keepsUserInputEvenWhenPromptNeedsTrimming() {
+        ContextAssemblerProperties properties = new ContextAssemblerProperties();
+        properties.setMaxCharacters(90);
+        properties.setMaxRules(10);
+        properties.setMaxMemories(10);
+        properties.setMaxEpisodes(10);
+
+        RuleEntry rule = rule("This is a very long mandatory rule that should be present first", RulePriority.HIGH);
+        MemoryEntry memory = memory("This is a long fact that may be truncated if required");
+
+        DefaultContextAssembler assembler = new DefaultContextAssembler(properties);
+        String context = assembler.buildContext(
+                new ContextRequest("agent-1", "conv-1", null, "Critical user input"),
+                retrieved(List.of(rule), List.of(memory), List.of(), "Long conversation that should be dropped first")
+        ).text();
+
+        assertThat(context.length()).isLessThanOrEqualTo(90);
+        assertThat(context).contains("## User Input");
+        assertThat(context).contains("Critical user input");
     }
 
     private RetrievedMemories retrieved(List<RuleEntry> rules,

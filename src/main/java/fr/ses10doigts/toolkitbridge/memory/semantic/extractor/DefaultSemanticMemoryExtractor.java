@@ -4,6 +4,7 @@ import fr.ses10doigts.toolkitbridge.memory.facade.model.MemoryContextRequest;
 import fr.ses10doigts.toolkitbridge.memory.semantic.model.MemoryEntry;
 import fr.ses10doigts.toolkitbridge.memory.semantic.model.MemoryScope;
 import fr.ses10doigts.toolkitbridge.memory.semantic.model.MemoryType;
+import fr.ses10doigts.toolkitbridge.memory.semantic.scope.MemoryScopePolicy;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -14,6 +15,11 @@ import java.util.Set;
 
 @Service
 public class DefaultSemanticMemoryExtractor implements SemanticMemoryExtractor {
+    private final MemoryScopePolicy scopePolicy;
+
+    public DefaultSemanticMemoryExtractor(MemoryScopePolicy scopePolicy) {
+        this.scopePolicy = scopePolicy;
+    }
 
     private static final Set<String> DURABLE_MARKERS = Set.of(
             "prefere", "prefer", "always use", "utilise", "use ", "convention",
@@ -47,8 +53,9 @@ public class DefaultSemanticMemoryExtractor implements SemanticMemoryExtractor {
 
             MemoryEntry entry = new MemoryEntry();
             entry.setAgentId(request.agentId());
-            entry.setScope(request.projectId() == null ? MemoryScope.AGENT : MemoryScope.PROJECT);
-            entry.setScopeId(request.projectId());
+            MemoryScope scope = scopePolicy.resolveDurableWriteScope(request.userId(), request.projectId());
+            entry.setScope(scope);
+            entry.setScopeId(scopePolicy.resolveScopeId(scope, request.userId(), request.projectId()));
             entry.setType(resolveType(normalized));
             entry.setContent(normalizedContent);
             entry.setImportance(resolveImportance(normalized));

@@ -14,8 +14,8 @@ import fr.ses10doigts.toolkitbridge.memory.retrieval.port.MemoryRetriever;
 import fr.ses10doigts.toolkitbridge.memory.rule.model.RuleEntry;
 import fr.ses10doigts.toolkitbridge.memory.rule.service.RuleService;
 import fr.ses10doigts.toolkitbridge.memory.semantic.model.MemoryEntry;
-import fr.ses10doigts.toolkitbridge.memory.semantic.model.MemoryScope;
 import fr.ses10doigts.toolkitbridge.memory.semantic.model.MemoryType;
+import fr.ses10doigts.toolkitbridge.memory.semantic.scope.MemoryScopePolicy;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -27,12 +27,6 @@ import java.util.Set;
 @Service
 @RequiredArgsConstructor
 public class DefaultMemoryRetrievalFacade implements MemoryRetrievalFacade {
-
-    private static final Set<MemoryScope> DEFAULT_SCOPES = Set.of(
-            MemoryScope.AGENT,
-            MemoryScope.SHARED,
-            MemoryScope.PROJECT
-    );
 
     private static final Set<MemoryType> DEFAULT_TYPES = Set.of(
             MemoryType.FACT,
@@ -50,6 +44,7 @@ public class DefaultMemoryRetrievalFacade implements MemoryRetrievalFacade {
     private final EpisodicMemoryService episodicMemoryService;
     private final ConversationMemoryService conversationMemoryService;
     private final MemoryRetrievalProperties properties;
+    private final MemoryScopePolicy scopePolicy;
 
     @Override
     public RetrievedMemories retrieve(ContextRequest contextRequest) {
@@ -64,9 +59,10 @@ public class DefaultMemoryRetrievalFacade implements MemoryRetrievalFacade {
 
         List<MemoryEntry> semanticMemories = memoryRetriever.retrieve(new MemoryQuery(
                 contextRequest.agentId(),
+                contextRequest.userId(),
                 contextRequest.projectId(),
                 contextRequest.currentUserMessage(),
-                DEFAULT_SCOPES,
+                scopePolicy.defaultReadableScopes(),
                 DEFAULT_TYPES,
                 resolveLimit(contextRequest.maxSemanticMemories(), properties.getMaxSemanticMemories())
         ));

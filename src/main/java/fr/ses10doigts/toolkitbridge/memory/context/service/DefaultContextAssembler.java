@@ -7,11 +7,16 @@ import fr.ses10doigts.toolkitbridge.memory.context.port.ContextAssembler;
 import fr.ses10doigts.toolkitbridge.memory.retrieval.model.RetrievedMemories;
 import fr.ses10doigts.toolkitbridge.memory.rule.model.RuleEntry;
 import fr.ses10doigts.toolkitbridge.memory.semantic.model.MemoryEntry;
+import fr.ses10doigts.toolkitbridge.memory.semantic.model.MemoryScope;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.util.EnumMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 
 @Service
@@ -35,22 +40,17 @@ public class DefaultContextAssembler implements ContextAssembler {
             throw new IllegalStateException("retrievedMemories must not be null");
         }
 
-        StringBuilder context = new StringBuilder();
         LinkedHashSet<Long> usedSemanticMemoryIds = new LinkedHashSet<>();
+        StringBuilder rulesSection = new StringBuilder();
+        StringBuilder factsSection = new StringBuilder();
+        StringBuilder episodesSection = new StringBuilder();
+        StringBuilder conversationSection = new StringBuilder();
 
-        appendRules(context, limit(retrievedMemories.rules(), properties.getMaxRules()));
-
-        appendKnownFacts(
-                context,
-                limit(
-                        retrievedMemories.semanticMemories(),
-                        resolveLimit(request.maxSemanticMemories(), properties.getMaxMemories())
-                ),
-                usedSemanticMemoryIds
-        );
+        appendRules(rulesSection, limit(retrievedMemories.rules(), properties.getMaxRules()));
+        appendFacts(factsSection, request, retrievedMemories, usedSemanticMemoryIds);
 
         appendEpisodes(
-                context,
+                episodesSection,
                 limit(
                         retrievedMemories.episodicMemories(),
                         resolveLimit(request.maxEpisodes(), properties.getMaxEpisodes())
@@ -58,16 +58,21 @@ public class DefaultContextAssembler implements ContextAssembler {
         );
 
         String conversation = retrievedMemories.conversationSlice();
-
-        context.append("\n## Conversation\n");
+        conversationSection.append("\n## Conversation\n");
         if (conversation != null && !conversation.isBlank()) {
-            context.append(conversation.trim());
+            conversationSection.append(conversation.trim());
         }
 
-        context.append("\n\n## User Input\n");
-        context.append(request.currentUserMessage());
+        String userInputSection = "\n\n## User Input\n" + request.currentUserMessage();
+        String context = assembleWithPriority(
+                rulesSection.toString(),
+                factsSection.toString(),
+                episodesSection.toString(),
+                conversationSection.toString(),
+                userInputSection
+        );
 
-        return new AssembledContext(trim(context.toString()), List.copyOf(usedSemanticMemoryIds));
+        return new AssembledContext(context, List.copyOf(usedSemanticMemoryIds));
     }
 
     private void appendRules(StringBuilder context, List<RuleEntry> rules) {
@@ -81,24 +86,64 @@ public class DefaultContextAssembler implements ContextAssembler {
         }
     }
 
-    private void appendKnownFacts(StringBuilder context,
-                                  List<MemoryEntry> memories,
-                                  Set<Long> usedSemanticMemoryIds) {
-        context.append("\n## Known Facts\n");
-        Set<String> uniqueFacts = new LinkedHashSet<>();
-        for (MemoryEntry memory : memories) {
+    private void appendFacts(StringBuilder context,
+                             ContextRequest request,
+                             RetrievedMemories retrievedMemories,
+                             Set<Long> usedSemanticMemoryIds) {
+        List<MemoryEntry> limitedMemories = limit(
+                retrievedMemories.semanticMemories(),
+                resolveLimit(request.maxSemanticMemories(), properties.getMaxMemories())
+        );
+
+        Map<MemoryScope, List<String>> factsByScope = new EnumMap<>(MemoryScope.class);
+        Set<String> dedupe = new LinkedHashSet<>();
+        for (MemoryEntry memory : limitedMemories) {
             if (memory == null || memory.getContent() == null || memory.getContent().isBlank()) {
                 continue;
             }
-            if (uniqueFacts.add(memory.getContent().trim()) && memory.getId() != null) {
+            String fact = memory.getContent().trim();
+            String dedupeKey = fact.toLowerCase(Locale.ROOT);
+            if (!dedupe.add(dedupeKey)) {
+                continue;
+            }
+            if (memory.getId() != null) {
                 usedSemanticMemoryIds.add(memory.getId());
             }
+            MemoryScope scope = normalizeScope(memory.getScope());
+            factsByScope.computeIfAbsent(scope, ignored -> new java.util.ArrayList<>()).add(fact);
         }
-        for (String fact : uniqueFacts) {
-            context.append("- ")
-                    .append(fact)
-                    .append("\n");
+
+        if (factsByScope.isEmpty()) {
+            return;
         }
+
+        context.append("\n## Facts\n");
+        LinkedHashMap<String, MemoryScope> orderedSections = new LinkedHashMap<>();
+        orderedSections.put("Global Context", MemoryScope.SYSTEM);
+        orderedSections.put("Agent Context", MemoryScope.AGENT);
+        orderedSections.put("User Context", MemoryScope.USER);
+        orderedSections.put("Project Context", MemoryScope.PROJECT);
+
+        for (Map.Entry<String, MemoryScope> section : orderedSections.entrySet()) {
+            List<String> facts = factsByScope.getOrDefault(section.getValue(), List.of());
+            if (facts.isEmpty()) {
+                continue;
+            }
+            context.append("\n### ").append(section.getKey()).append("\n");
+            for (String fact : facts) {
+                context.append("- ").append(fact).append("\n");
+            }
+        }
+    }
+
+    private MemoryScope normalizeScope(MemoryScope scope) {
+        if (scope == null) {
+            return MemoryScope.AGENT;
+        }
+        if (scope == MemoryScope.SHARED) {
+            return MemoryScope.SYSTEM;
+        }
+        return scope;
     }
 
     private void appendEpisodes(StringBuilder context, List<RetrievedMemories.EpisodeSummary> episodes) {
@@ -126,12 +171,45 @@ public class DefaultContextAssembler implements ContextAssembler {
         return instant == null ? "unknown" : instant.toString();
     }
 
-    private String trim(String context) {
+    private String trimToMaxCharacters(String section) {
         int maxCharacters = properties.getMaxCharacters();
-        if (context.length() <= maxCharacters) {
-            return context;
+        if (section.length() <= maxCharacters) {
+            return section;
         }
-        return context.substring(context.length() - maxCharacters);
+        return section.substring(0, maxCharacters);
+    }
+
+    private String trimToLength(String section, int maxLength) {
+        if (section == null || section.isEmpty() || maxLength <= 0) {
+            return "";
+        }
+        if (section.length() <= maxLength) {
+            return section;
+        }
+        return section.substring(0, maxLength);
+    }
+
+    private String assembleWithPriority(String rulesSection,
+                                        String factsSection,
+                                        String episodesSection,
+                                        String conversationSection,
+                                        String userInputSection) {
+        int maxCharacters = properties.getMaxCharacters();
+        String requiredUserSection = trimToLength(userInputSection, maxCharacters);
+        StringBuilder result = new StringBuilder();
+
+        List<String> prioritizedSections = List.of(rulesSection, factsSection, episodesSection, conversationSection);
+        for (String section : prioritizedSections) {
+            int remainingBeforeUser = maxCharacters - result.length() - requiredUserSection.length();
+            if (remainingBeforeUser <= 0) {
+                break;
+            }
+            result.append(trimToLength(section, remainingBeforeUser));
+        }
+
+        int remainingForUser = maxCharacters - result.length();
+        result.append(trimToLength(requiredUserSection, remainingForUser));
+        return trimToMaxCharacters(result.toString());
     }
 
     private <T> List<T> limit(List<T> values, int limit) {

@@ -1,0 +1,125 @@
+2.preAnalyse (avant codage)
+
+Fichiers/classes concernés:
+DefaultContextAssembler.java
+ContextRequest.java
+DefaultMemoryFacade.java
+DefaultMemoryRetrievalFacade.java
+DefaultMemoryRetriever.java
+DefaultSemanticMemoryExtractor.java
+MemoryScope.java
+Points d’architecture sensibles:
+Centraliser la composition du prompt dans ContextAssembler.
+Garder l’orchestrator/facade légers (pas de bornage dispersé).
+Rendre explicites les scopes mémoire durables sans casser la mémoire conversationnelle.
+Risques de refactor/dette:
+Duplication des caps (retrieval/facade/assembler).
+Confusion SHARED vs scopes métier explicites.
+Fuite potentielle de mémoire utilisateur sans filtre par userId.
+Plan (8 étapes):
+Clarifier les modèles de requête (ContextRequest, MemoryQuery) pour transporter userId.
+Introduire une politique centralisée des scopes mémoire.
+Brancher cette politique dans l’extractor sémantique (write scope).
+Brancher cette politique dans retrieval (read scopes + visibilité).
+Renforcer ContextAssembler pour sections explicites (rules/facts/history/conversation).
+Centraliser les caps d’injection dans ContextAssembler.
+Retirer le bornage redondant dans MemoryFacade.
+Adapter et compléter les tests ciblés.
+Plan 6.A (rappel)
+
+Garder ContextAssembler comme point unique d’assemblage.
+Structurer le contexte en ordre stable: rules > facts > history > conversation > user input.
+Ajouter des sections explicites de faits (global/agent/user/project).
+Centraliser les limites d’injection dans ContextAssembler.
+Éliminer la logique de bornage ad hoc côté MemoryFacade.
+Vérifier via tests unitaires et Spring IT.
+Implémentation 6.A
+
+ContextAssembler enrichi avec sections de contexte factuel par scope et ordre d’injection explicite.
+Caps gardés/centralisés dans DefaultContextAssembler (maxRules, maxMemories, maxEpisodes, maxCharacters).
+DefaultMemoryFacade.buildContext simplifié: retrieve -> assemble (plus de re-bornage local).
+Plan 6.B (rappel)
+
+Introduire une sémantique explicite des scopes durables.
+Ajouter USER et conserver compatibilité legacy.
+Centraliser la politique de scopes (write/read/visibility).
+Séparer clairement conversation (court terme) du durable.
+Propager userId dans la chaîne de retrieval.
+Filtrer retrieval par scope et identifiants (userId, projectId).
+Adapter tests de retrieval/extractor/context.
+Laisser retrieval avancé/permissions fines pour la suite.
+Implémentation 6.B
+
+Ajout d’une politique centralisée:
+MemoryScopePolicy.java
+MemoryScope clarifié (AGENT, USER, PROJECT, SYSTEM) avec SHARED conservé en legacy:
+MemoryScope.java
+Propagation userId:
+ContextRequest.java
+MemoryQuery.java
+Filtering/lecture par scope via policy:
+DefaultMemoryRetrievalFacade.java
+DefaultMemoryRetriever.java
+Écriture durable scope-aware dans extractor:
+DefaultSemanticMemoryExtractor.java
+Tests
+
+Exécuté:
+.\mvnw.cmd -q "-Dtest=ContextRequestTest,DefaultContextAssemblerTest,ContextAssemblerSpringIT,DefaultSemanticMemoryExtractorTest,DefaultMemoryRetrieverTest,DefaultMemoryRetrievalFacadeTest,DefaultMemoryFacadeTest" test
+.\mvnw.cmd -q -DskipTests compile
+Résultat: OK.
+Fichiers modifiés/créés
+
+ContextRequest.java
+DefaultContextAssembler.java
+DefaultMemoryFacade.java
+DefaultMemoryRetrievalFacade.java
+MemoryQuery.java
+DefaultMemoryRetriever.java
+DefaultSemanticMemoryExtractor.java
+MemoryScope.java
+MemoryScopePolicy.java
+ContextAssemblerSpringIT.java
+DefaultContextAssemblerTest.java
+DefaultMemoryRetrievalFacadeTest.java
+DefaultMemoryRetrieverTest.java
+DefaultSemanticMemoryExtractorTest.java
+Points volontairement ouverts (phases suivantes)
+
+Retrieval multi-critères avancé et scoring contextuel fin.
+Permissions par scope (ACL/policy runtime).
+Outils mémoire explicites (CRUD métier outillé).
+Condensation/résumés avancés multi-niveaux.
+
+
+
+Après relecture :
+Revue Critique (findings)
+
+[P1] Compatibilité legacy partiellement cassée sur les scopes: SHARED pouvait être visible dans la policy mais jamais récupéré car absent des scopes de requête par défaut (MemoryScopePolicy.java:34, DefaultMemoryRetrievalFacade.java:65).
+[P1] Trimming du contexte fragile: risque de couper l’input utilisateur ou de dégrader l’ordre utile en fin d’assemblage (DefaultContextAssembler.java:35).
+[P2] Sémantique legacy discutable: SHARED était remappé vers USER dans l’assemblage, ce qui n’est pas neutre métier (DefaultContextAssembler.java:139).
+[P3] Couverture de tests incomplète sur les points introduits (priorité de trimming et normalisation userId) (DefaultContextAssemblerTest.java:195, ContextRequestTest.java:23).
+Corrections Proposées
+
+Inclure explicitement SHARED dans les scopes lisibles par défaut.
+Rendre le trimming priorisé: conserver User Input, puis injecter rules/facts/history/conversation selon budget.
+Remapper SHARED vers SYSTEM (plus neutre que USER).
+Ajouter les tests ciblés sur ces comportements.
+Corrections Appliquées
+
+SHARED ajouté aux scopes de lecture par défaut (MemoryScopePolicy.java:34).
+Assemblage contextuel refactoré avec budget priorisé (assembleWithPriority) et conservation de User Input (DefaultContextAssembler.java:192).
+Remap legacy SHARED -> SYSTEM côté rendu contexte (DefaultContextAssembler.java:139).
+Tests renforcés:
+trimming + conservation user input (DefaultContextAssemblerTest.java:87, DefaultContextAssemblerTest.java:195)
+scopes retrieval incluant SHARED (DefaultMemoryRetrievalFacadeTest.java:231)
+normalisation userId dans ContextRequest (ContextRequestTest.java:12).
+Validation
+
+Tests exécutés avec succès:
+.\mvnw.cmd -q "-Dtest=DefaultContextAssemblerTest,DefaultMemoryRetrievalFacadeTest,DefaultMemoryRetrieverTest,DefaultSemanticMemoryExtractorTest,DefaultMemoryFacadeTest,ContextAssemblerSpringIT" test
+.\mvnw.cmd -q "-Dtest=ContextRequestTest,DefaultContextAssemblerTest,DefaultMemoryRetrievalFacadeTest" test
+Résumé Final
+La séparation config/runtime reste propre, le découplage orchestrator/memory est préservé, et la phase est plus robuste pour la suite (permissions/retrieval plus fin) sans ajouter de fonctionnalité hors périmètre.
+Dette résiduelle à surveiller plus tard: harmoniser le vocabulaire GLOBAL (règles) vs SYSTEM (mémoire), et décider explicitement si la déduplication de faits doit rester inter-scopes ou devenir scope-aware.
