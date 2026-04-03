@@ -8,9 +8,9 @@ import fr.ses10doigts.toolkitbridge.service.agent.orchestrator.AgentOrchestrator
 import fr.ses10doigts.toolkitbridge.service.agent.policy.AgentPolicy;
 import fr.ses10doigts.toolkitbridge.service.agent.policy.AgentPolicyRegistry;
 import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentRuntime;
-import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentRuntimeState;
 import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentToolAccess;
 import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentWorkspaceScope;
+import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentRuntimeState;
 import fr.ses10doigts.toolkitbridge.service.tool.ToolRegistryService;
 import fr.ses10doigts.toolkitbridge.service.workspace.WorkspaceService;
 import lombok.RequiredArgsConstructor;
@@ -28,11 +28,7 @@ public class AgentRuntimeFactory {
     private final ToolRegistryService toolRegistryService;
     private final WorkspaceService workspaceService;
 
-    public AgentRuntime create(
-            AgentDefinition definition,
-            AuthenticatedAgent authenticatedAgent,
-            AgentRuntimeState state
-    ) {
+    public AgentRuntime create(AgentDefinition definition, AuthenticatedAgent authenticatedAgent) {
         AgentOrchestrator orchestrator = orchestratorRegistry.getByType(definition.orchestratorType());
         AgentPolicy policy = policyRegistry.getRequired(definition.policyName());
 
@@ -50,7 +46,7 @@ public class AgentRuntimeFactory {
                 toolAccess,
                 policy,
                 workspace,
-                state
+                new AgentRuntimeState()
         );
     }
 

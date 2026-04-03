@@ -5,18 +5,17 @@ import fr.ses10doigts.toolkitbridge.model.dto.agent.definition.AgentDefinition;
 import fr.ses10doigts.toolkitbridge.model.dto.agent.definition.AgentOrchestratorType;
 import fr.ses10doigts.toolkitbridge.model.dto.agent.definition.AgentRole;
 import fr.ses10doigts.toolkitbridge.model.dto.auth.AuthenticatedAgent;
+import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentAvailability;
 import fr.ses10doigts.toolkitbridge.service.agent.orchestrator.AgentOrchestrator;
 import fr.ses10doigts.toolkitbridge.service.agent.orchestrator.AgentOrchestratorRegistry;
 import fr.ses10doigts.toolkitbridge.service.agent.policy.AgentPolicy;
 import fr.ses10doigts.toolkitbridge.service.agent.policy.AgentPolicyRegistry;
 import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentRuntime;
-import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentRuntimeState;
 import fr.ses10doigts.toolkitbridge.service.tool.ToolRegistryService;
 import fr.ses10doigts.toolkitbridge.service.workspace.WorkspaceService;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
-import java.time.Instant;
 import java.util.Set;
 import java.util.UUID;
 
@@ -63,9 +62,7 @@ class AgentRuntimeFactoryTest {
         );
 
         AuthenticatedAgent authenticatedAgent = new AuthenticatedAgent(UUID.randomUUID(), "agent-1");
-        AgentRuntimeState state = new AgentRuntimeState("trace", "telegram", "user", "conv", Instant.now());
-
-        AgentRuntime runtime = factory.create(definition, authenticatedAgent, state);
+        AgentRuntime runtime = factory.create(definition, authenticatedAgent);
 
         assertThat(runtime.definition()).isEqualTo(definition);
         assertThat(runtime.orchestrator()).isEqualTo(orchestrator);
@@ -74,6 +71,7 @@ class AgentRuntimeFactoryTest {
         assertThat(runtime.toolAccess().allowedTools()).contains("run_command", "read_file");
         assertThat(runtime.workspace().agentWorkspace()).isEqualTo(Path.of("/tmp/agent-1"));
         assertThat(runtime.workspace().sharedWorkspace()).isEqualTo(Path.of("/tmp/shared"));
-        assertThat(runtime.state()).isEqualTo(state);
+        assertThat(runtime.state().snapshot().availability()).isEqualTo(AgentAvailability.AVAILABLE);
+        assertThat(runtime.state().snapshot().busy()).isFalse();
     }
 }

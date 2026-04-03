@@ -1,0 +1,74 @@
+Prépa exécutée (analyse d’abord)
+Analyse du code existant réalisée avant implémentation.
+
+Représentation actuelle des agents
+Agent statique via AgentDefinition + AgentDefinitionProperties chargés depuis toolkit.agents.definitions.
+Fichiers: AgentDefinition.java, AgentDefinitionProperties.java, AgentDefinitionService.java.
+Localisation des responsabilités
+Orchestrator: AgentOrchestrator.java, ChatAgentOrchestrator.java, AgentOrchestratorRegistry.java.
+Mémoire: MemoryFacade.java, DefaultMemoryFacade.java.
+Tools: ToolRegistryService.java, ToolExecutionService.java, DefaultLlmService.java.
+Workspace: WorkspaceService.java.
+Config agent: AgentsProperties.java, AgentConfiguration.java.
+Couplages actuels
+AgentRuntimeService orchestre auth, résolution d’agent, création de requête, choix orchestrator.
+ChatAgentOrchestrator était couplé directement à MemoryFacade.
+WorkspaceService dépend du contexte auth thread-local via CurrentAgentService.
+DefaultLlmService gère directement la boucle tool-calls + exécution tools.
+Limites pour la suite (AgentRuntime complet, multi-agent, tasks, bus)
+Pas d’objet runtime central explicite (exécution = service + assemblage implicite).
+Frontière policy absente.
+Contrat orchestrator centré sur AgentDefinition statique, pas sur runtime.
+Peu de points d’accroche explicites pour task model / bus inter-agent.
+Plan proposé (et appliqué) en 7 étapes:
+
+Introduire objet AgentRuntime + état runtime minimal.
+Formaliser rôle/policy dans la définition statique.
+Créer contrat AgentPolicy + registry.
+Créer AgentRuntimeFactory pour assembler runtime complet.
+Basculer contrat orchestrator vers handle(AgentRuntime, AgentRequest).
+Adapter runtime service pour construire/déléguer via runtime.
+Mettre à jour et compléter les tests.
+Prompt exécuté ensuite (implémentation phase 0)
+
+Solution livrée:
+
+Un vrai AgentRuntime a été introduit, séparé de la config statique.
+Les frontières orchestrator / memory / tools / policy / workspace / runtime sont explicites.
+L’existant est conservé (pas de refonte brutale), avec refactor ciblé.
+Principales classes créées:
+
+AgentRuntime.java
+AgentRuntimeState.java
+AgentToolAccess.java
+AgentWorkspaceScope.java
+AgentRuntimeFactory.java
+AgentPolicy.java
+DefaultAgentPolicy.java
+AgentPolicyRegistry.java
+AgentRole.java
+Classes modifiées:
+
+AgentDefinition.java
+AgentDefinitionProperties.java
+AgentOrchestrator.java
+ChatAgentOrchestrator.java
+AgentRuntimeService.java
+ToolRegistryService.java
+WorkspaceService.java
+Tests ajoutés/adaptés:
+
+DefaultAgentPolicyTest.java (nouveau)
+AgentRuntimeFactoryTest.java (nouveau)
+ChatAgentOrchestratorTest.java (adapté)
+ChatAgentOrchestratorMemoryIntegrationTest.java (adapté)
+Validation:
+
+Commande exécutée: .\mvnw.cmd test -DskipITs
+Résultat: build succès, 111 tests OK.
+Points volontairement ouverts (phase suivante):
+
+Policy fine-grained (autorisations par tool/action/contexte).
+Task model explicite (task/subtask lifecycle).
+Bus inter-agent et tracing runtime distribué.
+Outillage mémoire spécialisé (memory tools dédiés).

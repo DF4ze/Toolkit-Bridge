@@ -2,6 +2,7 @@ package fr.ses10doigts.toolkitbridge.service.agent.runtime.model;
 
 import fr.ses10doigts.toolkitbridge.memory.facade.MemoryFacade;
 import fr.ses10doigts.toolkitbridge.model.dto.agent.definition.AgentDefinition;
+import fr.ses10doigts.toolkitbridge.model.dto.agent.definition.AgentRole;
 import fr.ses10doigts.toolkitbridge.service.agent.orchestrator.AgentOrchestrator;
 import fr.ses10doigts.toolkitbridge.service.agent.policy.AgentPolicy;
 
@@ -16,5 +17,9 @@ public record AgentRuntime(
 ) {
     public String agentId() {
         return definition.id();
+    }
+
+    public AgentRole role() {
+        return definition.role();
     }
 }

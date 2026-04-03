@@ -132,7 +132,7 @@ class ChatAgentOrchestratorTest {
                 new AgentToolAccess(true, Set.of("run_command")),
                 policy,
                 new AgentWorkspaceScope(null, null),
-                new AgentRuntimeState("trace", "telegram", "user-1", "chat-1", java.time.Instant.now())
+                new AgentRuntimeState()
         );
     }
 

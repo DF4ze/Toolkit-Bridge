@@ -1,0 +1,80 @@
+Pré-analyse exécutée puis implémentation faite en enchaînant 2.preAnalyse.md -> phase1.A.md -> phase1.B.md.
+
+Pré-analyse (demandée avant codage)
+
+Fichiers/classes concernés :
+D:\Documents\Spring\Toolkit-Bridge\src\main\java\fr\ses10doigts\toolkitbridge\service\agent\runtime\AgentRuntimeService.java
+D:\Documents\Spring\Toolkit-Bridge\src\main\java\fr\ses10doigts\toolkitbridge\service\agent\runtime\AgentRuntimeFactory.java
+D:\Documents\Spring\Toolkit-Bridge\src\main\java\fr\ses10doigts\toolkitbridge\service\agent\runtime\model\AgentRuntime.java
+D:\Documents\Spring\Toolkit-Bridge\src\main\java\fr\ses10doigts\toolkitbridge\service\agent\runtime\model\AgentRuntimeState.java
+Points sensibles :
+séparation définition statique vs runtime vivant
+éviter un manager omniscient
+garder un point d’accès central aux runtimes
+Risques/dette :
+état runtime trop “request-scoped” difficile à faire évoluer vers supervision/charge
+logique dispersée si création runtime hors registre
+Plan (8 étapes) :
+introduire état minimal disponibilité/occupation/tâche/contexte
+transitions simples start/finish
+factory avec état initial
+registre central thread-safe
+recâbler AgentRuntimeService
+marquage busy/available autour de l’orchestrator
+adapter tests existants
+ajouter tests dédiés state/registry
+Phase 1.A (socle runtime + rôle)
+Plan (rappel court) :
+
+Conserver le modèle agent explicite (orchestrator/memory/tools/policy/workspace).
+Consolider le rôle comme concept métier exploitable.
+Préparer les points d’accès pour extension future.
+Implémenté :
+
+Ajout d’un accès explicite au rôle au niveau runtime via AgentRuntime.role() dans D:\Documents\Spring\Toolkit-Bridge\src\main\java\fr\ses10doigts\toolkitbridge\service\agent\runtime\model\AgentRuntime.java.
+Le runtime reste une entité cohérente avec orchestrator, memory, tools, policy, workspace, et état.
+Points volontairement laissés ouverts pour 1.B (puis traités) :
+
+cycle de vie runtime minimal vivant
+registre central des runtimes
+préparation recherche par rôle/disponibilité
+Phase 1.B (lifecycle minimal + registre central)
+Plan (rappel court) :
+
+Introduire un état d’exécution minimal.
+Créer un registre central runtime.
+Brancher le service runtime dessus.
+Tester transitions et centralisation.
+Implémenté :
+
+Nouvel état runtime vivant :
+AgentAvailability
+AgentRuntimeExecutionSnapshot
+AgentRuntimeState refactorisé avec startExecution, finishExecution, markAvailable, markUnavailable, snapshot.
+Registre central ajouté :
+AgentRuntimeRegistry
+getOrCreate, findByAgentId, findByRole, findAll.
+Factory recâblée :
+AgentRuntimeFactory.java crée désormais un runtime avec état initial interne.
+Runtime service recâblé :
+AgentRuntimeService.java utilise le registre central et encadre l’exécution par startExecution/finishExecution.
+Tests
+Ajoutés/ajustés :
+
+Nouveau : AgentRuntimeStateTest.java
+Nouveau : AgentRuntimeRegistryTest.java
+Adaptés :
+AgentRuntimeFactoryTest.java
+ChatAgentOrchestratorTest.java
+ChatAgentOrchestratorMemoryIntegrationTest.java
+DefaultAgentPolicyTest.java
+Commande exécutée :
+
+./mvnw -q "-Dtest=AgentRuntimeFactoryTest,AgentRuntimeRegistryTest,AgentRuntimeStateTest,ChatAgentOrchestratorTest,ChatAgentOrchestratorMemoryIntegrationTest,DefaultAgentPolicyTest" test
+./mvnw -q -DskipTests test-compile
+Points laissés ouverts pour phase 2
+
+stratégie réelle de sélection d’agent disponible (load balancing)
+délégation effective inter-agent
+supervision avancée/métriques/dashboard
+task orchestration complète et bus inter-agent

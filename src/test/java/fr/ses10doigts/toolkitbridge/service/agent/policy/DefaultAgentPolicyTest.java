@@ -11,7 +11,6 @@ import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentToolAccess;
 import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentWorkspaceScope;
 import org.junit.jupiter.api.Test;
 
-import java.time.Instant;
 import java.util.Map;
 import java.util.Set;
 
@@ -56,7 +55,7 @@ class DefaultAgentPolicyTest {
                 new AgentToolAccess(runtimeToolsEnabled, Set.of("run_command")),
                 policy,
                 new AgentWorkspaceScope(null, null),
-                new AgentRuntimeState("trace", "telegram", "user", "conv", Instant.now())
+                new AgentRuntimeState()
         );
     }
 }

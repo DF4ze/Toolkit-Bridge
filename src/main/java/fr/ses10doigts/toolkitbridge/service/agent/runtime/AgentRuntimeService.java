@@ -8,14 +8,12 @@ import fr.ses10doigts.toolkitbridge.model.dto.agent.definition.AgentDefinition;
 import fr.ses10doigts.toolkitbridge.model.dto.auth.AuthenticatedAgent;
 import fr.ses10doigts.toolkitbridge.service.agent.definition.AgentDefinitionService;
 import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentRuntime;
-import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentRuntimeState;
 import fr.ses10doigts.toolkitbridge.service.auth.AgentAccountService;
 import fr.ses10doigts.toolkitbridge.service.auth.AgentContextHolder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 
@@ -29,7 +27,7 @@ public class AgentRuntimeService {
 
     private final CurrentTelegramBotContext currentBotService;
     private final AgentDefinitionService agentDefinitionService;
-    private final AgentRuntimeFactory runtimeFactory;
+    private final AgentRuntimeRegistry runtimeRegistry;
     private final AgentAccountService agentAccountService;
     private final AgentContextHolder agentContextHolder;
 
@@ -61,7 +59,14 @@ public class AgentRuntimeService {
         AgentRequest request = buildTelegramRequest(agentDefinition, chatId, userId, message, traceId);
 
         AuthenticatedAgent authenticatedAgent = authenticateTelegramAgent(agentDefinition, traceId);
-        AgentRuntime runtime = buildRuntime(agentDefinition, request, authenticatedAgent, traceId);
+        AgentRuntime runtime = runtimeRegistry.getOrCreate(agentDefinition, authenticatedAgent);
+        runtime.state().startExecution(
+                traceId,
+                request.channelType(),
+                request.channelConversationId(),
+                "orchestrator:" + runtime.orchestrator().getType().name().toLowerCase(),
+                request.channelConversationId()
+        );
         agentContextHolder.setCurrentBot(authenticatedAgent);
 
         try {
@@ -86,6 +91,7 @@ public class AgentRuntimeService {
             log.error("Runtime unexpected failure traceId={} durationMs={}", traceId, elapsedMs(startNanos), e);
             throw new AgentRuntimeException("Agent execution failed", e);
         } finally {
+            runtime.state().finishExecution();
             agentContextHolder.clear();
             log.debug("Runtime finished traceId={} durationMs={}", traceId, elapsedMs(startNanos));
         }
@@ -159,20 +165,6 @@ public class AgentRuntimeService {
                     e);
             throw new AgentRuntimeException("Agent authentication failed for telegram", e);
         }
-    }
-
-    private AgentRuntime buildRuntime(AgentDefinition definition,
-                                      AgentRequest request,
-                                      AuthenticatedAgent authenticatedAgent,
-                                      String traceId) {
-        AgentRuntimeState state = new AgentRuntimeState(
-                traceId,
-                request.channelType(),
-                request.channelUserId(),
-                request.channelConversationId(),
-                Instant.now()
-        );
-        return runtimeFactory.create(definition, authenticatedAgent, state);
     }
 
     private String newTraceId() {
