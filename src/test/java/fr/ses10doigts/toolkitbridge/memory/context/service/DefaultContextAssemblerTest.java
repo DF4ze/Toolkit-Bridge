@@ -162,6 +162,32 @@ class DefaultContextAssemblerTest {
         assertThat(assembled.injectedSemanticMemoryIds()).containsExactly(10L, 12L);
     }
 
+    @Test
+    void appliesRequestOverridesForMemoriesAndEpisodes() {
+        ContextAssemblerProperties properties = new ContextAssemblerProperties();
+        properties.setMaxMemories(5);
+        properties.setMaxEpisodes(5);
+
+        MemoryEntry m1 = memory("M1");
+        m1.setId(1L);
+        MemoryEntry m2 = memory("M2");
+        m2.setId(2L);
+
+        RetrievedMemories.EpisodeSummary e1 = episode("E1", EpisodeStatus.SUCCESS);
+        RetrievedMemories.EpisodeSummary e2 = episode("E2", EpisodeStatus.SUCCESS);
+
+        DefaultContextAssembler assembler = new DefaultContextAssembler(properties);
+        AssembledContext assembled = assembler.buildContext(
+                new ContextRequest("agent-1", "conv-1", null, "hello", 1, 1),
+                retrieved(List.of(), List.of(m1, m2), List.of(e1, e2), "")
+        );
+
+        String context = assembled.text();
+        assertThat(countOccurrences(context, "- M")).isEqualTo(1);
+        assertThat(countOccurrences(context, "- [SUCCESS] E")).isEqualTo(1);
+        assertThat(assembled.injectedSemanticMemoryIds()).containsExactly(1L);
+    }
+
     private RetrievedMemories retrieved(List<RuleEntry> rules,
                                         List<MemoryEntry> memories,
                                         List<RetrievedMemories.EpisodeSummary> episodes,

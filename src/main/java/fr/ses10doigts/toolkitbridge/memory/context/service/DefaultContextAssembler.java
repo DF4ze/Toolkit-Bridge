@@ -42,11 +42,20 @@ public class DefaultContextAssembler implements ContextAssembler {
 
         appendKnownFacts(
                 context,
-                limit(retrievedMemories.semanticMemories(), properties.getMaxMemories()),
+                limit(
+                        retrievedMemories.semanticMemories(),
+                        resolveLimit(request.maxSemanticMemories(), properties.getMaxMemories())
+                ),
                 usedSemanticMemoryIds
         );
 
-        appendEpisodes(context, limit(retrievedMemories.episodicMemories(), properties.getMaxEpisodes()));
+        appendEpisodes(
+                context,
+                limit(
+                        retrievedMemories.episodicMemories(),
+                        resolveLimit(request.maxEpisodes(), properties.getMaxEpisodes())
+                )
+        );
 
         String conversation = retrievedMemories.conversationSlice();
 
@@ -56,7 +65,7 @@ public class DefaultContextAssembler implements ContextAssembler {
         }
 
         context.append("\n\n## User Input\n");
-        context.append(request.userMessage());
+        context.append(request.currentUserMessage());
 
         return new AssembledContext(trim(context.toString()), List.copyOf(usedSemanticMemoryIds));
     }
@@ -133,6 +142,13 @@ public class DefaultContextAssembler implements ContextAssembler {
             return List.of();
         }
         return values.stream().limit(limit).toList();
+    }
+
+    private int resolveLimit(Integer override, int fallback) {
+        if (override == null) {
+            return fallback;
+        }
+        return Math.min(override, fallback);
     }
 
     private void validateProperties(ContextAssemblerProperties props) {

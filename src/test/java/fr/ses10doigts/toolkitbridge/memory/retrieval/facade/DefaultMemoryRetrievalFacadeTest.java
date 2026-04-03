@@ -21,6 +21,7 @@ import fr.ses10doigts.toolkitbridge.memory.semantic.model.MemoryScope;
 import fr.ses10doigts.toolkitbridge.memory.semantic.model.MemoryType;
 import fr.ses10doigts.toolkitbridge.memory.semantic.model.MemoryStatus;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -30,6 +31,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class DefaultMemoryRetrievalFacadeTest {
@@ -189,6 +191,39 @@ class DefaultMemoryRetrievalFacadeTest {
         RetrievedMemories result = facade.retrieve(request);
 
         assertThat(result.episodicMemories()).isEmpty();
+    }
+
+    @Test
+    void appliesRequestOverridesForSemanticAndEpisodeLimits() {
+        RuleService ruleService = mock(RuleService.class);
+        MemoryRetriever memoryRetriever = mock(MemoryRetriever.class);
+        EpisodicMemoryService episodicMemoryService = mock(EpisodicMemoryService.class);
+        ConversationMemoryService conversationMemoryService = mock(ConversationMemoryService.class);
+        MemoryRetrievalProperties properties = new MemoryRetrievalProperties();
+        properties.setMaxSemanticMemories(10);
+        properties.setMaxEpisodes(8);
+
+        DefaultMemoryRetrievalFacade facade = new DefaultMemoryRetrievalFacade(
+                ruleService,
+                memoryRetriever,
+                episodicMemoryService,
+                conversationMemoryService,
+                properties
+        );
+
+        when(ruleService.getApplicableRules(any(), any())).thenReturn(List.of());
+        when(memoryRetriever.retrieve(any())).thenReturn(List.of());
+        when(episodicMemoryService.findRecent(any(), anyInt())).thenReturn(List.of());
+        when(conversationMemoryService.buildContext(any())).thenReturn("");
+
+        ContextRequest request = new ContextRequest("agent-1", "conversation-1", "project-1", "msg", 3, 2);
+        facade.retrieve(request);
+
+        ArgumentCaptor<fr.ses10doigts.toolkitbridge.memory.retrieval.model.MemoryQuery> queryCaptor =
+                ArgumentCaptor.forClass(fr.ses10doigts.toolkitbridge.memory.retrieval.model.MemoryQuery.class);
+        verify(memoryRetriever).retrieve(queryCaptor.capture());
+        assertThat(queryCaptor.getValue().limit()).isEqualTo(3);
+        verify(episodicMemoryService).findRecent("agent-1", 2);
     }
 
     private RuleEntry rule(String name) {

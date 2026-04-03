@@ -65,10 +65,10 @@ public class DefaultMemoryRetrievalFacade implements MemoryRetrievalFacade {
         List<MemoryEntry> semanticMemories = memoryRetriever.retrieve(new MemoryQuery(
                 contextRequest.agentId(),
                 contextRequest.projectId(),
-                contextRequest.userMessage(),
+                contextRequest.currentUserMessage(),
                 DEFAULT_SCOPES,
                 DEFAULT_TYPES,
-                Math.max(1, properties.getMaxSemanticMemories())
+                resolveLimit(contextRequest.maxSemanticMemories(), properties.getMaxSemanticMemories())
         ));
 
         List<RetrievedMemories.EpisodeSummary> episodicMemories = collectEpisodeEvents(contextRequest)
@@ -102,7 +102,7 @@ public class DefaultMemoryRetrievalFacade implements MemoryRetrievalFacade {
     }
 
     private List<EpisodeEvent> collectEpisodeEvents(ContextRequest contextRequest) {
-        int limit = Math.max(1, properties.getMaxEpisodes());
+        int limit = resolveLimit(contextRequest.maxEpisodes(), properties.getMaxEpisodes());
         LinkedHashSet<EpisodeEvent> events = new LinkedHashSet<>();
 
         addEvents(events, episodicMemoryService.findRecent(contextRequest.agentId(), limit), contextRequest);
@@ -116,6 +116,14 @@ public class DefaultMemoryRetrievalFacade implements MemoryRetrievalFacade {
         }
 
         return events.stream().limit(limit).toList();
+    }
+
+    private int resolveLimit(Integer override, int fallback) {
+        int safeFallback = Math.max(1, fallback);
+        if (override == null) {
+            return safeFallback;
+        }
+        return Math.max(1, Math.min(override, safeFallback));
     }
 
     private void addEvents(LinkedHashSet<EpisodeEvent> accumulator,

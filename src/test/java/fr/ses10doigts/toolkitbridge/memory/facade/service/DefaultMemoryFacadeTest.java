@@ -72,6 +72,48 @@ class DefaultMemoryFacadeTest {
     }
 
     @Test
+    void buildContextPropagatesRequestOverridesToContextRequest() {
+        MemoryRetrievalFacade retrievalFacade = mock(MemoryRetrievalFacade.class);
+        ContextAssembler assembler = mock(ContextAssembler.class);
+        ConversationMemoryService conversationMemoryService = mock(ConversationMemoryService.class);
+        EpisodicMemoryService episodicMemoryService = mock(EpisodicMemoryService.class);
+        SemanticMemoryService semanticMemoryService = mock(SemanticMemoryService.class);
+        RuleService ruleService = mock(RuleService.class);
+        SemanticMemoryExtractor extractor = mock(SemanticMemoryExtractor.class);
+        RulePromotionService promotionService = mock(RulePromotionService.class);
+        EpisodicEventFactory eventFactory = mock(EpisodicEventFactory.class);
+        MemoryIntegrationProperties properties = new MemoryIntegrationProperties();
+
+        DefaultMemoryFacade facade = new DefaultMemoryFacade(
+                retrievalFacade,
+                assembler,
+                conversationMemoryService,
+                episodicMemoryService,
+                semanticMemoryService,
+                ruleService,
+                extractor,
+                promotionService,
+                eventFactory,
+                properties
+        );
+
+        when(retrievalFacade.retrieve(any(ContextRequest.class)))
+                .thenReturn(new RetrievedMemories(List.of(), List.of(), List.of(), ""));
+        when(assembler.buildContext(any(ContextRequest.class), any(RetrievedMemories.class)))
+                .thenReturn(new AssembledContext("CTX", List.of()));
+
+        MemoryContextRequest request = new MemoryContextRequest(
+                "agent-1", "user-1", "bot-1", "project-1", "hello", "conv-1", 2, 1, null, null
+        );
+        facade.buildContext(request);
+
+        ArgumentCaptor<ContextRequest> contextCaptor = ArgumentCaptor.forClass(ContextRequest.class);
+        verify(retrievalFacade).retrieve(contextCaptor.capture());
+        assertThat(contextCaptor.getValue().maxSemanticMemories()).isEqualTo(2);
+        assertThat(contextCaptor.getValue().maxEpisodes()).isEqualTo(1);
+    }
+
+    @Test
     void onUserAndAssistantMessagesTriggerWriters() {
         MemoryRetrievalFacade retrievalFacade = mock(MemoryRetrievalFacade.class);
         ContextAssembler assembler = mock(ContextAssembler.class);

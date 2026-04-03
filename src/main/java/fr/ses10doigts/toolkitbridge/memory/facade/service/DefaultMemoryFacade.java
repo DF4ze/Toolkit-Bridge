@@ -262,7 +262,9 @@ public class DefaultMemoryFacade implements MemoryFacade {
                 request.agentId(),
                 request.conversationId(),
                 request.projectId(),
-                request.currentUserMessage() == null ? "(no user message)" : request.currentUserMessage()
+                request.currentUserMessage() == null ? "(no user message)" : request.currentUserMessage(),
+                request.maxSemanticMemories(),
+                request.maxEpisodes()
         );
     }
 
