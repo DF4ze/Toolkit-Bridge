@@ -1,8 +1,11 @@
 package fr.ses10doigts.toolkitbridge.service.agent.communication.model;
 
 import fr.ses10doigts.toolkitbridge.model.dto.agent.definition.AgentRole;
+import fr.ses10doigts.toolkitbridge.service.agent.artifact.model.ArtifactReference;
+import fr.ses10doigts.toolkitbridge.service.agent.artifact.model.ArtifactType;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -18,7 +21,8 @@ class AgentMessageTest {
                 "agent-1",
                 "conv-1",
                 null,
-                Map.of("priority", "high")
+                Map.of("priority", "high"),
+                List.of(new ArtifactReference("artifact-1", ArtifactType.PLAN))
         );
 
         AgentMessage message = AgentMessage.create(
@@ -33,6 +37,7 @@ class AgentMessageTest {
         assertThat(message.timestamp()).isNotNull();
         assertThat(message.recipient().kind()).isEqualTo(AgentRecipientKind.ROLE);
         assertThat(message.payload().context()).containsEntry("priority", "high");
+        assertThat(message.payload().artifacts()).hasSize(1);
     }
 
     @Test
@@ -58,4 +63,3 @@ class AgentMessageTest {
                 .hasMessageContaining("senderAgentId");
     }
 }
-

@@ -1,5 +1,7 @@
 package fr.ses10doigts.toolkitbridge.service.agent.task.model;
 
+import fr.ses10doigts.toolkitbridge.service.agent.artifact.model.ArtifactReference;
+import fr.ses10doigts.toolkitbridge.service.agent.artifact.model.ArtifactType;
 import org.junit.jupiter.api.Test;
 
 import java.util.HashMap;
@@ -15,7 +17,7 @@ class TaskTest {
     void createsObjectiveTaskWithImmutableCollections() {
         Map<String, Object> metadata = new HashMap<>();
         metadata.put("priority", "high");
-        List<TaskArtifactRef> artifacts = List.of(new TaskArtifactRef("artifact-1", "text", "/tmp/a.txt"));
+        List<ArtifactReference> artifacts = List.of(new ArtifactReference("artifact-1", ArtifactType.FILE));
 
         Task task = new Task(
                 "task-1",
@@ -89,10 +91,11 @@ class TaskTest {
                 List.of()
         );
 
-        Task updated = task.withArtifact(new TaskArtifactRef("artifact-2", "log", "/tmp/log.txt"));
+        Task updated = task.withArtifact(new ArtifactReference("artifact-2", ArtifactType.REPORT));
 
         assertThat(task.artifacts()).isEmpty();
         assertThat(updated.artifacts()).hasSize(1);
         assertThat(updated.artifacts().getFirst().artifactId()).isEqualTo("artifact-2");
+        assertThat(updated.artifacts().getFirst().type()).isEqualTo(ArtifactType.REPORT);
     }
 }

@@ -1,0 +1,113 @@
+
+Pré-analyse exécutée puis phases 5.A et 5.B implémentées dans l’ordre demandé.
+
+Pré-analyse (2.preAnalyse.md)
+
+Fichiers sensibles identifiés: modèle tâche, bus/message inter-agent, workspace, config Spring, nouveaux composants artefact.
+Points sensibles: séparation stricte modèle métier vs stockage, typage des familles, éviter couplage logs/messages.
+Risques couverts: régression tests existants, strings magiques, rétention dispersée.
+Plan 8 étapes défini puis suivi (modèle -> intégration task/message -> stockage metadata/content -> rétention config -> tests).
+Phase 5.A réalisée
+
+Nouveau modèle métier Artifact introduit (distinct de Task et AgentMessage).
+Familles V1 typées via ArtifactType: report, patch, script, plan, summary, file, memory candidate.
+Liaison artefacts <-> tâches via références typées (ArtifactReference) dans Task.
+Préparation échanges inter-agent: AgentMessagePayload supporte des références d’artefacts.
+Évitement des strings magiques: enum centralisée + validation.
+Points volontairement ouverts en fin de 5.A (puis traités en 5.B):
+
+stockage metadata/content,
+rétention pilotable par type,
+mécanismes de purge/archivage avancés.
+Phase 5.B réalisée
+
+Séparation claire metadata/contenu:
+ArtifactMetadataStore (métadonnées structurées persistées via JPA),
+ArtifactContentStore (payload stocké en workspace partagé).
+Stockage contenu implémenté dans workspace/shared/artifacts/... via WorkspaceArtifactContentStore.
+Rétention par type pilotée configuration (toolkit.artifacts.retention) via ArtifactRetentionPolicy.
+ArtifactService orchestre création, calcul expiration, persistance metadata et content pointer.
+Aucune dépendance au logging pour stocker/récupérer les artefacts.
+Tests exécutés
+
+./mvnw -q -Dtest="Artifact*Test,TaskTest,AgentMessageTest,InMemoryAgentMessageBusTest,WorkspaceArtifactContentStoreTest" test OK
+./mvnw -q -DskipTests compile OK
+Fichiers créés
+
+ArtifactStorageConfiguration.java
+ArtifactStorageProperties.java
+Artifact.java
+ArtifactContentPointer.java
+ArtifactDraft.java
+ArtifactReference.java
+ArtifactType.java
+ArtifactContentStore.java
+ArtifactMetadataStore.java
+ArtifactRetentionPolicy.java
+ArtifactService.java
+ArtifactMetadataEntity.java
+ArtifactMetadataJpaRepository.java
+JpaArtifactMetadataStore.java
+WorkspaceArtifactContentStore.java
+ArtifactTest.java
+ArtifactTypeTest.java
+ArtifactRetentionPolicyTest.java
+ArtifactServiceTest.java
+WorkspaceArtifactContentStoreTest.java
+Fichiers modifiés
+
+Task.java
+AgentMessagePayload.java
+InMemoryAgentMessageBus.java
+application-example.yml
+TaskTest.java
+AgentMessageTest.java
+Fichier supprimé
+
+TaskArtifactRef.java
+Points laissés ouverts pour phases suivantes:
+
+purge/archivage orchestrés (scheduler + stratégie lifecycle),
+versioning d’artefacts,
+stockage distribué/distant,
+exposition admin/UI des artefacts et règles de rétention.
+
+
+Après relecture :
+Faiblesses / points discutables identifiés
+
+Couplage config/type trop fragile: la rétention par type reposait sur des clés String exactes (memory_candidate), donc sensible aux variantes (memory-candidate, majuscules).
+Cohérence du modèle type: ArtifactType.fromLabel(...) ne tenait pas compte du label métier et utilisait un toLowerCase() sans Locale.ROOT.
+Robustesse workspace: content-folder pouvait théoriquement sortir du workspace partagé via une config mal formée (../...), ce qui brouille la séparation config/runtime.
+Petite logique ad hoc: la valeur "workspace" était codée en dur dans le content store.
+Corrections pertinentes proposées
+
+Normaliser la résolution des types d’artefacts de manière robuste et locale-safe.
+Normaliser les clés de configuration de rétention (acceptation cohérente des variantes).
+Ajouter un garde-fou strict dans le stockage contenu pour interdire toute échappée hors shared workspace.
+Remplacer le littéral "workspace" par une constante nommée.
+Renforcer les tests sur ces cas précis.
+Corrections appliquées
+
+ArtifactType.java
+Normalisation centralisée (Locale.ROOT).
+fromLabel accepte désormais name, key et label.
+ArtifactStorageProperties.java
+Normalisation des clés de retention.by-type à l’écriture/lecture.
+Résolution plus robuste des TTL par type.
+WorkspaceArtifactContentStore.java
+Validation que content-folder reste sous le workspace partagé.
+Constante WORKSPACE_STORAGE_KIND pour supprimer le string magique.
+Tests renforcés:
+ArtifactTypeTest.java
+ArtifactRetentionPolicyTest.java
+WorkspaceArtifactContentStoreTest.java
+Vérification
+
+Tests ciblés OK: Artifact*Test, WorkspaceArtifactContentStoreTest, TaskTest, AgentMessageTest, InMemoryAgentMessageBusTest.
+Résumé final
+
+La séparation configuration/runtime est maintenant plus nette et défensive.
+Le modèle artefact est plus cohérent et moins “stringly-typed” côté résolution.
+Le découplage global reste propre (orchestrator/memory/tooling/policy/workspace), sans ajout hors périmètre.
+Dette résiduelle mineure à surveiller: transaction compensatoire éventuelle si écriture contenu OK mais persistance métadonnées KO (à traiter plus tard avec stratégie de lifecycle/purge).

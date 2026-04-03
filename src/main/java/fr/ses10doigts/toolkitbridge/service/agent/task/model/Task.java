@@ -1,5 +1,7 @@
 package fr.ses10doigts.toolkitbridge.service.agent.task.model;
 
+import fr.ses10doigts.toolkitbridge.service.agent.artifact.model.ArtifactReference;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -14,7 +16,7 @@ public record Task(
         TaskEntryPoint entryPoint,
         TaskStatus status,
         Map<String, Object> metadata,
-        List<TaskArtifactRef> artifacts
+        List<ArtifactReference> artifacts
 ) {
     public Task {
         if (isBlank(taskId)) {
@@ -50,9 +52,9 @@ public record Task(
         return !isBlank(parentTaskId);
     }
 
-    public Task withArtifact(TaskArtifactRef artifact) {
+    public Task withArtifact(ArtifactReference artifact) {
         Objects.requireNonNull(artifact, "artifact must not be null");
-        List<TaskArtifactRef> updatedArtifacts = new java.util.ArrayList<>(artifacts);
+        List<ArtifactReference> updatedArtifacts = new java.util.ArrayList<>(artifacts);
         updatedArtifacts.add(artifact);
         return new Task(
                 taskId,

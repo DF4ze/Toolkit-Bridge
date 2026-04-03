@@ -28,6 +28,7 @@ logging:
 app:
   workspace:
     agents-root: workspace
+    shared-root: workspace/shared
 
 telegram:
   enabled: true
@@ -52,6 +53,19 @@ telegram:
           - 123456789
 
 toolkit:
+  artifacts:
+    enabled: true
+    content-folder: artifacts
+    retention:
+      default-ttl: 24h
+      by-type:
+        report: 168h
+        patch: 168h
+        script: 168h
+        plan: 336h
+        summary: 72h
+        file: 720h
+        memory_candidate: 720h
   memory:
     conversation:
       enabled: true

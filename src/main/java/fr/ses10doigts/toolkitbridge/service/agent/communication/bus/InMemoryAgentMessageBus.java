@@ -108,6 +108,13 @@ public class InMemoryAgentMessageBus implements AgentMessageBus {
         context.put("senderAgentId", message.senderAgentId());
         context.put("messageType", message.type().name());
         context.put("recipientKind", message.recipient().kind().name());
+        context.put("artifactRefs", payload.artifacts()
+                .stream()
+                .map(ref -> Map.of(
+                        "artifactId", ref.artifactId(),
+                        "type", ref.type().key()
+                ))
+                .toList());
 
         return new AgentRequest(
                 resolvedAgentId,
