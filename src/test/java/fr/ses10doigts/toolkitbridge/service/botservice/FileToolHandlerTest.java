@@ -6,6 +6,7 @@ import fr.ses10doigts.toolkitbridge.config.workspace.WorkspaceProperties;
 import fr.ses10doigts.toolkitbridge.model.dto.auth.AuthenticatedAgent;
 import fr.ses10doigts.toolkitbridge.model.dto.tool.ToolExecutionResult;
 import fr.ses10doigts.toolkitbridge.service.workspace.WorkspaceService;
+import fr.ses10doigts.toolkitbridge.service.workspace.WorkspaceLayout;
 import fr.ses10doigts.toolkitbridge.service.auth.CurrentAgentService;
 import fr.ses10doigts.toolkitbridge.service.tool.file.*;
 import org.junit.jupiter.api.BeforeEach;
@@ -45,8 +46,9 @@ class FileToolHandlerTest {
         WorkspaceProperties properties = new WorkspaceProperties();
         properties.setAgentsRoot(tempDir.resolve("agents").toString());
         properties.setSharedRoot(tempDir.resolve("shared").toString());
+        properties.setGlobalContextRoot(tempDir.resolve("global-context").toString());
 
-        workspaceService = new WorkspaceService(properties, currentAgentService);
+        workspaceService = new WorkspaceService(new WorkspaceLayout(properties), currentAgentService);
 
         writeFileToolHandler = new WriteFileToolHandler(workspaceService);
         readFileToolHandler = new ReadFileToolHandler(workspaceService);

@@ -4,7 +4,9 @@ import fr.ses10doigts.toolkitbridge.config.workspace.WorkspaceProperties;
 import fr.ses10doigts.toolkitbridge.exception.ForbiddenCommandException;
 import fr.ses10doigts.toolkitbridge.model.dto.auth.AuthenticatedAgent;
 import fr.ses10doigts.toolkitbridge.service.auth.CurrentAgentService;
+import fr.ses10doigts.toolkitbridge.service.workspace.WorkspaceLayout;
 import fr.ses10doigts.toolkitbridge.service.workspace.WorkspaceService;
+import fr.ses10doigts.toolkitbridge.service.workspace.model.WorkspaceArea;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -34,8 +36,9 @@ class WorkspaceServiceTest {
         WorkspaceProperties properties = new WorkspaceProperties();
         properties.setAgentsRoot(tempDir.resolve("agents").toString());
         properties.setSharedRoot(tempDir.resolve("shared").toString());
+        properties.setGlobalContextRoot(tempDir.resolve("global-context").toString());
 
-        workspaceService = new WorkspaceService(properties, currentAgentService);
+        workspaceService = new WorkspaceService(new WorkspaceLayout(properties), currentAgentService);
     }
 
     @Test
@@ -80,6 +83,23 @@ class WorkspaceServiceTest {
         String relative = workspaceService.relativizeFromCurrentAgentWorkspace(resolved);
 
         assertEquals("folder/file.txt", relative);
+    }
+
+    @Test
+    void shouldResolvePathInsideGlobalContextRoot() throws IOException {
+        Path resolved = workspaceService.resolveInGlobalContext("profiles/user.md");
+
+        assertTrue(resolved.startsWith(tempDir.resolve("global-context")));
+        assertEquals("user.md", resolved.getFileName().toString());
+        assertEquals("profiles/user.md", workspaceService.relativizeFromGlobalContext(resolved));
+    }
+
+    @Test
+    void shouldExposeWorkspaceAreaSemantics() {
+        assertTrue(WorkspaceArea.AGENT_WORKSPACE.isWritableArea());
+        assertTrue(WorkspaceArea.SHARED_WORKSPACE.isWritableArea());
+        assertTrue(WorkspaceArea.GLOBAL_CONTEXT.isStableKnowledgeArea());
+        assertFalse(WorkspaceArea.GLOBAL_CONTEXT.isWritableArea());
     }
 
     @Test

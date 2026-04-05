@@ -1,38 +1,32 @@
 package fr.ses10doigts.toolkitbridge.service.workspace;
 
 import fr.ses10doigts.toolkitbridge.config.workspace.WorkspaceProperties;
-import fr.ses10doigts.toolkitbridge.exception.ForbiddenCommandException;
 import fr.ses10doigts.toolkitbridge.model.dto.auth.AuthenticatedAgent;
 import fr.ses10doigts.toolkitbridge.service.auth.CurrentAgentService;
-import lombok.Getter;
-import lombok.extern.slf4j.Slf4j;
+import fr.ses10doigts.toolkitbridge.service.workspace.model.WorkspaceArea;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 
-@Slf4j
 @Service
 public class WorkspaceService {
 
     private static final int MAX_COMMAND_ARG_LENGTH = 300;
     private static final String ALLOWED_COMMAND_ARG_PATTERN = "[a-zA-Z0-9._/\\-:=,@+ ]*";
 
-    @Getter
-    private final Path agentsRoot;
-    @Getter
-    private final Path sharedRoot;
+    private final WorkspaceLayout workspaceLayout;
     private final CurrentAgentService currentAgentService;
 
     public WorkspaceService(
-            WorkspaceProperties workspaceProperties,
+            WorkspaceLayout workspaceLayout,
             CurrentAgentService currentAgentService
     ) throws IOException {
-        this.agentsRoot = Path.of(workspaceProperties.getAgentsRoot()).normalize();
-        this.sharedRoot = Path.of(workspaceProperties.getSharedRoot()).normalize();
+        this.workspaceLayout = workspaceLayout;
         this.currentAgentService = currentAgentService;
-        Files.createDirectories(this.agentsRoot);
+        workspaceLayout.agentsRoot();
+        workspaceLayout.sharedRoot();
+        workspaceLayout.globalContextRoot();
     }
 
     public Path getCurrentAgentWorkspace() throws IOException {
@@ -41,69 +35,55 @@ public class WorkspaceService {
     }
 
     public Path getAgentWorkspace(String agentIdent) throws IOException {
-        String safeAgentFolderName = WorkspacePathSanitizer.sanitizeAgentFolderName(agentIdent);
-
-        Path agentWorkspace = agentsRoot.resolve(safeAgentFolderName).normalize();
-
-        if (!agentWorkspace.startsWith(agentsRoot)) {
-            throw new ForbiddenCommandException("Resolved agent workspace escapes agents root");
-        }
-
-        Files.createDirectories(agentWorkspace);
-        return agentWorkspace;
+        return workspaceLayout.agentWorkspace(agentIdent);
     }
 
     public Path getSharedWorkspace() throws IOException {
-        Files.createDirectories(sharedRoot);
-        return sharedRoot;
+        return workspaceLayout.sharedRoot();
+    }
+
+    public Path getGlobalContextRoot() throws IOException {
+        return workspaceLayout.globalContextRoot();
     }
 
     public Path resolveInCurrentAgentWorkspace(String userPath) throws IOException {
-        if (userPath == null || userPath.isBlank()) {
-            throw new IllegalArgumentException("Path cannot be empty");
-        }
-
-        Path inputPath = Path.of(userPath);
-
-        if (inputPath.isAbsolute()) {
-            throw new ForbiddenCommandException("Absolute paths are not allowed");
-        }
-
-        Path agentWorkspace = getCurrentAgentWorkspace();
-        Path resolved = agentWorkspace.resolve(inputPath).normalize();
-
-        if (!resolved.startsWith(agentWorkspace)) {
-            throw new ForbiddenCommandException("Path escapes bot workspace");
-        }
-
-        return resolved;
+        return resolveInArea(WorkspaceArea.AGENT_WORKSPACE, userPath);
     }
 
     public Path resolveInSharedWorkspace(String userPath) throws IOException {
-        if (userPath == null || userPath.isBlank()) {
-            throw new IllegalArgumentException("Path cannot be empty");
-        }
+        return resolveInArea(WorkspaceArea.SHARED_WORKSPACE, userPath);
+    }
 
-        Path inputPath = Path.of(userPath);
-        if (inputPath.isAbsolute()) {
-            throw new ForbiddenCommandException("Absolute paths are not allowed");
-        }
+    public Path resolveInGlobalContext(String userPath) throws IOException {
+        return resolveInArea(WorkspaceArea.GLOBAL_CONTEXT, userPath);
+    }
 
-        Path sharedWorkspace = getSharedWorkspace();
-        Path resolved = sharedWorkspace.resolve(inputPath).normalize();
-
-        if (!resolved.startsWith(sharedWorkspace)) {
-            throw new ForbiddenCommandException("Path escapes shared workspace");
-        }
-
-        return resolved;
+    public Path resolveInArea(WorkspaceArea area, String userPath) throws IOException {
+        Path areaRoot = switch (area) {
+            case AGENT_WORKSPACE -> getCurrentAgentWorkspace();
+            case SHARED_WORKSPACE, GLOBAL_CONTEXT -> workspaceLayout.areaRoot(area);
+        };
+        return workspaceLayout.resolveInArea(area, areaRoot, userPath);
     }
 
     public String relativizeFromCurrentAgentWorkspace(Path path) throws IOException {
-        return getCurrentAgentWorkspace()
-                .relativize(path)
-                .toString()
-                .replace("\\", "/");
+        return relativizeFromArea(WorkspaceArea.AGENT_WORKSPACE, path);
+    }
+
+    public String relativizeFromSharedWorkspace(Path path) throws IOException {
+        return relativizeFromArea(WorkspaceArea.SHARED_WORKSPACE, path);
+    }
+
+    public String relativizeFromGlobalContext(Path path) throws IOException {
+        return relativizeFromArea(WorkspaceArea.GLOBAL_CONTEXT, path);
+    }
+
+    public String relativizeFromArea(WorkspaceArea area, Path path) throws IOException {
+        Path areaRoot = switch (area) {
+            case AGENT_WORKSPACE -> getCurrentAgentWorkspace();
+            case SHARED_WORKSPACE, GLOBAL_CONTEXT -> workspaceLayout.areaRoot(area);
+        };
+        return workspaceLayout.relativize(areaRoot, path);
     }
 
     public void validateCommandArg(String arg) {

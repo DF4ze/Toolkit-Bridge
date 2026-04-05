@@ -4,6 +4,7 @@ import fr.ses10doigts.toolkitbridge.config.workspace.WorkspaceProperties;
 import fr.ses10doigts.toolkitbridge.exception.ForbiddenCommandException;
 import fr.ses10doigts.toolkitbridge.model.dto.auth.AuthenticatedAgent;
 import fr.ses10doigts.toolkitbridge.model.dto.tool.bash.BashRequest;
+import fr.ses10doigts.toolkitbridge.service.workspace.WorkspaceLayout;
 import fr.ses10doigts.toolkitbridge.service.workspace.WorkspaceService;
 import fr.ses10doigts.toolkitbridge.service.auth.CurrentAgentService;
 import fr.ses10doigts.toolkitbridge.service.tool.bash.BashSecurityService;
@@ -36,8 +37,9 @@ class BashToolHandlerTest {
         WorkspaceProperties properties = new WorkspaceProperties();
         properties.setAgentsRoot(tempDir.resolve("agents").toString());
         properties.setSharedRoot(tempDir.resolve("shared").toString());
+        properties.setGlobalContextRoot(tempDir.resolve("global-context").toString());
 
-        WorkspaceService workspaceService = new WorkspaceService(properties, currentAgentService);
+        WorkspaceService workspaceService = new WorkspaceService(new WorkspaceLayout(properties), currentAgentService);
         BashSecurityService securityService = new BashSecurityService(workspaceService);
         bashToolHandler = new BashToolHandler(workspaceService, securityService);
     }

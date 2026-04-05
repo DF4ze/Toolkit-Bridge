@@ -15,4 +15,7 @@ public class WorkspaceProperties {
 
     @NotBlank
     private String sharedRoot;
+
+    @NotBlank
+    private String globalContextRoot;
 }

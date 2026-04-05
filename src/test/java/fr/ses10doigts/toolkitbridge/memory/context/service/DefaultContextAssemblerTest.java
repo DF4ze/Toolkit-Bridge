@@ -1,6 +1,8 @@
 package fr.ses10doigts.toolkitbridge.memory.context.service;
 
 import fr.ses10doigts.toolkitbridge.memory.context.config.ContextAssemblerProperties;
+import fr.ses10doigts.toolkitbridge.memory.context.global.model.SharedGlobalContextSnapshot;
+import fr.ses10doigts.toolkitbridge.memory.context.global.port.SharedGlobalContextProvider;
 import fr.ses10doigts.toolkitbridge.memory.context.model.AssembledContext;
 import fr.ses10doigts.toolkitbridge.memory.context.model.ContextRequest;
 import fr.ses10doigts.toolkitbridge.memory.episodic.model.EpisodeEventType;
@@ -21,6 +23,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class DefaultContextAssemblerTest {
 
+    private static final SharedGlobalContextProvider EMPTY_GLOBAL_CONTEXT =
+            () -> new SharedGlobalContextSnapshot("", List.of(), Instant.parse("2025-01-01T00:00:00Z"));
+
     @Test
     void buildsContextInExpectedOrder() {
         ContextAssemblerProperties properties = new ContextAssemblerProperties();
@@ -30,7 +35,8 @@ class DefaultContextAssemblerTest {
         RetrievedMemories.EpisodeSummary episode = episode("agent-exchange", EpisodeStatus.SUCCESS);
 
         DefaultContextAssembler assembler = new DefaultContextAssembler(
-                properties
+                properties,
+                EMPTY_GLOBAL_CONTEXT
         );
 
         AssembledContext assembled = assembler.buildContext(
@@ -71,7 +77,8 @@ class DefaultContextAssemblerTest {
         List<MemoryEntry> memories = List.of(memory("M1"), memory("M2"));
 
         DefaultContextAssembler assembler = new DefaultContextAssembler(
-                properties
+                properties,
+                EMPTY_GLOBAL_CONTEXT
         );
 
         String context = assembler.buildContext(
@@ -96,7 +103,8 @@ class DefaultContextAssemblerTest {
         large.setMaxCharacters(1000);
 
         DefaultContextAssembler fullAssembler = new DefaultContextAssembler(
-                large
+                large,
+                EMPTY_GLOBAL_CONTEXT
         );
 
         String full = fullAssembler.buildContext(
@@ -108,7 +116,8 @@ class DefaultContextAssemblerTest {
         small.setMaxCharacters(50);
 
         DefaultContextAssembler trimmedAssembler = new DefaultContextAssembler(
-                small
+                small,
+                EMPTY_GLOBAL_CONTEXT
         );
 
         String trimmed = trimmedAssembler.buildContext(
@@ -127,7 +136,8 @@ class DefaultContextAssemblerTest {
         ContextAssemblerProperties properties = new ContextAssemblerProperties();
 
         DefaultContextAssembler assembler = new DefaultContextAssembler(
-                properties
+                properties,
+                EMPTY_GLOBAL_CONTEXT
         );
 
         assertThatThrownBy(() -> assembler.buildContext(null, retrieved(
@@ -151,7 +161,7 @@ class DefaultContextAssemblerTest {
         MemoryEntry other = memory("Other");
         other.setId(12L);
 
-        DefaultContextAssembler assembler = new DefaultContextAssembler(properties);
+        DefaultContextAssembler assembler = new DefaultContextAssembler(properties, EMPTY_GLOBAL_CONTEXT);
 
         AssembledContext assembled = assembler.buildContext(
                 new ContextRequest("agent-1", "conv-1", null, "hello"),
@@ -179,7 +189,7 @@ class DefaultContextAssemblerTest {
         RetrievedMemories.EpisodeSummary e1 = episode("E1", EpisodeStatus.SUCCESS);
         RetrievedMemories.EpisodeSummary e2 = episode("E2", EpisodeStatus.SUCCESS);
 
-        DefaultContextAssembler assembler = new DefaultContextAssembler(properties);
+        DefaultContextAssembler assembler = new DefaultContextAssembler(properties, EMPTY_GLOBAL_CONTEXT);
         AssembledContext assembled = assembler.buildContext(
                 new ContextRequest("agent-1", "conv-1", null, "hello", 1, 1),
                 retrieved(List.of(), List.of(m1, m2), List.of(e1, e2), "")
@@ -202,7 +212,7 @@ class DefaultContextAssemblerTest {
         RuleEntry rule = rule("This is a very long mandatory rule that should be present first", RulePriority.HIGH);
         MemoryEntry memory = memory("This is a long fact that may be truncated if required");
 
-        DefaultContextAssembler assembler = new DefaultContextAssembler(properties);
+        DefaultContextAssembler assembler = new DefaultContextAssembler(properties, EMPTY_GLOBAL_CONTEXT);
         String context = assembler.buildContext(
                 new ContextRequest("agent-1", "conv-1", null, "Critical user input"),
                 retrieved(List.of(rule), List.of(memory), List.of(), "Long conversation that should be dropped first")
@@ -211,6 +221,25 @@ class DefaultContextAssemblerTest {
         assertThat(context.length()).isLessThanOrEqualTo(90);
         assertThat(context).contains("## User Input");
         assertThat(context).contains("Critical user input");
+    }
+
+    @Test
+    void injectsSharedGlobalContextBeforeFacts() {
+        ContextAssemblerProperties properties = new ContextAssemblerProperties();
+        SharedGlobalContextProvider globalContextProvider =
+                () -> new SharedGlobalContextSnapshot("### profile.md\nName: Alice", List.of("profile.md"), Instant.parse("2025-01-01T00:00:00Z"));
+
+        DefaultContextAssembler assembler = new DefaultContextAssembler(properties, globalContextProvider);
+
+        String context = assembler.buildContext(
+                new ContextRequest("agent-1", "conv-1", null, "hello"),
+                retrieved(List.of(rule("Follow rules", RulePriority.HIGH)), List.of(memory("Fact")), List.of(), "")
+        ).text();
+
+        assertThat(context).contains("## Shared Global Context");
+        assertThat(context.indexOf("## Shared Global Context")).isGreaterThan(context.indexOf("## Rules"));
+        assertThat(context.indexOf("## Shared Global Context")).isLessThan(context.indexOf("## Facts"));
+        assertThat(context).contains("Name: Alice");
     }
 
     private RetrievedMemories retrieved(List<RuleEntry> rules,

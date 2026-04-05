@@ -1,6 +1,8 @@
 package fr.ses10doigts.toolkitbridge.memory.context.service;
 
 import fr.ses10doigts.toolkitbridge.memory.context.config.ContextAssemblerProperties;
+import fr.ses10doigts.toolkitbridge.memory.context.global.model.SharedGlobalContextSnapshot;
+import fr.ses10doigts.toolkitbridge.memory.context.global.port.SharedGlobalContextProvider;
 import fr.ses10doigts.toolkitbridge.memory.context.model.AssembledContext;
 import fr.ses10doigts.toolkitbridge.memory.context.model.ContextRequest;
 import fr.ses10doigts.toolkitbridge.memory.context.port.ContextAssembler;
@@ -23,11 +25,14 @@ import java.util.Set;
 public class DefaultContextAssembler implements ContextAssembler {
 
     private final ContextAssemblerProperties properties;
+    private final SharedGlobalContextProvider sharedGlobalContextProvider;
 
     public DefaultContextAssembler(
-            ContextAssemblerProperties properties
+            ContextAssemblerProperties properties,
+            SharedGlobalContextProvider sharedGlobalContextProvider
     ) {
         this.properties = properties;
+        this.sharedGlobalContextProvider = sharedGlobalContextProvider;
         validateProperties(properties);
     }
 
@@ -42,11 +47,13 @@ public class DefaultContextAssembler implements ContextAssembler {
 
         LinkedHashSet<Long> usedSemanticMemoryIds = new LinkedHashSet<>();
         StringBuilder rulesSection = new StringBuilder();
+        StringBuilder sharedGlobalContextSection = new StringBuilder();
         StringBuilder factsSection = new StringBuilder();
         StringBuilder episodesSection = new StringBuilder();
         StringBuilder conversationSection = new StringBuilder();
 
         appendRules(rulesSection, limit(retrievedMemories.rules(), properties.getMaxRules()));
+        appendSharedGlobalContext(sharedGlobalContextSection, sharedGlobalContextProvider.getSharedGlobalContext());
         appendFacts(factsSection, request, retrievedMemories, usedSemanticMemoryIds);
 
         appendEpisodes(
@@ -66,6 +73,7 @@ public class DefaultContextAssembler implements ContextAssembler {
         String userInputSection = "\n\n## User Input\n" + request.currentUserMessage();
         String context = assembleWithPriority(
                 rulesSection.toString(),
+                sharedGlobalContextSection.toString(),
                 factsSection.toString(),
                 episodesSection.toString(),
                 conversationSection.toString(),
@@ -84,6 +92,15 @@ public class DefaultContextAssembler implements ContextAssembler {
                     .append(rule.getContent())
                     .append("\n");
         }
+    }
+
+    private void appendSharedGlobalContext(StringBuilder context, SharedGlobalContextSnapshot snapshot) {
+        if (snapshot == null || snapshot.isEmpty()) {
+            return;
+        }
+
+        context.append("\n## Shared Global Context\n");
+        context.append(snapshot.content());
     }
 
     private void appendFacts(StringBuilder context,
@@ -190,6 +207,7 @@ public class DefaultContextAssembler implements ContextAssembler {
     }
 
     private String assembleWithPriority(String rulesSection,
+                                        String sharedGlobalContextSection,
                                         String factsSection,
                                         String episodesSection,
                                         String conversationSection,
@@ -198,7 +216,13 @@ public class DefaultContextAssembler implements ContextAssembler {
         String requiredUserSection = trimToLength(userInputSection, maxCharacters);
         StringBuilder result = new StringBuilder();
 
-        List<String> prioritizedSections = List.of(rulesSection, factsSection, episodesSection, conversationSection);
+        List<String> prioritizedSections = List.of(
+                rulesSection,
+                sharedGlobalContextSection,
+                factsSection,
+                episodesSection,
+                conversationSection
+        );
         for (String section : prioritizedSections) {
             int remainingBeforeUser = maxCharacters - result.length() - requiredUserSection.length();
             if (remainingBeforeUser <= 0) {

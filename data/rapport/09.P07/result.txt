@@ -1,0 +1,106 @@
+Implémentation faite pour 7.A puis 7.B.
+
+Le système sait maintenant charger un contexte global partagé depuis workspace/global-context via un composant dédié Markdown, configurable en mode ON_DEMAND ou CACHED, puis l’injecter proprement dans le prompt LLM via DefaultContextAssembler.java. La frontière avec le workspace courant est désormais matérialisée dans le code par une racine distincte et par WorkspaceArea.java, au lieu de rester implicite.
+
+Les choix structurants sont:
+
+contexte global stable: lu uniquement depuis workspace/global-context
+shared workspace: conservé comme zone de travail courant
+logique de chargement centralisée: MarkdownSharedGlobalContextProvider.java
+config pilotable par properties: GlobalContextProperties.java, application.yml
+Tests ajoutés/ajustés:
+
+chargement et cache du contexte global: MarkdownSharedGlobalContextProviderTest.java
+injection dans le contexte LLM: DefaultContextAssemblerTest.java
+frontière workspace/global context: WorkspaceServiceTest.java
+adaptation des tests outils: FileToolHandlerTest.java, BashToolHandlerTest.java
+Je n’ai pas pu exécuter la suite Maven ici: ./mvnw test échoue côté environnement avec release version 21 not supported, donc les tests sont écrits mais non validés localement dans cette session.
+
+Points laissés volontairement ouverts pour la suite:
+
+tools explicites de lecture/écriture du contexte global
+policies et permissions d’écriture plus fines selon la zone
+validation des écritures et UI d’administration
+synchronisation multi-source plus avancée
+Fichiers créés:
+
+GlobalContextProperties.java
+SharedGlobalContextSnapshot.java
+SharedGlobalContextProvider.java
+MarkdownSharedGlobalContextProvider.java
+WorkspaceArea.java
+MarkdownSharedGlobalContextProviderTest.java
+shared-global-context-boundary.md
+Fichiers modifiés:
+
+WorkspaceProperties.java
+WorkspaceService.java
+WorkspaceInitializer.java
+ContextAssemblerConfiguration.java
+DefaultContextAssembler.java
+application.yml
+application.yml
+DefaultContextAssemblerTest.java
+WorkspaceServiceTest.java
+FileToolHandlerTest.java
+BashToolHandlerTest.java
+Point d’attention hors périmètre: le worktree contenait déjà des changements utilisateur sur 7.A.md, 7.B.md et une suppression de application-example.yml; je ne les ai pas modifiés.
+
+
+après revue :
+Revue Critique
+
+Faiblesses ou points discutables relevés sur l’implémentation précédente :
+
+Le chargement du contexte global était encore couplé à un service orienté runtime agent.
+Dans la première version, MarkdownSharedGlobalContextProvider.java dépendait de WorkspaceService.java, alors que ce service est centré sur l’agent courant et la résolution de workspace runtime. Pour un contexte global stable, ce couplage était évitable et gênait les futures phases.
+
+WorkspaceService mélangeait deux responsabilités.
+Il portait à la fois la topologie des racines de workspace et la logique liée à l’agent courant. Ce n’était pas catastrophique, mais la frontière configuration/structure vs runtime n’était pas assez nette.
+
+Les tests du contexte global validaient partiellement la mauvaise frontière.
+Le test du provider passait encore par WorkspaceService, ce qui rendait moins visible le fait que le contexte global doit rester indépendant du runtime agent.
+
+La matérialisation de la frontière reposait un peu trop sur WorkspaceArea seul.
+L’enum est utile, mais seule, elle restait plutôt déclarative. Il fallait un support structurel concret côté code.
+
+Les corrections utiles proposées puis appliquées :
+
+Extraction d’un composant dédié à la structure des racines workspace.
+J’ai ajouté WorkspaceLayout.java, qui porte uniquement la topologie des racines, la résolution dans une zone et la relativisation. Cela sépare clairement configuration/structure et runtime.
+
+Découplage du provider de contexte global du runtime agent.
+MarkdownSharedGlobalContextProvider.java dépend maintenant de WorkspaceLayout et non plus de WorkspaceService.
+
+Recentrage de WorkspaceService sur son vrai rôle.
+WorkspaceService.java délègue désormais la topologie à WorkspaceLayout et garde la logique liée à l’agent courant et aux usages runtime.
+
+Alignement de l’initialisation workspace sur cette séparation.
+WorkspaceInitializer.java utilise maintenant WorkspaceLayout.
+
+Tests plus utiles et mieux ciblés.
+J’ai ajouté WorkspaceLayoutTest.java et simplifié MarkdownSharedGlobalContextProviderTest.java pour refléter la bonne frontière.
+
+État Après Correction
+
+L’architecture est maintenant plus propre sur les points demandés :
+
+meilleure séparation configuration vs runtime
+meilleur découplage entre mémoire/context global et workspace runtime
+moins de logique ad hoc dans le chargement du contexte global
+noms cohérents et lisibles
+tests plus proches des responsabilités réelles
+Je n’ai pas vu d’autre faiblesse bloquante à corriger immédiatement sans élargir le périmètre. Les points encore ouverts me paraissent acceptables pour cette phase :
+
+WorkspaceArea reste surtout un marqueur architectural, pas encore une policy d’écriture complète
+la gestion fine des droits d’écriture et la validation avancée restent volontairement pour les phases suivantes
+le provider tolère encore certains problèmes de chargement à l’exécution, ce qui reste cohérent avec l’objectif “simple, maintenable, sans sur-ingénierie”
+Vérification
+
+J’ai relancé la compilation/tests ciblés avec Java 21. Le build reste bloqué par un problème hors périmètre dans DefaultController.java : TelegramMessageFormat introuvable. Je n’ai donc pas modifié cette partie, mais je n’ai pas vu d’erreur supplémentaire provenant des corrections de cette phase avant ce blocage externe.
+
+Résumé Final
+
+Correction pertinente appliquée : extraction de WorkspaceLayout.java pour supprimer le couplage inutile entre contexte global stable et service workspace orienté agent.
+Le résultat est plus net architecturalement, sans ajouter de fonctionnalité hors périmètre.
+Le seul frein restant à la validation complète est un échec de compilation préexistant/hors phase côté Telegram.
