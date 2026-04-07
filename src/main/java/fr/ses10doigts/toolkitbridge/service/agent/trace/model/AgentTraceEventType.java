@@ -5,6 +5,7 @@ public enum AgentTraceEventType {
     CONTEXT_ASSEMBLED,
     TOOL_CALL,
     DELEGATION,
+    DEBATE,
     RESPONSE,
     ERROR
 }

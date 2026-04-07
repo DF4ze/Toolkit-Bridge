@@ -1,0 +1,125 @@
+Analyse
+Fichiers/classes les plus concernés dans l’existant :
+
+AgentRole.java
+AgentMessage.java
+AgentMessagePayload.java
+AgentMessageType.java
+InMemoryAgentMessageBus.java
+Artifact.java
+ArtifactService.java
+Task.java
+AgentTraceCorrelation.java
+AgentTraceEventType.java
+Points d’architecture sensibles :
+
+ne pas créer un “mini bus débat” séparé du bus inter-agent existant
+ne pas encoder la corrélation du débat en texte libre
+garder le protocole ouvert sans figer une orchestration lourde ni un vote prématuré
+rester traçable côté artefacts et traces, même pour un scénario simple
+Risques/dette identifiés :
+
+dérive vers du context non typé si on n’introduit pas de modèle explicite
+confusion entre corrélation bus, corrélation débat et task linkage
+généralisation trop tôt si on mélange protocole de débat et workflow métier concret
+Plan exécuté :
+
+étendre les rôles utiles au débat
+formaliser les étapes du protocole
+projeter ce protocole vers le bus via une fabrique dédiée
+ajouter une trace explicite de type débat
+implémenter un premier scénario simple de revue croisée d’artefact
+persister une synthèse traçable en artefact
+couvrir le tout par tests
+valider avec la suite Maven
+Implémentation
+Phase 15.A :
+
+ajout de rôles complémentaires ouverts mais limités : PLANNER, CRITIC, SECURITY, FINANCE, COMMERCIAL, EXECUTOR
+ajout d’un protocole explicite avec DebateStage, DebateContext, DebateMessageCommand, DebateTranscriptEntry
+ajout de DebateMessageFactory.java pour mapper proprement le débat sur le bus existant
+ajout du type de message SYNTHESIS et de l’événement de trace DEBATE
+Phase 15.B :
+
+ajout de ArtifactReviewCollaborationService.java
+scénario concret V1 : un artefact existant est soumis à un reviewer par rôle via le bus, la critique revient, puis une synthèse traçable est enregistrée comme artefact SUMMARY
+transcript structuré : question -> response (soumission artefact) -> critique -> synthesis
+métadonnées de synthèse : artefact revu, producteur, reviewer, messages corrélés, debateId
+Validation
+Tests ajoutés :
+
+DebateMessageFactoryTest.java
+ArtifactReviewCollaborationServiceTest.java
+Tests exécutés :
+
+mvnw.cmd -q -Dtest=DebateMessageFactoryTest,ArtifactReviewCollaborationServiceTest test
+mvnw.cmd -q -Dtest=InMemoryAgentMessageBusTest,DebateMessageFactoryTest,ArtifactReviewCollaborationServiceTest,TaskFactoryTest,ArtifactServiceTest test
+mvnw.cmd -q test
+Fichiers créés/modifiés :
+
+AgentRole.java
+AgentMessageType.java
+AgentTraceEventType.java
+DebateStage.java
+DebateContext.java
+DebateMessageCommand.java
+DebateTranscriptEntry.java
+ArtifactReviewRequest.java
+ArtifactReviewResult.java
+DebateMessageFactory.java
+ArtifactReviewCollaborationService.java
+DebateMessageFactoryTest.java
+ArtifactReviewCollaborationServiceTest.java
+Points volontairement laissés ouverts pour la suite :
+
+persistance dédiée d’un historique de débats
+arbitrage avancé / vote / multi-reviewers
+synthèse par agent spécialisé plutôt que synthèse locale
+scénarios métier supplémentaires au-delà de la revue croisée simple
+enrichissement fin des rôles sans figer trop tôt un catalogue complet
+
+
+
+Après relecture :
+Faiblesses
+
+ArtifactReviewCollaborationService.java mélangeait protocole et reconstruction métier en fabriquant une pseudo étape RESPONSE avec un faux messageId. C’était traçable en apparence, mais pas relié à un événement réel du bus ou à un artefact persistant.
+Le même service portait un peu trop de logique “inline” sur la narration du débat. Ce n’était pas encore grave, mais cette fausse réponse créait un couplage ad hoc entre “artefact déjà produit” et “message de débat”.
+Les tests initiaux validaient surtout le résultat final, pas assez le contrat utile : message effectivement dispatché, artefact de synthèse réellement construit, absence d’écriture en cas d’échec.
+Corrections utiles
+
+supprimer l’entrée RESPONSE synthétique et ne garder dans le transcript que les éléments réellement corrélables : QUESTION, CRITIQUE, SYNTHESIS
+faire porter la traçabilité de la production sur l’artefact lui-même, pas sur un faux message
+renforcer les tests sur le payload du message envoyé et sur le ArtifactDraft créé
+vérifier explicitement qu’aucun artefact de synthèse n’est créé quand la revue est UNROUTABLE
+Corrections appliquées
+
+ArtifactReviewCollaborationService.java
+suppression de la fausse entrée RESPONSE
+génération du debateId laissée au DebateContext, ce qui évite une duplication inutile
+utilisation du messageId réel du bus pour l’entrée CRITIQUE
+utilisation de l’artifactId de synthèse comme identifiant d’entrée SYNTHESIS
+ajout de la reviewQuestion dans les métadonnées et dans la synthèse, pour une trace métier plus lisible
+ArtifactReviewCollaborationServiceTest.java
+capture et vérification du AgentMessage dispatché
+capture et vérification du ArtifactDraft de synthèse
+assertion qu’aucune synthèse n’est créée en cas d’échec de routage
+État architectural après relecture
+La séparation configuration/runtime reste bonne sur ce périmètre : rien de nouveau n’a été introduit côté config, et le runtime débat repose sur le bus, les artefacts et les traces existants sans toucher à l’orchestrator, à la mémoire, au tooling, à la policy ou au workspace.
+
+Le modèle est maintenant plus propre :
+
+DebateContext et DebateStage portent bien le protocole
+DebateMessageFactory reste la seule brique qui projette ce protocole dans AgentMessagePayload.context
+ArtifactReviewCollaborationService reste un scénario métier simple branché sur ce protocole
+Dette technique résiduelle, mais acceptable pour cette phase :
+
+la synthèse est encore construite localement dans le service, donc pas encore factorisée en stratégie réutilisable
+les rôles ont été étendus dans AgentRole, ce qui est cohérent pour l’instant, mais il faudra surveiller si ce catalogue grossit trop dans les phases suivantes
+le protocole de débat est explicite, mais ses clés de contexte restent portées par la factory plutôt que par un contrat partagé plus global
+Validation
+
+mvnw.cmd -q -Dtest=DebateMessageFactoryTest,ArtifactReviewCollaborationServiceTest test
+mvnw.cmd -q test
+Résumé
+La correction vraiment pertinente était de retirer la fausse “réponse” injectée dans le transcript. C’était le principal point discutable d’architecture, parce qu’il introduisait une traçabilité artificielle. Le protocole est maintenant plus honnête, mieux découplé et mieux testé, tout en restant strictement dans le périmètre des phases 15.A et 15.B.

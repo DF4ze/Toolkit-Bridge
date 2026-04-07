@@ -6,6 +6,6 @@ public enum AgentMessageType {
     QUESTION,
     ANSWER,
     EVENT,
-    CRITIQUE
+    CRITIQUE,
+    SYNTHESIS
 }
-
