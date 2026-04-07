@@ -1,0 +1,126 @@
+
+Pré-analyse
+Les zones concernées étaient surtout le bus et les traces existantes, puis l’entrée Telegram. Les points les plus sensibles étaient InMemoryAgentMessageBus.java, DefaultAgentTraceService.java, les sinks de trace, et DefaultController.java. Le point d’accroche le plus sain pour 14.A était la couche AgentTraceSink, afin que Telegram reste une couche d’exposition et non une dépendance du bus.
+
+Les risques principaux étaient:
+
+coupler le bus directement à Telegram
+laisser le groupe de supervision déclencher le runtime agentique
+publier des messages trop techniques ou trop bavards
+préparer la validation humaine d’une façon trop spécifique à Telegram
+Le plan suivi a été:
+
+brancher la supervision sur les traces, pas sur le bus
+formatter les événements en messages Telegram lisibles
+publier seulement un sous-ensemble d’événements utiles
+rendre le groupe de supervision strictement read-only
+rendre les composants Telegram optionnels si l’infra Telegram n’est pas active
+introduire un modèle neutre de “human intervention” pour 14.B
+couvrir le tout avec des tests ciblés puis lancer la suite complète
+Implémentation 14.A et 14.B
+J’ai ajouté une couche de supervision Telegram basée sur les traces, avec propriétés dédiées, garde de chat read-only, formateur lisible, et sink Telegram optionnel:
+
+TelegramSupervisionProperties.java
+TelegramSupervisionChatGuard.java
+TelegramTraceMessageFormatter.java
+TelegramAgentTraceSink.java
+J’ai aussi modifié DefaultController.java pour ignorer les messages du groupe de supervision en mode lecture seule, ce qui garantit qu’à ce stade Telegram n’influe pas sur l’orchestration.
+
+Pour 14.B, j’ai posé une base neutre pour une future validation humaine légère, sans workflow actif ni dépendance métier au canal Telegram:
+
+modèle et service d’intervention humaine en mémoire:
+HumanInterventionDraft.java,
+HumanInterventionRequest.java,
+HumanInterventionDecision.java,
+HumanInterventionService.java,
+InMemoryHumanInterventionService.java
+adaptateur Telegram périphérique:
+TelegramHumanInterventionNotifier.java
+Choix structurants:
+
+14.A passe par AgentTraceSink, donc aucun couplage bus -> Telegram
+Telegram supervision est optionnel et non bloquant
+le groupe de supervision est explicitement read-only
+14.B introduit un contrat métier neutre (HumanIntervention*) que Telegram peut seulement notifier
+Tests et fichiers
+Tests ajoutés:
+
+TelegramTraceMessageFormatterTest.java
+TelegramAgentTraceSinkTest.java
+TelegramHumanInterventionNotifierTest.java
+InMemoryHumanInterventionServiceTest.java
+DefaultControllerTest.java
+Vérification effectuée:
+
+.\mvnw -q "-Dtest=TelegramTraceMessageFormatterTest,TelegramAgentTraceSinkTest,TelegramHumanInterventionNotifierTest,InMemoryHumanInterventionServiceTest,DefaultControllerTest" test
+.\mvnw -q test
+Points laissés volontairement ouverts pour la suite:
+
+choix exact des événements à afficher plus finement dans le groupe
+commandes/callbacks Telegram de décision humaine réelles
+branchement d’actions sensibles du bus/policy vers HumanInterventionService
+gestion de TTL, expiration, persistance ou audit des demandes humaines
+
+
+Après relecture :
+Findings
+
+[P2] The first version duplicated Telegram sender resolution, truncation, and failure handling in two runtime components, which would have made future channel changes or formatting changes drift apart. This is now centralized in TelegramSupervisionMessagePublisher.java (line 12). TelegramAgentTraceSink and TelegramHumanInterventionNotifier now only decide what to publish, not how to send it.
+
+[P2] InMemoryHumanInterventionService previously let notifier failures break the core registry flow, and its decision recording path was not robust against simple concurrent double-processing. This is now hardened in InMemoryHumanInterventionService.java (line 71) with atomic update logic and notifier failure isolation.
+
+[P3] The Telegram entry controller still knows about a supervision-specific guard: DefaultController.java (line 19). It is acceptable for this phase, but if more Telegram-side access rules appear later, this should become a more generic inbound Telegram access policy instead of accumulating special cases in the controller.
+
+[P3] TelegramSupervisionProperties contains a tiny convenience method with runtime flavor, TelegramSupervisionProperties.java (line 80). It is low-risk and small enough for now, but if supervision configuration grows, we should avoid turning the properties object into behavior-heavy logic.
+
+[P3] The human-intervention model is clean and neutral to Telegram, but it remains intentionally preparatory: no policy/bus integration yet, no persistence, no expiry, no deduplication strategy. That is fine for 14.B, and I did not extend it beyond the requested scope.
+
+Corrections Applied
+I applied only the corrections that were genuinely useful now:
+
+extracted shared outbound Telegram publishing into TelegramSupervisionMessagePublisher.java
+simplified TelegramAgentTraceSink.java and TelegramHumanInterventionNotifier.java so they no longer own transport details
+hardened InMemoryHumanInterventionService.java against notifier failures and double decision races
+added a regression test to ensure a failing notifier does not break request creation in InMemoryHumanInterventionServiceTest.java
+Summary
+The architecture is now in a better place than the first cut:
+
+configuration and runtime concerns are cleaner
+Telegram remains an exposure layer, not a source of truth
+the human-intervention model stays channel-agnostic
+the new tests are meaningful for the added contracts
+Validation:
+
+targeted tests for this phase pass
+full .\mvnw test is still blocked by pre-existing SQLite schema issues in integration/application-context tests, notably ToolkitBridgeApplicationTests and ScriptedToolMetadataRepositoryIT; this does not appear to come from the 14.A/14.B supervision changes themselves
+
+
+... Il y a un problème avec la config yml et telegram.enabled: false => désactivation de bean...
+Résultat :
+Le correctif est en place.
+
+J’ai fait en sorte que la supervision Telegram ne fasse plus planter l’application quand telegram.enabled=false:
+
+TelegramSupervisionMessagePublisher.java n’est plus conditionné à la présence des beans Telegram
+il devient un publisher tolérant, en no-op si Telegram est désactivé ou si le TelegramSenderRegistry n’existe pas
+il logge désormais un warning explicite au démarrage si telegram.enabled=false
+J’ai aussi sécurisé le runtime Telegram pour éviter un autre plantage latent:
+
+AgentRuntimeService.java dépend maintenant d’un ObjectProvider<CurrentTelegramBotContext> au lieu d’un bean strictement requis
+si un vrai traitement Telegram est tenté alors que Telegram est désactivé, on obtient une erreur métier claire au moment de l’usage, pas un échec de bootstrap Spring
+Tests ajoutés/ajustés:
+
+TelegramSupervisionMessagePublisherTest.java
+ajustements dans les tests de supervision existants
+Vérification:
+
+les tests ciblés de cette zone passent
+le No qualifying bean a disparu du test de contexte global
+ToolkitBridgeApplicationTests échoue encore, mais maintenant sur un problème SQLite/Hibernate déjà distinct de Telegram
+Résumé propre:
+
+plus de plantage de type bean manquant quand telegram.enabled=false
+warning prévu au démarrage pour signaler que la supervision Telegram est impossible dans ce mode
+comportement cohérent: Telegram désactivé neutralise proprement la couche de supervision, sans contaminer le reste de l’architecture
+Si tu veux, je peux maintenant m’attaquer au souci SQLite séparé pour retrouver un SpringBootTest global qui démarre proprement.
+

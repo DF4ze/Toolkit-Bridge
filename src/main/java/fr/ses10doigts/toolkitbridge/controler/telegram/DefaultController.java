@@ -5,6 +5,7 @@ import fr.ses10doigts.telegrambots.service.poller.handler.annot.Chat;
 import fr.ses10doigts.telegrambots.service.poller.handler.annot.TelegramController;
 import fr.ses10doigts.toolkitbridge.model.dto.agent.comm.AgentResponse;
 import fr.ses10doigts.toolkitbridge.service.agent.runtime.AgentRuntimeService;
+import fr.ses10doigts.toolkitbridge.service.agent.supervision.telegram.TelegramSupervisionChatGuard;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -16,10 +17,16 @@ import org.springframework.stereotype.Component;
 public class DefaultController {
 
     private final AgentRuntimeService agentRuntimeService;
+    private final TelegramSupervisionChatGuard supervisionChatGuard;
 
     @Chat
     public String handleChatMessage(TelegramUpdateContext ctx ) { // TODO remettre en TelegramView et publier les denière modification de la lib Telegram.
-        String text = ctx.getMessage().getText();
+        if (supervisionChatGuard.isReadOnlySupervisionChat(ctx.getBotId(), ctx.getChatId())) {
+            log.debug("Ignoring supervision chat message botId={} chatId={}", ctx.getBotId(), ctx.getChatId());
+            return null;
+        }
+
+        String text = ctx.getText();
         if (text == null || text.isBlank()) {
             log.debug("Ignoring blank Telegram message chatId={} userId={}", ctx.getChatId(), ctx.getUserId());
             return null;

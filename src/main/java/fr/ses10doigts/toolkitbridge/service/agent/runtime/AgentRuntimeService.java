@@ -12,6 +12,7 @@ import fr.ses10doigts.toolkitbridge.service.auth.AgentAccountService;
 import fr.ses10doigts.toolkitbridge.service.auth.AgentContextHolder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 
 import java.util.Map;
@@ -25,7 +26,7 @@ public class AgentRuntimeService {
     private static final int MAX_MESSAGE_LENGTH = 8_000;
     private static final String CHANNEL_TELEGRAM = "telegram";
 
-    private final CurrentTelegramBotContext currentBotService;
+    private final ObjectProvider<CurrentTelegramBotContext> currentBotServiceProvider;
     private final AgentDefinitionService agentDefinitionService;
     private final AgentRuntimeRegistry runtimeRegistry;
     private final AgentAccountService agentAccountService;
@@ -113,6 +114,10 @@ public class AgentRuntimeService {
     }
 
     private String resolveCurrentTelegramBotId() {
+        CurrentTelegramBotContext currentBotService = currentBotServiceProvider.getIfAvailable();
+        if (currentBotService == null) {
+            throw new AgentRuntimeException("Telegram runtime is unavailable because telegram support is disabled");
+        }
         String currentBotId = currentBotService.getCurrentBotId();
         if (currentBotId == null || currentBotId.isBlank()) {
             throw new AgentRuntimeException("No current telegram bot available");
