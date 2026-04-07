@@ -20,6 +20,9 @@ import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentRuntime;
 import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentRuntimeState;
 import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentToolAccess;
 import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentWorkspaceScope;
+import fr.ses10doigts.toolkitbridge.service.agent.trace.AgentTraceCorrelationFactory;
+import fr.ses10doigts.toolkitbridge.service.agent.trace.AgentTraceContextHolder;
+import fr.ses10doigts.toolkitbridge.service.agent.trace.AgentTraceService;
 import fr.ses10doigts.toolkitbridge.service.tool.ToolCategory;
 import fr.ses10doigts.toolkitbridge.service.tool.ToolDescriptor;
 import fr.ses10doigts.toolkitbridge.service.tool.ToolKind;
@@ -48,6 +51,7 @@ class ChatAgentOrchestratorTest {
     private final MemoryFacade memoryFacade = mock(MemoryFacade.class);
     private final LlmDebugStore llmDebugStore = mock(LlmDebugStore.class);
     private final AgentPermissionControlService permissionControlService = mock(AgentPermissionControlService.class);
+    private final AgentTraceService agentTraceService = mock(AgentTraceService.class);
     private final AgentPolicy policy = new AgentPolicy() {
         @Override
         public String name() {
@@ -66,7 +70,10 @@ class ChatAgentOrchestratorTest {
             new LlmOrchestrationValidator(),
             new OrchestrationRequestContextFactory(permissionControlService),
             new MemoryRequestFactory(),
-            new OrchestrationResponseSanitizer()
+            new OrchestrationResponseSanitizer(),
+            agentTraceService,
+            new AgentTraceCorrelationFactory(),
+            new AgentTraceContextHolder()
     );
 
     @Test

@@ -8,8 +8,11 @@ import fr.ses10doigts.toolkitbridge.model.dto.llm.message.MessageRole;
 import fr.ses10doigts.toolkitbridge.model.dto.llm.message.ToolResultMessage;
 import fr.ses10doigts.toolkitbridge.model.dto.llm.tooling.ToolCall;
 import fr.ses10doigts.toolkitbridge.model.dto.llm.tooling.ToolDefinition;
+import fr.ses10doigts.toolkitbridge.service.agent.trace.AgentTraceContextHolder;
 import fr.ses10doigts.toolkitbridge.service.llm.provider.LlmProvider;
 import fr.ses10doigts.toolkitbridge.service.llm.provider.LlmProviderRegistry;
+import fr.ses10doigts.toolkitbridge.service.agent.trace.AgentTraceService;
+import fr.ses10doigts.toolkitbridge.service.agent.trace.model.AgentTraceEventType;
 import fr.ses10doigts.toolkitbridge.model.dto.tool.ToolExecutionResult;
 import fr.ses10doigts.toolkitbridge.service.tool.ToolExecutionService;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +22,7 @@ import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -33,10 +37,16 @@ public class DefaultLlmService implements LlmService {
     private final LlmProviderRegistry llmProviderRegistry;
     private final ToolExecutionService toolExecutionService;
     private final ObjectMapper objectMapper;
+    private final AgentTraceService agentTraceService;
+    private final AgentTraceContextHolder traceContextHolder;
 
 
     @Override
-    public String chat(String providerName, String model, String systemPrompt, String userMessage, List<ToolDefinition> toolDefinitions) {
+    public String chat(String providerName,
+                       String model,
+                       String systemPrompt,
+                       String userMessage,
+                       List<ToolDefinition> toolDefinitions) {
         long startNanos = System.nanoTime();
         LlmProvider provider = llmProviderRegistry.getRequired(providerName);
         List<ToolDefinition> effectiveToolDefinitions = toolDefinitions == null ? List.of() : List.copyOf(toolDefinitions);
@@ -106,7 +116,7 @@ public class DefaultLlmService implements LlmService {
 
                 messages.add(chatMessage);
                 for (ToolCall toolCall : chatMessage.getToolCalls()) {
-                    ToolResultMessage toolResultMessage = executeToolCall(toolCall);
+                    ToolResultMessage toolResultMessage = executeToolCall(toolCall, round);
                     messages.add(toolResultMessage);
                 }
 
@@ -124,8 +134,18 @@ public class DefaultLlmService implements LlmService {
         }
     }
 
-    private ToolResultMessage executeToolCall(ToolCall toolCall) {
+    private ToolResultMessage executeToolCall(ToolCall toolCall, int round) {
         if (toolCall == null || toolCall.function() == null) {
+            agentTraceService.trace(
+                    AgentTraceEventType.ERROR,
+                    "llm_service",
+                    traceContextHolder.getCurrentCorrelation().orElse(null),
+                    attributes(
+                            "category", "tool_call",
+                            "reason", "invalid_tool_call_payload",
+                            "round", round
+                    )
+            );
             return new ToolResultMessage(
                     serializeToolResult(ToolExecutionResult.builder()
                             .error(true)
@@ -157,6 +177,20 @@ public class DefaultLlmService implements LlmService {
                     .build();
         }
 
+        agentTraceService.trace(
+                AgentTraceEventType.TOOL_CALL,
+                "llm_service",
+                traceContextHolder.getCurrentCorrelation().orElse(null),
+                attributes(
+                        "toolName", toolName,
+                        "toolCallId", toolCallId,
+                        "round", round,
+                        "success", !result.isError(),
+                        "message", safeToolMessage(result.getMessage()),
+                        "argumentKeys", arguments == null ? List.of() : List.copyOf(arguments.keySet())
+                )
+        );
+
         return new ToolResultMessage(
                 serializeToolResult(result),
                 toolName,
@@ -184,6 +218,16 @@ public class DefaultLlmService implements LlmService {
             return e == null ? "unknown error" : e.getClass().getSimpleName();
         }
         return e.getMessage();
+    }
+
+    private String safeToolMessage(String message) {
+        if (message == null || message.isBlank()) {
+            return null;
+        }
+        if (message.length() <= 300) {
+            return message;
+        }
+        return message.substring(0, 300) + "...";
     }
 
     private long elapsedMs(long startNanos) {
@@ -229,5 +273,20 @@ public class DefaultLlmService implements LlmService {
             return text.substring(0, 300) + "...";
         }
         return text;
+    }
+
+    private Map<String, Object> attributes(Object... values) {
+        LinkedHashMap<String, Object> attributes = new LinkedHashMap<>();
+        for (int i = 0; i + 1 < values.length; i += 2) {
+            Object key = values[i];
+            if (!(key instanceof String stringKey) || stringKey.isBlank()) {
+                continue;
+            }
+            Object value = values[i + 1];
+            if (value != null) {
+                attributes.put(stringKey, value);
+            }
+        }
+        return Map.copyOf(attributes);
     }
 }

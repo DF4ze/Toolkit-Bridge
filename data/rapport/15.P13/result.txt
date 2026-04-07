@@ -1,0 +1,63 @@
+Pré-analyse
+Fichiers/classes concernés : les points d’entrée métier réels étaient surtout TaskAgentOrchestrator.java, ChatAgentOrchestrator.java, DefaultLlmService.java, InMemoryAgentMessageBus.java, plus LlmService.java et la config application.yml.
+
+Points d’architecture sensibles : ne pas mélanger Slf4j technique et traces métier, centraliser la corrélation runId/taskId/agentId/messageId, éviter du JSON bricolé dans les producteurs, et garder des destinations interchangeables sans coupler les orchestrateurs au stockage.
+
+Risques/dette vus : le dépôt utilise surtout traceId aujourd’hui, pas un runId métier natif partout, donc j’ai mappé runId sur l’identifiant de run existant; taskId n’existe naturellement que dans le flux task; les tests Spring gardent un bruit SQLite déjà présent au démarrage mais la build reste verte.
+
+Plan appliqué :
+
+Poser un modèle de trace structuré et une API dédiée.
+Ajouter une fabrique centralisée de corrélation.
+Introduire des sinks interchangeables JSONL par agent et mémoire centralisée.
+Garder les logs techniques existants inchangés.
+Brancher task start et context assembled dans les orchestrateurs.
+Brancher tool call dans le flux LLM.
+Brancher delegation dans le bus inter-agent.
+Couvrir response et error, puis compléter les tests.
+Implémentation 13.A + 13.B
+J’ai ajouté une vraie couche de traces agentiques dédiée sous service/agent/trace, avec événements typés, corrélation structurée, service central, sink mémoire et sink JSONL par agent. Les logs techniques Spring/Java/stacktraces restent séparés et inchangés.
+
+J’ai ensuite branché les événements clés demandés sur les points métier réels du dépôt : TASK_STARTED et CONTEXT_ASSEMBLED dans TaskAgentOrchestrator.java, CONTEXT_ASSEMBLED, RESPONSE, ERROR dans ChatAgentOrchestrator.java, TOOL_CALL et erreurs d’outil dans DefaultLlmService.java, et DELEGATION dans InMemoryAgentMessageBus.java. La sortie fichier est configurée dans application.yml vers workspace/observability/agent-traces.
+
+Tests exécutés : ./mvnw test
+
+Choix structurants
+Les traces agentiques sont maintenant un flux métier séparé, sérialisé une seule fois dans les sinks. Les producteurs n’assemblent plus eux-mêmes du JSON et n’ont pas à connaître la destination finale. La corrélation est centralisée via AgentTraceCorrelationFactory, avec runId dérivé du traceId déjà présent, taskId quand un Task existe, agentId, et messageId quand le flux inter-agent le fournit.
+
+Les destinations restent simples et extensibles : un fichier JSONL par agent pour l’audit local, et un buffer mémoire central pour une future UI/admin/supervision sans figer un pipeline externe maintenant.
+
+Points laissés ouverts
+Le catalogue d’événements est volontairement minimal et centré sur le flux actuel. Je n’ai pas ajouté de dashboard, d’UI d’admin, de pipeline externe, ni de supervision Telegram. La corrélation taskId reste absente des flux chat purs tant qu’il n’existe pas de tâche métier explicite à cet endroit.
+
+
+
+
+Relecture :
+Faiblesses relevées
+
+Le contrat LlmService.java était devenu trop couplé à l’observabilité via le paramètre AgentTraceCorrelation. C’était le point le plus discutable : une préoccupation transverse fuyait dans une abstraction métier/utilitaire qui devrait rester centrée sur l’appel LLM.
+Dans DefaultLlmService.java, un tool call en échec partait en ERROR uniquement. Pour la chronologie métier, c’était moins bon : on perdait la lisibilité “appel d’outil tenté puis échoué”.
+Les orchestrateurs portent encore un peu de code répétitif de composition d’attributs de trace. Ce n’est pas bloquant, mais c’est une petite dette de lisibilité si le catalogue d’événements grossit vite.
+Le contexte de corrélation repose maintenant sur une exécution synchrone par thread. C’est cohérent avec l’état actuel du dépôt, mais ce sera à revisiter si une future phase introduit de l’asynchrone ou de l’exécution distribuée.
+Les tests de traces sont utiles, mais restent surtout unitaires. C’est acceptable pour cette phase; je n’ai pas étendu vers une intégration Spring d’observabilité pour ne pas sortir du périmètre.
+Corrections utiles proposées
+
+Retirer la corrélation du contrat LlmService et la porter via un holder de contexte dédié, pour garder l’abstraction LLM propre.
+Tracer tous les tool call comme TOOL_CALL, avec success=true/false, afin d’avoir une chronologie métier cohérente.
+Renforcer les tests pour vérifier explicitement le cas TOOL_CALL en échec.
+Corrections appliquées
+J’ai appliqué exactement ces corrections.
+
+Le contrat LlmService.java a été nettoyé, et la corrélation passe désormais par AgentTraceContextHolder.java. Les orchestrateurs ChatAgentOrchestrator.java et TaskAgentOrchestrator.java posent ce contexte juste autour de l’appel LLM puis le nettoient immédiatement.
+
+J’ai aussi corrigé DefaultLlmService.java pour que les appels d’outils ratés restent des événements TOOL_CALL avec success=false, au lieu de casser la chronologie métier en basculant directement sur ERROR. Le cas de payload invalide reste bien un ERROR, ce qui est cohérent.
+
+Les tests ont été ajustés en conséquence, notamment DefaultLlmServiceTest.java, qui vérifie maintenant explicitement le cas d’échec d’un tool call.
+
+Tests exécutés : ./mvnw test
+
+Résumé final
+L’architecture est maintenant plus propre qu’avant revue sur les deux points les plus sensibles : le couplage observabilité/LLM a été retiré, et la chronologie des événements métier est plus cohérente pour les appels d’outils. La séparation configuration/runtime reste saine, le découplage entre orchestrateur, mémoire, tooling, policy et workspace est préservé, et je n’ai pas ajouté de fonctionnalité hors périmètre.
+
+Dette résiduelle raisonnable : la construction d’attributs de trace reste un peu répétitive, et le ThreadLocal de corrélation est une hypothèse synchrone acceptable aujourd’hui mais à réévaluer si une future phase introduit de l’asynchrone.

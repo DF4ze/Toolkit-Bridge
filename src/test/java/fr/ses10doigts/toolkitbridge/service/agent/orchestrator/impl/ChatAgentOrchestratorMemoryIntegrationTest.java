@@ -19,6 +19,9 @@ import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentRuntime;
 import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentRuntimeState;
 import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentToolAccess;
 import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentWorkspaceScope;
+import fr.ses10doigts.toolkitbridge.service.agent.trace.AgentTraceCorrelationFactory;
+import fr.ses10doigts.toolkitbridge.service.agent.trace.AgentTraceContextHolder;
+import fr.ses10doigts.toolkitbridge.service.agent.trace.AgentTraceService;
 import fr.ses10doigts.toolkitbridge.service.tool.ToolCategory;
 import fr.ses10doigts.toolkitbridge.service.tool.ToolDescriptor;
 import fr.ses10doigts.toolkitbridge.service.tool.ToolKind;
@@ -54,7 +57,10 @@ class ChatAgentOrchestratorMemoryIntegrationTest {
                 new LlmOrchestrationValidator(),
                 new OrchestrationRequestContextFactory(permissionControlService),
                 new MemoryRequestFactory(),
-                new OrchestrationResponseSanitizer()
+                new OrchestrationResponseSanitizer(),
+                mock(AgentTraceService.class),
+                new AgentTraceCorrelationFactory(),
+                new AgentTraceContextHolder()
         );
 
         AgentDefinition definition = new AgentDefinition(

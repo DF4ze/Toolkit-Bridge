@@ -18,6 +18,8 @@ import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentRuntime;
 import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentRuntimeState;
 import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentToolAccess;
 import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentWorkspaceScope;
+import fr.ses10doigts.toolkitbridge.service.agent.trace.AgentTraceCorrelationFactory;
+import fr.ses10doigts.toolkitbridge.service.agent.trace.AgentTraceService;
 import fr.ses10doigts.toolkitbridge.service.auth.AgentAccountService;
 import fr.ses10doigts.toolkitbridge.service.auth.AgentContextHolder;
 import org.junit.jupiter.api.Test;
@@ -44,8 +46,16 @@ class InMemoryAgentMessageBusTest {
         AgentAccountService accountService = mock(AgentAccountService.class);
         AgentContextHolder contextHolder = mock(AgentContextHolder.class);
         AgentPermissionControlService permissionControlService = mock(AgentPermissionControlService.class);
+        AgentTraceService agentTraceService = mock(AgentTraceService.class);
         doNothing().when(permissionControlService).checkDelegation(any(), any());
-        InMemoryAgentMessageBus bus = new InMemoryAgentMessageBus(resolver, accountService, contextHolder, permissionControlService);
+        InMemoryAgentMessageBus bus = new InMemoryAgentMessageBus(
+                resolver,
+                accountService,
+                contextHolder,
+                permissionControlService,
+                agentTraceService,
+                new AgentTraceCorrelationFactory()
+        );
 
         AgentOrchestrator orchestrator = mock(AgentOrchestrator.class);
         when(orchestrator.getType()).thenReturn(AgentOrchestratorType.CHAT);
@@ -82,8 +92,16 @@ class InMemoryAgentMessageBusTest {
         AgentAccountService accountService = mock(AgentAccountService.class);
         AgentContextHolder contextHolder = mock(AgentContextHolder.class);
         AgentPermissionControlService permissionControlService = mock(AgentPermissionControlService.class);
+        AgentTraceService agentTraceService = mock(AgentTraceService.class);
         doNothing().when(permissionControlService).checkDelegation(any(), any());
-        InMemoryAgentMessageBus bus = new InMemoryAgentMessageBus(resolver, accountService, contextHolder, permissionControlService);
+        InMemoryAgentMessageBus bus = new InMemoryAgentMessageBus(
+                resolver,
+                accountService,
+                contextHolder,
+                permissionControlService,
+                agentTraceService,
+                new AgentTraceCorrelationFactory()
+        );
 
         AgentMessage message = AgentMessage.create(
                 "agent-sender",
@@ -105,8 +123,16 @@ class InMemoryAgentMessageBusTest {
         AgentAccountService accountService = mock(AgentAccountService.class);
         AgentContextHolder contextHolder = mock(AgentContextHolder.class);
         AgentPermissionControlService permissionControlService = mock(AgentPermissionControlService.class);
+        AgentTraceService agentTraceService = mock(AgentTraceService.class);
         doNothing().when(permissionControlService).checkDelegation(any(), any());
-        InMemoryAgentMessageBus bus = new InMemoryAgentMessageBus(resolver, accountService, contextHolder, permissionControlService);
+        InMemoryAgentMessageBus bus = new InMemoryAgentMessageBus(
+                resolver,
+                accountService,
+                contextHolder,
+                permissionControlService,
+                agentTraceService,
+                new AgentTraceCorrelationFactory()
+        );
 
         AgentOrchestrator orchestrator = mock(AgentOrchestrator.class);
         when(orchestrator.getType()).thenReturn(AgentOrchestratorType.CHAT);

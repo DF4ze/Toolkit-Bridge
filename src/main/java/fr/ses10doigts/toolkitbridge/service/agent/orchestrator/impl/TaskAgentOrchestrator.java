@@ -20,11 +20,19 @@ import fr.ses10doigts.toolkitbridge.service.agent.orchestrator.task.TaskPromptBu
 import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentRuntime;
 import fr.ses10doigts.toolkitbridge.service.agent.task.model.Task;
 import fr.ses10doigts.toolkitbridge.service.agent.task.service.TaskFactory;
+import fr.ses10doigts.toolkitbridge.service.agent.trace.AgentTraceCorrelationFactory;
+import fr.ses10doigts.toolkitbridge.service.agent.trace.AgentTraceContextHolder;
+import fr.ses10doigts.toolkitbridge.service.agent.trace.AgentTraceService;
+import fr.ses10doigts.toolkitbridge.service.agent.trace.model.AgentTraceCorrelation;
+import fr.ses10doigts.toolkitbridge.service.agent.trace.model.AgentTraceEventType;
 import fr.ses10doigts.toolkitbridge.service.llm.LlmService;
 import fr.ses10doigts.toolkitbridge.service.llm.debug.LlmDebugStore;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 @Component
 @RequiredArgsConstructor
@@ -39,6 +47,9 @@ public class TaskAgentOrchestrator implements AgentOrchestrator {
     private final MemoryRequestFactory memoryRequestFactory;
     private final OrchestrationResponseSanitizer responseSanitizer;
     private final TaskFactory taskFactory;
+    private final AgentTraceService agentTraceService;
+    private final AgentTraceCorrelationFactory traceCorrelationFactory;
+    private final AgentTraceContextHolder traceContextHolder;
 
     @Override
     public AgentOrchestratorType getType() {
@@ -63,6 +74,7 @@ public class TaskAgentOrchestrator implements AgentOrchestrator {
         MemoryContextRequest memoryRequest = memoryRequestFactory.from(definition, request, context);
         TaskPrompt prompt = null;
         Task task = null;
+        AgentTraceCorrelation traceCorrelation = traceCorrelationFactory.fromOrchestration(context, request, null);
 
         try {
             memoryFacade.onUserMessage(memoryRequest);
@@ -74,17 +86,45 @@ public class TaskAgentOrchestrator implements AgentOrchestrator {
                     context.traceId(),
                     request.context()
             );
+            traceCorrelation = traceCorrelationFactory.fromOrchestration(context, request, task);
+            agentTraceService.trace(
+                    AgentTraceEventType.TASK_STARTED,
+                    "task_orchestrator",
+                    traceCorrelation,
+                    attributes(
+                            "entryPoint", task.entryPoint().name(),
+                            "objectiveLength", task.objective().length(),
+                            "conversationId", context.conversationId(),
+                            "projectId", context.projectId()
+                    )
+            );
+            agentTraceService.trace(
+                    AgentTraceEventType.CONTEXT_ASSEMBLED,
+                    "task_orchestrator",
+                    traceCorrelation,
+                    attributes(
+                            "contextLength", memoryContext.text().length(),
+                            "semanticMemoryCount", memoryContext.injectedSemanticMemoryIds().size(),
+                            "toolsEnabled", context.toolsEnabled()
+                    )
+            );
 
             prompt = taskPromptBuilder.build(runtime, request, context, task, memoryContext);
 
             long llmStartNanos = System.nanoTime();
-            String llmResponse = llmService.chat(
-                    definition.llmProvider(),
-                    definition.model(),
-                    prompt.systemPrompt(),
-                    prompt.userPrompt(),
-                    runtime.toolAccess().exposedToolDefinitions()
-            );
+            traceContextHolder.setCurrentCorrelation(traceCorrelation);
+            String llmResponse;
+            try {
+                llmResponse = llmService.chat(
+                        definition.llmProvider(),
+                        definition.model(),
+                        prompt.systemPrompt(),
+                        prompt.userPrompt(),
+                        runtime.toolAccess().exposedToolDefinitions()
+                );
+            } finally {
+                traceContextHolder.clear();
+            }
             log.info("Task orchestrator LLM response traceId={} length={} durationMs={}",
                     context.traceId(),
                     llmResponse == null ? 0 : llmResponse.length(),
@@ -103,16 +143,47 @@ public class TaskAgentOrchestrator implements AgentOrchestrator {
 
             String safeResponse = responseSanitizer.normalizeAssistantResponse(llmResponse);
             if (safeResponse.isBlank()) {
+                agentTraceService.trace(
+                        AgentTraceEventType.ERROR,
+                        "task_orchestrator",
+                        traceCorrelation,
+                        attributes(
+                                "category", "response",
+                                "reason", "empty_response"
+                        )
+                );
                 memoryFacade.onToolExecution(memoryRequest, new ToolExecutionRecord("task_orchestrator", false, "empty_response"));
                 return AgentResponse.error("The task orchestrator returned an empty response.");
             }
 
             memoryFacade.onAssistantMessage(memoryRequest, safeResponse);
             memoryFacade.markContextMemoriesUsed(memoryContext.injectedSemanticMemoryIds());
+            agentTraceService.trace(
+                    AgentTraceEventType.RESPONSE,
+                    "task_orchestrator",
+                    traceCorrelation,
+                    attributes(
+                            "responseLength", safeResponse.length(),
+                            "durationMs", elapsedMs(startNanos),
+                            "success", true
+                    )
+            );
 
             log.info("Task orchestrator completed traceId={} durationMs={}", context.traceId(), elapsedMs(startNanos));
             return AgentResponse.success(safeResponse);
         } catch (LlmProviderException e) {
+            agentTraceService.trace(
+                    AgentTraceEventType.ERROR,
+                    "task_orchestrator",
+                    traceCorrelation,
+                    attributes(
+                            "category", "provider",
+                            "provider", definition.llmProvider(),
+                            "model", definition.model(),
+                            "reason", safeMessage(e),
+                            "durationMs", elapsedMs(startNanos)
+                    )
+            );
             log.warn("Task orchestrator provider failure traceId={} agentId={} provider={} model={}",
                     context.traceId(),
                     context.agentId(),
@@ -134,6 +205,16 @@ public class TaskAgentOrchestrator implements AgentOrchestrator {
             memoryFacade.onToolExecution(memoryRequest, new ToolExecutionRecord("task_orchestrator", false, "provider_failure"));
             return AgentResponse.error("The AI service is temporarily unavailable.");
         } catch (Exception e) {
+            agentTraceService.trace(
+                    AgentTraceEventType.ERROR,
+                    "task_orchestrator",
+                    traceCorrelation,
+                    attributes(
+                            "category", "orchestration",
+                            "reason", safeMessage(e),
+                            "durationMs", elapsedMs(startNanos)
+                    )
+            );
             log.error("Task orchestrator unexpected error traceId={} agentId={}", context.traceId(), context.agentId(), e);
 
             llmDebugStore.recordFailure(
@@ -156,5 +237,27 @@ public class TaskAgentOrchestrator implements AgentOrchestrator {
 
     private long elapsedMs(long startNanos) {
         return (System.nanoTime() - startNanos) / 1_000_000;
+    }
+
+    private String safeMessage(Throwable e) {
+        if (e == null || e.getMessage() == null || e.getMessage().isBlank()) {
+            return e == null ? "unknown error" : e.getClass().getSimpleName();
+        }
+        return e.getMessage();
+    }
+
+    private Map<String, Object> attributes(Object... values) {
+        LinkedHashMap<String, Object> attributes = new LinkedHashMap<>();
+        for (int i = 0; i + 1 < values.length; i += 2) {
+            Object key = values[i];
+            if (!(key instanceof String stringKey) || stringKey.isBlank()) {
+                continue;
+            }
+            Object value = values[i + 1];
+            if (value != null) {
+                attributes.put(stringKey, value);
+            }
+        }
+        return Map.copyOf(attributes);
     }
 }
