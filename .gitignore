@@ -28,4 +28,4 @@ target/
 **/toolkit-bridge.db
 **/toolkit-bridge-test.db
 **/*sqlitejdbc.dll
-workspace
+**/workspace/
