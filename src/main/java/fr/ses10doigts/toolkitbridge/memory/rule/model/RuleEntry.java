@@ -1,5 +1,6 @@
 package fr.ses10doigts.toolkitbridge.memory.rule.model;
 
+import fr.ses10doigts.toolkitbridge.memory.shared.model.MemoryWriteMode;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -66,6 +67,10 @@ public class RuleEntry {
     @Column(nullable = false, length = 20)
     private RuleStatus status = RuleStatus.ACTIVE;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "write_mode", length = 20)
+    private MemoryWriteMode writeMode = MemoryWriteMode.EXPLICIT;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -86,6 +91,9 @@ public class RuleEntry {
         }
         if (priority == null) {
             priority = RulePriority.MEDIUM;
+        }
+        if (writeMode == null) {
+            writeMode = MemoryWriteMode.EXPLICIT;
         }
     }
 

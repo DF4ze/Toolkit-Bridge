@@ -1,6 +1,7 @@
 package fr.ses10doigts.toolkitbridge.memory.semantic.model;
 
 import fr.ses10doigts.toolkitbridge.memory.scoring.model.ScorableMemory;
+import fr.ses10doigts.toolkitbridge.memory.shared.model.MemoryWriteMode;
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;
@@ -84,6 +85,10 @@ public class MemoryEntry implements ScorableMemory {
     @Column(nullable = false, length = 20)
     private MemoryStatus status = MemoryStatus.ACTIVE;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "write_mode", length = 20)
+    private MemoryWriteMode writeMode = MemoryWriteMode.EXPLICIT;
+
     @ElementCollection
     @CollectionTable(name = "semantic_memory_tags", joinColumns = @JoinColumn(name = "memory_id"))
     @Column(name = "tag", length = 100)
@@ -100,6 +105,9 @@ public class MemoryEntry implements ScorableMemory {
         }
         if (status == null) {
             status = MemoryStatus.ACTIVE;
+        }
+        if (writeMode == null) {
+            writeMode = MemoryWriteMode.EXPLICIT;
         }
     }
 

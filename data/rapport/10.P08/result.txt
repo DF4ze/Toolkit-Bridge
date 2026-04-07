@@ -1,0 +1,112 @@
+
+Résultat
+J’ai appliqué le déroulé demandé: pré-analyse d’abord, puis implémentation de 8.A et 8.B.
+
+Concrètement, j’ai ajouté un premier socle de tools mémoire explicites V1:
+
+recall_memory_context
+write_memory_fact
+write_memory_rule
+Et j’ai séparé l’écriture mémoire explicite de l’écriture implicite:
+
+les tools explicites passent par un service applicatif dédié
+l’écriture implicite automatique passe maintenant par un pipeline distinct extrait du MemoryFacade
+les entrées mémoire et règles portent désormais un marqueur writeMode (EXPLICIT / IMPLICIT)
+Cela garde les handlers fins, réutilise le pipeline de contexte existant, et évite de mélanger fait, règle et extraction automatique.
+
+Tests
+J’ai ajouté des tests unitaires ciblés pour:
+
+le service applicatif des tools mémoire explicites
+le pipeline d’écriture implicite
+les handlers des tools mémoire
+les validations/services mémoire existants ajustés
+J’ai aussi tenté d’exécuter la suite ciblée avec Maven. Le build est actuellement bloqué par un problème préexistant non lié à cette phase dans DefaultController.java, avec une erreur de compilation sur TelegramMessageFormat. Du coup, je n’ai pas pu obtenir une validation Maven complète de mes changements dans cet environnement.
+
+Fichiers
+Modifiés:
+
+DefaultMemoryFacade.java
+RuleEntry.java
+MemoryEntry.java
+DefaultSemanticMemoryService.java
+ToolExecutionResult.java
+RuleServiceTest.java
+SemanticMemoryServiceTest.java
+Créés:
+
+ImplicitMemoryWritePipeline.java
+MemoryWriteMode.java
+ExplicitFactMemoryWriteRequest.java
+ExplicitRuleMemoryWriteRequest.java
+MemoryContextRecallRequest.java
+ExplicitMemoryToolService.java
+MemoryFactPayload.java
+MemoryRulePayload.java
+MemoryResponse.java
+AbstractMemoryToolHandler.java
+RecallMemoryContextToolHandler.java
+WriteMemoryFactToolHandler.java
+WriteMemoryRuleToolHandler.java
+ImplicitMemoryWritePipelineTest.java
+ExplicitMemoryToolServiceTest.java
+MemoryToolHandlerTest.java
+Ouvert pour la suite
+
+contrôle plus fin des droits/validations d’écriture par policy
+tools de correction/suppression mémoire
+extraction implicite plus riche et mieux gouvernée
+gestion des conflits/priorités/confiance entre écritures explicites et implicites
+Si tu veux, je peux maintenant faire une passe de revue ciblée sur le point bloquant Maven dans DefaultController.java pour rétablir un build vert et vérifier ces phases jusqu’au bout.
+
+
+
+Après relecture :
+Faiblesses
+
+Le service applicatif des tools mémoire dépendait du contexte d’authentification runtime via CurrentAgentService, ce qui créait un couplage caché entre couche applicative mémoire et infrastructure d’exécution. C’était le point le plus gênant pour les futures phases, car le service n’était plus réutilisable hors exécution tool. Corrigé dans ExplicitMemoryToolService.java (line 33) et reporté aux handlers runtime RecallMemoryContextToolHandler.java (line 18), WriteMemoryFactToolHandler.java (line 22), WriteMemoryRuleToolHandler.java (line 20).
+
+Le tool de rappel de contexte réutilisait bien le pipeline de contexte, mais exposait aussi la section ## User Input injectée avec un texte artificiel de rappel. C’était une fuite d’un détail de runtime LLM dans un use case de lecture mémoire. Corrigé dans ExplicitMemoryToolService.java (line 50).
+
+Le modèle writeMode est utile et cohérent, mais il reste aujourd’hui faiblement garanti côté persistance pour préserver la compatibilité de migration: les colonnes sont tolérantes à null et la valeur est surtout sécurisée par défaut applicatif. Ce n’est pas bloquant maintenant, mais c’est une dette à refermer plus tard avec une migration/backfill propre. Voir MemoryEntry.java (line 88) et RuleEntry.java (line 70).
+
+Le découplage orchestrator / mémoire / tooling a progressé, mais la gouvernance outillée reste encore globalement binaire: ces nouveaux tools sont bien séparés métier, sans pour autant être encore gouvernés par une policy fine par tool. Ce n’est pas une régression introduite ici, plutôt une limite structurelle existante à garder en tête.
+
+Les handlers restent lisibles, mais ils dupliquent un peu de parsing d’arguments (asString, asLong, etc.). Je n’ai pas factorisé cela maintenant, car ce serait surtout cosmétique et risquerait d’ajouter une abstraction prématurée.
+
+Corrections utiles proposées
+
+Sortir la dépendance runtime du service applicatif explicite.
+Empêcher le tool de rappel de contexte d’exposer un faux User Input.
+Renforcer les tests pour vérifier que l’agentId runtime est bien injecté par les handlers.
+Ne pas toucher au reste tant qu’on n’a pas une vraie phase dédiée à la gouvernance fine des tools et aux migrations de schéma.
+Corrections appliquées
+
+Le service explicite mémoire ne dépend plus de CurrentAgentService; l’agentId est désormais porté explicitement par les requêtes métier et fourni par les handlers runtime.
+Le rappel de contexte nettoie la section synthétique ## User Input avant de retourner le contexte.
+Les tests couvrent maintenant explicitement la propagation de l’agentId par les handlers et le nettoyage du contexte rappelé.
+Je n’ai pas ajouté de nouvelle fonctionnalité hors périmètre.
+Résumé final
+L’architecture est globalement saine pour la phase: la séparation explicite/implicite est visible, les tools V1 ont une intention métier claire, et le MemoryFacade n’est plus chargé de la logique implicite détaillée grâce à DefaultMemoryFacade.java (line 34) et ImplicitMemoryWritePipeline.java (line 18). Le point le plus discutable a été corrigé: la couche applicative mémoire n’a plus de dépendance cachée au runtime d’authentification.
+
+Les principales dettes restantes sont raisonnables et assumables pour cette phase: writeMode pas encore durci au niveau DB, gouvernance par tool encore grossière, et un peu de parsing dupliqué dans les handlers. Les tests ajoutés sont utiles et ciblés, mais je n’ai toujours pas pu faire tourner une validation Maven complète, car le build reste bloqué par l’erreur préexistante sur DefaultController.java.
+
+
+
+Correction tests :
+J’ai restabilisé DefaultMemoryFacadeTest en l’alignant sur l’architecture actuelle de DefaultMemoryFacade.
+
+Ce qui a été fait dans DefaultMemoryFacadeTest.java :
+
+remplacement de l’ancien câblage direct extractor / promotionService / ruleService par le mock de ImplicitMemoryWritePipeline
+conservation des tests utiles sur les vraies responsabilités du facade :
+construction du contexte via retrieval + assembler
+propagation des overrides du MemoryContextRequest
+écriture conversationnelle et épisodique
+délégation des écritures implicites au pipeline
+marquage des mémoires utilisées
+respect des flags de configuration pour désactiver les écritures implicites
+ajout d’un petit helper de construction du facade dans le test pour éviter le bruit et rendre les cas plus lisibles
+Le point important est que le test ne vérifie plus des détails internes obsolètes du facade, mais bien son contrat actuel : orchestrer les bons sous-systèmes sans réimplémenter lui-même la logique d’écriture implicite.
+
+Je n’ai pas pu exécuter une validation Maven complète ici, car le build global reste bloqué par l’erreur préexistante sur DefaultController.java. Si tu veux, je peux maintenant m’occuper de ce blocage pour remettre la suite de tests entièrement verte.

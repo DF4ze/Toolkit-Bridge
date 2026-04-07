@@ -4,6 +4,7 @@ import fr.ses10doigts.toolkitbridge.memory.rule.model.RuleEntry;
 import fr.ses10doigts.toolkitbridge.memory.rule.model.RulePriority;
 import fr.ses10doigts.toolkitbridge.memory.rule.model.RuleScope;
 import fr.ses10doigts.toolkitbridge.memory.rule.model.RuleStatus;
+import fr.ses10doigts.toolkitbridge.memory.shared.model.MemoryWriteMode;
 import fr.ses10doigts.toolkitbridge.memory.rule.repository.RuleEntryRepository;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Validation;
@@ -52,6 +53,7 @@ class RuleServiceTest {
         RuleEntry saved = service.create(entry);
 
         assertThat(saved.getAgentId()).isEqualTo("agent-1");
+        assertThat(saved.getWriteMode()).isEqualTo(MemoryWriteMode.EXPLICIT);
         verify(repository).save(any(RuleEntry.class));
     }
 

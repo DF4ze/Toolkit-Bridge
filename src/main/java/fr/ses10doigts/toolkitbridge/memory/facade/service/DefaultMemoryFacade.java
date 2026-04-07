@@ -14,22 +14,16 @@ import fr.ses10doigts.toolkitbridge.memory.facade.model.MemoryContext;
 import fr.ses10doigts.toolkitbridge.memory.facade.model.MemoryContextRequest;
 import fr.ses10doigts.toolkitbridge.memory.facade.model.ToolExecutionRecord;
 import fr.ses10doigts.toolkitbridge.memory.integration.config.MemoryIntegrationProperties;
+import fr.ses10doigts.toolkitbridge.memory.integration.service.ImplicitMemoryWritePipeline;
 import fr.ses10doigts.toolkitbridge.memory.retrieval.model.RetrievedMemories;
 import fr.ses10doigts.toolkitbridge.memory.retrieval.facade.MemoryRetrievalFacade;
-import fr.ses10doigts.toolkitbridge.memory.rule.model.RuleEntry;
-import fr.ses10doigts.toolkitbridge.memory.rule.promotion.RulePromotionService;
-import fr.ses10doigts.toolkitbridge.memory.rule.service.RuleService;
-import fr.ses10doigts.toolkitbridge.memory.semantic.extractor.SemanticMemoryExtractor;
-import fr.ses10doigts.toolkitbridge.memory.semantic.model.MemoryEntry;
 import fr.ses10doigts.toolkitbridge.memory.semantic.service.SemanticMemoryService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.UUID;
 
 @Service
@@ -42,9 +36,7 @@ public class DefaultMemoryFacade implements MemoryFacade {
     private final ConversationMemoryService conversationMemoryService;
     private final EpisodicMemoryService episodicMemoryService;
     private final SemanticMemoryService semanticMemoryService;
-    private final RuleService ruleService;
-    private final SemanticMemoryExtractor semanticMemoryExtractor;
-    private final RulePromotionService rulePromotionService;
+    private final ImplicitMemoryWritePipeline implicitMemoryWritePipeline;
     private final EpisodicEventFactory episodicEventFactory;
     private final MemoryIntegrationProperties properties;
 
@@ -67,8 +59,7 @@ public class DefaultMemoryFacade implements MemoryFacade {
 
         appendConversationMessage(request, ConversationRole.USER, request.currentUserMessage());
         recordEpisode(request, episodicEventFactory.userMessageReceived(request));
-        extractAndPersistSemantic(request, request.currentUserMessage(), "user");
-        promoteAndPersistRules(request, request.currentUserMessage(), "user");
+        writeImplicitMemories(request, request.currentUserMessage(), "user");
     }
 
     @Override
@@ -80,8 +71,7 @@ public class DefaultMemoryFacade implements MemoryFacade {
 
         appendConversationMessage(request, ConversationRole.ASSISTANT, assistantMessage);
         recordEpisode(request, episodicEventFactory.assistantResponseGenerated(request, assistantMessage));
-        extractAndPersistSemantic(request, assistantMessage, "assistant");
-        promoteAndPersistRules(request, assistantMessage, "assistant");
+        writeImplicitMemories(request, assistantMessage, "assistant");
     }
 
     @Override
@@ -93,8 +83,7 @@ public class DefaultMemoryFacade implements MemoryFacade {
 
         recordEpisode(request, episodicEventFactory.toolExecutionEvent(request, toolExecution));
         if (!toolExecution.details().isBlank()) {
-            extractAndPersistSemantic(request, toolExecution.details(), "tool");
-            promoteAndPersistRules(request, toolExecution.details(), "tool");
+            writeImplicitMemories(request, toolExecution.details(), "tool");
         }
     }
 
@@ -132,84 +121,13 @@ public class DefaultMemoryFacade implements MemoryFacade {
         );
     }
 
-    private void extractAndPersistSemantic(MemoryContextRequest request, String text, String source) {
-        if (!properties.isEnableSemanticExtraction()) {
-            return;
+    private void writeImplicitMemories(MemoryContextRequest request, String text, String source) {
+        if (properties.isEnableSemanticExtraction()) {
+            implicitMemoryWritePipeline.persistSemanticExtractions(request, text, source);
         }
-        for (MemoryEntry candidate : semanticMemoryExtractor.extract(request, text, source)) {
-            if (alreadyExists(candidate)) {
-                continue;
-            }
-            try {
-                semanticMemoryService.create(candidate);
-            } catch (Exception e) {
-                log.warn("Unable to persist semantic memory for agent={} content='{}'", request.agentId(), candidate.getContent(), e);
-            }
+        if (properties.isEnableRulePromotion()) {
+            implicitMemoryWritePipeline.promoteRules(request, text, source);
         }
-    }
-
-    private void promoteAndPersistRules(MemoryContextRequest request, String text, String source) {
-        if (!properties.isEnableRulePromotion()) {
-            return;
-        }
-        List<RuleEntry> existing = safeApplicableRules(request);
-        for (RuleEntry candidate : rulePromotionService.promote(request, text, source)) {
-            if (existing.stream().anyMatch(rule -> sameRule(rule, candidate))) {
-                continue;
-            }
-            try {
-                ruleService.create(candidate);
-                existing.add(candidate);
-            } catch (Exception e) {
-                log.warn("Unable to persist promoted rule for agent={} content='{}'", request.agentId(), candidate.getContent(), e);
-            }
-        }
-    }
-
-    private List<RuleEntry> safeApplicableRules(MemoryContextRequest request) {
-        try {
-            return new ArrayList<>(ruleService.getApplicableRules(request.agentId(), request.projectId()));
-        } catch (Exception e) {
-            log.warn("Unable to load existing rules for agent={}", request.agentId(), e);
-            return new ArrayList<>();
-        }
-    }
-
-    private boolean alreadyExists(MemoryEntry candidate) {
-        List<MemoryEntry> existing;
-        try {
-            existing = semanticMemoryService.search(candidate.getAgentId(), candidate.getContent());
-        } catch (Exception e) {
-            return false;
-        }
-        return existing.stream().anyMatch(entry -> sameMemory(entry, candidate));
-    }
-
-    private boolean sameMemory(MemoryEntry a, MemoryEntry b) {
-        if (a == null || b == null) {
-            return false;
-        }
-        return normalize(a.getContent()).equals(normalize(b.getContent()))
-                && a.getScope() == b.getScope()
-                && normalize(a.getScopeId()).equals(normalize(b.getScopeId()))
-                && a.getType() == b.getType();
-    }
-
-    private boolean sameRule(RuleEntry a, RuleEntry b) {
-        if (a == null || b == null) {
-            return false;
-        }
-        return normalize(a.getContent()).equals(normalize(b.getContent()))
-                && a.getScope() == b.getScope()
-                && normalize(a.getScopeId()).equals(normalize(b.getScopeId()))
-                && normalize(a.getAgentId()).equals(normalize(b.getAgentId()));
-    }
-
-    private String normalize(String value) {
-        if (value == null) {
-            return "";
-        }
-        return value.trim().toLowerCase(Locale.ROOT);
     }
 
     private ContextRequest toContextRequest(MemoryContextRequest request) {

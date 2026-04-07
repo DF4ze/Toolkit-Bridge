@@ -12,14 +12,9 @@ import fr.ses10doigts.toolkitbridge.memory.facade.model.MemoryContext;
 import fr.ses10doigts.toolkitbridge.memory.facade.model.MemoryContextRequest;
 import fr.ses10doigts.toolkitbridge.memory.facade.model.ToolExecutionRecord;
 import fr.ses10doigts.toolkitbridge.memory.integration.config.MemoryIntegrationProperties;
+import fr.ses10doigts.toolkitbridge.memory.integration.service.ImplicitMemoryWritePipeline;
 import fr.ses10doigts.toolkitbridge.memory.retrieval.facade.MemoryRetrievalFacade;
 import fr.ses10doigts.toolkitbridge.memory.retrieval.model.RetrievedMemories;
-import fr.ses10doigts.toolkitbridge.memory.rule.promotion.RulePromotionService;
-import fr.ses10doigts.toolkitbridge.memory.rule.service.RuleService;
-import fr.ses10doigts.toolkitbridge.memory.semantic.extractor.SemanticMemoryExtractor;
-import fr.ses10doigts.toolkitbridge.memory.semantic.model.MemoryEntry;
-import fr.ses10doigts.toolkitbridge.memory.semantic.model.MemoryScope;
-import fr.ses10doigts.toolkitbridge.memory.semantic.model.MemoryType;
 import fr.ses10doigts.toolkitbridge.memory.semantic.service.SemanticMemoryService;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -36,26 +31,15 @@ class DefaultMemoryFacadeTest {
     void buildContextUsesRetrieverAndAssembler() {
         MemoryRetrievalFacade retrievalFacade = mock(MemoryRetrievalFacade.class);
         ContextAssembler assembler = mock(ContextAssembler.class);
-        ConversationMemoryService conversationMemoryService = mock(ConversationMemoryService.class);
-        EpisodicMemoryService episodicMemoryService = mock(EpisodicMemoryService.class);
-        SemanticMemoryService semanticMemoryService = mock(SemanticMemoryService.class);
-        RuleService ruleService = mock(RuleService.class);
-        SemanticMemoryExtractor extractor = mock(SemanticMemoryExtractor.class);
-        RulePromotionService promotionService = mock(RulePromotionService.class);
-        EpisodicEventFactory eventFactory = mock(EpisodicEventFactory.class);
-        MemoryIntegrationProperties properties = new MemoryIntegrationProperties();
-
-        DefaultMemoryFacade facade = new DefaultMemoryFacade(
+        DefaultMemoryFacade facade = facade(
                 retrievalFacade,
                 assembler,
-                conversationMemoryService,
-                episodicMemoryService,
-                semanticMemoryService,
-                ruleService,
-                extractor,
-                promotionService,
-                eventFactory,
-                properties
+                mock(ConversationMemoryService.class),
+                mock(EpisodicMemoryService.class),
+                mock(SemanticMemoryService.class),
+                mock(ImplicitMemoryWritePipeline.class),
+                mock(EpisodicEventFactory.class),
+                new MemoryIntegrationProperties()
         );
 
         RetrievedMemories memories = new RetrievedMemories(List.of(), List.of(), List.of(), "conv");
@@ -75,26 +59,15 @@ class DefaultMemoryFacadeTest {
     void buildContextPropagatesRequestOverridesToContextRequest() {
         MemoryRetrievalFacade retrievalFacade = mock(MemoryRetrievalFacade.class);
         ContextAssembler assembler = mock(ContextAssembler.class);
-        ConversationMemoryService conversationMemoryService = mock(ConversationMemoryService.class);
-        EpisodicMemoryService episodicMemoryService = mock(EpisodicMemoryService.class);
-        SemanticMemoryService semanticMemoryService = mock(SemanticMemoryService.class);
-        RuleService ruleService = mock(RuleService.class);
-        SemanticMemoryExtractor extractor = mock(SemanticMemoryExtractor.class);
-        RulePromotionService promotionService = mock(RulePromotionService.class);
-        EpisodicEventFactory eventFactory = mock(EpisodicEventFactory.class);
-        MemoryIntegrationProperties properties = new MemoryIntegrationProperties();
-
-        DefaultMemoryFacade facade = new DefaultMemoryFacade(
+        DefaultMemoryFacade facade = facade(
                 retrievalFacade,
                 assembler,
-                conversationMemoryService,
-                episodicMemoryService,
-                semanticMemoryService,
-                ruleService,
-                extractor,
-                promotionService,
-                eventFactory,
-                properties
+                mock(ConversationMemoryService.class),
+                mock(EpisodicMemoryService.class),
+                mock(SemanticMemoryService.class),
+                mock(ImplicitMemoryWritePipeline.class),
+                mock(EpisodicEventFactory.class),
+                new MemoryIntegrationProperties()
         );
 
         when(retrievalFacade.retrieve(any(ContextRequest.class)))
@@ -120,33 +93,19 @@ class DefaultMemoryFacadeTest {
         ConversationMemoryService conversationMemoryService = mock(ConversationMemoryService.class);
         EpisodicMemoryService episodicMemoryService = mock(EpisodicMemoryService.class);
         SemanticMemoryService semanticMemoryService = mock(SemanticMemoryService.class);
-        RuleService ruleService = mock(RuleService.class);
-        SemanticMemoryExtractor extractor = mock(SemanticMemoryExtractor.class);
-        RulePromotionService promotionService = mock(RulePromotionService.class);
+        ImplicitMemoryWritePipeline implicitMemoryWritePipeline = mock(ImplicitMemoryWritePipeline.class);
         EpisodicEventFactory eventFactory = mock(EpisodicEventFactory.class);
         MemoryIntegrationProperties properties = new MemoryIntegrationProperties();
-
-        MemoryEntry memory = new MemoryEntry();
-        memory.setAgentId("agent-1");
-        memory.setScope(MemoryScope.AGENT);
-        memory.setType(MemoryType.PREFERENCE);
-        memory.setContent("prefere yaml");
-
-        when(extractor.extract(any(), any(), any())).thenReturn(List.of(memory));
-        when(promotionService.promote(any(), any(), any())).thenReturn(List.of());
-        when(ruleService.getApplicableRules(any(), any())).thenReturn(List.of());
         when(eventFactory.userMessageReceived(any())).thenReturn(new EpisodeEvent());
         when(eventFactory.assistantResponseGenerated(any(), any())).thenReturn(new EpisodeEvent());
 
-        DefaultMemoryFacade facade = new DefaultMemoryFacade(
+        DefaultMemoryFacade facade = facade(
                 retrievalFacade,
                 assembler,
                 conversationMemoryService,
                 episodicMemoryService,
                 semanticMemoryService,
-                ruleService,
-                extractor,
-                promotionService,
+                implicitMemoryWritePipeline,
                 eventFactory,
                 properties
         );
@@ -160,33 +119,25 @@ class DefaultMemoryFacadeTest {
         assertThat(captor.getAllValues()).extracting(fr.ses10doigts.toolkitbridge.memory.conversation.model.ConversationMessage::role)
                 .containsExactly(ConversationRole.USER, ConversationRole.ASSISTANT);
         verify(episodicMemoryService, times(2)).record(any(EpisodeEvent.class));
-        verify(semanticMemoryService, atLeastOnce()).create(any(MemoryEntry.class));
+        verify(implicitMemoryWritePipeline).persistSemanticExtractions(any(MemoryContextRequest.class), eq("hello"), eq("user"));
+        verify(implicitMemoryWritePipeline).promoteRules(any(MemoryContextRequest.class), eq("hello"), eq("user"));
+        verify(implicitMemoryWritePipeline).persistSemanticExtractions(any(MemoryContextRequest.class), eq("assistant"), eq("assistant"));
+        verify(implicitMemoryWritePipeline).promoteRules(any(MemoryContextRequest.class), eq("assistant"), eq("assistant"));
+        verifyNoInteractions(semanticMemoryService);
     }
 
     @Test
     void markUsedOnlyMarksProvidedMemories() {
-        MemoryRetrievalFacade retrievalFacade = mock(MemoryRetrievalFacade.class);
-        ContextAssembler assembler = mock(ContextAssembler.class);
-        ConversationMemoryService conversationMemoryService = mock(ConversationMemoryService.class);
-        EpisodicMemoryService episodicMemoryService = mock(EpisodicMemoryService.class);
         SemanticMemoryService semanticMemoryService = mock(SemanticMemoryService.class);
-        RuleService ruleService = mock(RuleService.class);
-        SemanticMemoryExtractor extractor = mock(SemanticMemoryExtractor.class);
-        RulePromotionService promotionService = mock(RulePromotionService.class);
-        EpisodicEventFactory eventFactory = mock(EpisodicEventFactory.class);
-        MemoryIntegrationProperties properties = new MemoryIntegrationProperties();
-
-        DefaultMemoryFacade facade = new DefaultMemoryFacade(
-                retrievalFacade,
-                assembler,
-                conversationMemoryService,
-                episodicMemoryService,
+        DefaultMemoryFacade facade = facade(
+                mock(MemoryRetrievalFacade.class),
+                mock(ContextAssembler.class),
+                mock(ConversationMemoryService.class),
+                mock(EpisodicMemoryService.class),
                 semanticMemoryService,
-                ruleService,
-                extractor,
-                promotionService,
-                eventFactory,
-                properties
+                mock(ImplicitMemoryWritePipeline.class),
+                mock(EpisodicEventFactory.class),
+                new MemoryIntegrationProperties()
         );
 
         facade.markContextMemoriesUsed(java.util.Arrays.asList(1L, null, 2L));
@@ -203,26 +154,19 @@ class DefaultMemoryFacadeTest {
         ConversationMemoryService conversationMemoryService = mock(ConversationMemoryService.class);
         EpisodicMemoryService episodicMemoryService = mock(EpisodicMemoryService.class);
         SemanticMemoryService semanticMemoryService = mock(SemanticMemoryService.class);
-        RuleService ruleService = mock(RuleService.class);
-        SemanticMemoryExtractor extractor = mock(SemanticMemoryExtractor.class);
-        RulePromotionService promotionService = mock(RulePromotionService.class);
+        ImplicitMemoryWritePipeline implicitMemoryWritePipeline = mock(ImplicitMemoryWritePipeline.class);
         EpisodicEventFactory eventFactory = mock(EpisodicEventFactory.class);
         MemoryIntegrationProperties properties = new MemoryIntegrationProperties();
 
         when(eventFactory.toolExecutionEvent(any(), any())).thenReturn(new EpisodeEvent());
-        when(extractor.extract(any(), any(), any())).thenReturn(List.of());
-        when(promotionService.promote(any(), any(), any())).thenReturn(List.of());
-        when(ruleService.getApplicableRules(any(), any())).thenReturn(List.of());
 
-        DefaultMemoryFacade facade = new DefaultMemoryFacade(
+        DefaultMemoryFacade facade = facade(
                 retrievalFacade,
                 assembler,
                 conversationMemoryService,
                 episodicMemoryService,
                 semanticMemoryService,
-                ruleService,
-                extractor,
-                promotionService,
+                implicitMemoryWritePipeline,
                 eventFactory,
                 properties
         );
@@ -230,9 +174,59 @@ class DefaultMemoryFacadeTest {
         facade.onToolExecution(request("hello"), new ToolExecutionRecord("read_file", true, "ok"));
 
         verify(episodicMemoryService).record(any(EpisodeEvent.class));
+        verify(implicitMemoryWritePipeline).persistSemanticExtractions(any(MemoryContextRequest.class), eq("ok"), eq("tool"));
+        verify(implicitMemoryWritePipeline).promoteRules(any(MemoryContextRequest.class), eq("ok"), eq("tool"));
+    }
+
+    @Test
+    void disabledImplicitWritersDoNotCallPipeline() {
+        ImplicitMemoryWritePipeline implicitMemoryWritePipeline = mock(ImplicitMemoryWritePipeline.class);
+        EpisodicEventFactory eventFactory = mock(EpisodicEventFactory.class);
+        MemoryIntegrationProperties properties = new MemoryIntegrationProperties();
+        properties.setEnableSemanticExtraction(false);
+        properties.setEnableRulePromotion(false);
+
+        when(eventFactory.userMessageReceived(any())).thenReturn(new EpisodeEvent());
+
+        DefaultMemoryFacade facade = facade(
+                mock(MemoryRetrievalFacade.class),
+                mock(ContextAssembler.class),
+                mock(ConversationMemoryService.class),
+                mock(EpisodicMemoryService.class),
+                mock(SemanticMemoryService.class),
+                implicitMemoryWritePipeline,
+                eventFactory,
+                properties
+        );
+
+        facade.onUserMessage(request("hello"));
+
+        verifyNoInteractions(implicitMemoryWritePipeline);
     }
 
     private MemoryContextRequest request(String message) {
         return new MemoryContextRequest("agent-1", "user-1", "bot-1", "project-1", message, "conv-1", null, null, null, null);
+    }
+
+    private DefaultMemoryFacade facade(
+            MemoryRetrievalFacade retrievalFacade,
+            ContextAssembler assembler,
+            ConversationMemoryService conversationMemoryService,
+            EpisodicMemoryService episodicMemoryService,
+            SemanticMemoryService semanticMemoryService,
+            ImplicitMemoryWritePipeline implicitMemoryWritePipeline,
+            EpisodicEventFactory eventFactory,
+            MemoryIntegrationProperties properties
+    ) {
+        return new DefaultMemoryFacade(
+                retrievalFacade,
+                assembler,
+                conversationMemoryService,
+                episodicMemoryService,
+                semanticMemoryService,
+                implicitMemoryWritePipeline,
+                eventFactory,
+                properties
+        );
     }
 }

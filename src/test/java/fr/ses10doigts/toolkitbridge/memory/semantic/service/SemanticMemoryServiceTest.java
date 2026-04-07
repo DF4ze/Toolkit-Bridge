@@ -4,6 +4,7 @@ import fr.ses10doigts.toolkitbridge.memory.semantic.model.MemoryEntry;
 import fr.ses10doigts.toolkitbridge.memory.semantic.model.MemoryScope;
 import fr.ses10doigts.toolkitbridge.memory.semantic.model.MemoryStatus;
 import fr.ses10doigts.toolkitbridge.memory.semantic.model.MemoryType;
+import fr.ses10doigts.toolkitbridge.memory.shared.model.MemoryWriteMode;
 import fr.ses10doigts.toolkitbridge.memory.semantic.repository.MemoryEntryRepository;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Validation;
@@ -53,6 +54,7 @@ class SemanticMemoryServiceTest {
         MemoryEntry saved = service.create(entry);
 
         assertThat(saved.getAgentId()).isEqualTo("agent-1");
+        assertThat(saved.getWriteMode()).isEqualTo(MemoryWriteMode.EXPLICIT);
         verify(repository, times(1)).save(any(MemoryEntry.class));
     }
 
@@ -123,5 +125,18 @@ class SemanticMemoryServiceTest {
         ArgumentCaptor<MemoryEntry> captor = ArgumentCaptor.forClass(MemoryEntry.class);
         verify(repository).save(captor.capture());
         assertThat(captor.getValue().getStatus()).isEqualTo(MemoryStatus.ARCHIVED);
+    }
+
+    @Test
+    void rejectUserScopeWithoutScopeId() {
+        MemoryEntry entry = new MemoryEntry();
+        entry.setAgentId("agent-1");
+        entry.setScope(MemoryScope.USER);
+        entry.setType(MemoryType.FACT);
+        entry.setContent("content");
+
+        assertThatThrownBy(() -> service.create(entry))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("scopeId");
     }
 }

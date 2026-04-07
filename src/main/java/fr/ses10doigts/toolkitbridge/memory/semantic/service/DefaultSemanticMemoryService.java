@@ -32,6 +32,7 @@ public class DefaultSemanticMemoryService implements SemanticMemoryService {
         }
         normalize(entry);
         validate(entry);
+        validateScope(entry);
         return repository.save(entry);
     }
 
@@ -60,6 +61,7 @@ public class DefaultSemanticMemoryService implements SemanticMemoryService {
 
         normalize(existing);
         validate(existing);
+        validateScope(existing);
         return repository.save(existing);
     }
 
@@ -148,6 +150,15 @@ public class DefaultSemanticMemoryService implements SemanticMemoryService {
         var violations = validator.validate(entry);
         if (!violations.isEmpty()) {
             throw new ConstraintViolationException(violations);
+        }
+    }
+
+    private void validateScope(MemoryEntry entry) {
+        MemoryScope scope = entry.getScope();
+        if (scope == MemoryScope.USER || scope == MemoryScope.PROJECT) {
+            if (entry.getScopeId() == null || entry.getScopeId().isBlank()) {
+                throw new IllegalArgumentException("scopeId must be provided for " + scope + " scope");
+            }
         }
     }
 }

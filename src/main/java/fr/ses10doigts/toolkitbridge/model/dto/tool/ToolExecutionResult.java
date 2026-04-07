@@ -2,6 +2,7 @@ package fr.ses10doigts.toolkitbridge.model.dto.tool;
 
 import fr.ses10doigts.toolkitbridge.model.dto.tool.bash.BashResponse;
 import fr.ses10doigts.toolkitbridge.model.dto.tool.file.FileResponse;
+import fr.ses10doigts.toolkitbridge.model.dto.tool.memory.MemoryResponse;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -13,4 +14,5 @@ public class ToolExecutionResult {
 
     private FileResponse file;
     private BashResponse bash;
+    private MemoryResponse memory;
 }
