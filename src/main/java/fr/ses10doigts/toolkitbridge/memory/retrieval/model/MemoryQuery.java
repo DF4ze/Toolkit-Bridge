@@ -12,14 +12,14 @@ public record MemoryQuery(
         String textQuery,
         Set<MemoryScope> scopes,
         Set<MemoryType> types,
-        int limit
+        int candidateLimit
 ) {
     public MemoryQuery {
         if (agentId == null || agentId.isBlank()) {
             throw new IllegalArgumentException("agentId must not be blank");
         }
-        if (limit <= 0) {
-            throw new IllegalArgumentException("limit must be greater than 0");
+        if (candidateLimit <= 0) {
+            throw new IllegalArgumentException("candidateLimit must be greater than 0");
         }
         if (projectId != null && projectId.isBlank()) {
             projectId = null;
@@ -40,8 +40,8 @@ public record MemoryQuery(
             String textQuery,
             Set<MemoryScope> scopes,
             Set<MemoryType> types,
-            int limit
+            int candidateLimit
     ) {
-        this(agentId, null, projectId, textQuery, scopes, types, limit);
+        this(agentId, null, projectId, textQuery, scopes, types, candidateLimit);
     }
 }

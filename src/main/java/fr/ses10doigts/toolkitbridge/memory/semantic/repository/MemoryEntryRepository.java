@@ -6,6 +6,7 @@ import fr.ses10doigts.toolkitbridge.memory.semantic.model.MemoryStatus;
 import fr.ses10doigts.toolkitbridge.memory.semantic.model.MemoryType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
@@ -32,5 +33,6 @@ public interface MemoryEntryRepository extends JpaRepository<MemoryEntry, Long> 
             "or lower(t) like lower(concat('%', :query, '%')))")
     List<MemoryEntry> searchCandidates(@Param("agentId") String agentId,
                                        @Param("status") MemoryStatus status,
-                                       @Param("query") String query);
+                                       @Param("query") String query,
+                                       Pageable pageable);
 }

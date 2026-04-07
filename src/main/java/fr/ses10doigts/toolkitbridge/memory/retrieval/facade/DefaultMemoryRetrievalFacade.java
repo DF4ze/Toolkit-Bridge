@@ -11,6 +11,7 @@ import fr.ses10doigts.toolkitbridge.memory.retrieval.config.MemoryRetrievalPrope
 import fr.ses10doigts.toolkitbridge.memory.retrieval.model.MemoryQuery;
 import fr.ses10doigts.toolkitbridge.memory.retrieval.model.RetrievedMemories;
 import fr.ses10doigts.toolkitbridge.memory.retrieval.port.MemoryRetriever;
+import fr.ses10doigts.toolkitbridge.memory.scoring.service.MemoryScoringService;
 import fr.ses10doigts.toolkitbridge.memory.rule.model.RuleEntry;
 import fr.ses10doigts.toolkitbridge.memory.rule.service.RuleService;
 import fr.ses10doigts.toolkitbridge.memory.semantic.model.MemoryEntry;
@@ -41,6 +42,7 @@ public class DefaultMemoryRetrievalFacade implements MemoryRetrievalFacade {
 
     private final RuleService ruleService;
     private final MemoryRetriever memoryRetriever;
+    private final MemoryScoringService scoringService;
     private final EpisodicMemoryService episodicMemoryService;
     private final ConversationMemoryService conversationMemoryService;
     private final MemoryRetrievalProperties properties;
@@ -57,15 +59,18 @@ public class DefaultMemoryRetrievalFacade implements MemoryRetrievalFacade {
                 .limit(properties.getMaxRules())
                 .toList();
 
-        List<MemoryEntry> semanticMemories = memoryRetriever.retrieve(new MemoryQuery(
+        int semanticLimit = resolveLimit(contextRequest.maxSemanticMemories(), properties.getMaxSemanticMemories());
+        int candidateLimit = resolveCandidateLimit(semanticLimit);
+
+        List<MemoryEntry> semanticMemories = scoringService.rank(memoryRetriever.retrieve(new MemoryQuery(
                 contextRequest.agentId(),
                 contextRequest.userId(),
                 contextRequest.projectId(),
                 contextRequest.currentUserMessage(),
                 scopePolicy.defaultReadableScopes(),
                 DEFAULT_TYPES,
-                resolveLimit(contextRequest.maxSemanticMemories(), properties.getMaxSemanticMemories())
-        ));
+                candidateLimit
+        )), semanticLimit);
 
         List<RetrievedMemories.EpisodeSummary> episodicMemories = collectEpisodeEvents(contextRequest)
                 .stream()
@@ -120,6 +125,10 @@ public class DefaultMemoryRetrievalFacade implements MemoryRetrievalFacade {
             return safeFallback;
         }
         return Math.max(1, Math.min(override, safeFallback));
+    }
+
+    private int resolveCandidateLimit(int semanticLimit) {
+        return Math.max(semanticLimit, Math.max(1, properties.getMaxCandidatePoolSize()));
     }
 
     private void addEvents(LinkedHashSet<EpisodeEvent> accumulator,

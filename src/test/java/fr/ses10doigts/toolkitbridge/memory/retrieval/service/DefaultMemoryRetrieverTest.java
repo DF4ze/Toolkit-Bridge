@@ -1,7 +1,7 @@
 package fr.ses10doigts.toolkitbridge.memory.retrieval.service;
 
+import fr.ses10doigts.toolkitbridge.memory.retrieval.config.MemoryRetrievalProperties;
 import fr.ses10doigts.toolkitbridge.memory.retrieval.model.MemoryQuery;
-import fr.ses10doigts.toolkitbridge.memory.scoring.service.MemoryScoringService;
 import fr.ses10doigts.toolkitbridge.memory.semantic.model.MemoryEntry;
 import fr.ses10doigts.toolkitbridge.memory.semantic.model.MemoryScope;
 import fr.ses10doigts.toolkitbridge.memory.semantic.model.MemoryStatus;
@@ -9,37 +9,38 @@ import fr.ses10doigts.toolkitbridge.memory.semantic.model.MemoryType;
 import fr.ses10doigts.toolkitbridge.memory.semantic.repository.MemoryEntryRepository;
 import fr.ses10doigts.toolkitbridge.memory.semantic.scope.MemoryScopePolicy;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class DefaultMemoryRetrieverTest {
 
     @Test
-    void filtersByScopeTypeAndStatusAndSortsByScore() {
+    void filtersByScopeTypeAndVisibilityWithoutScoring() {
         MemoryEntryRepository repository = mock(MemoryEntryRepository.class);
-        MemoryScoringService scoringService = mock(MemoryScoringService.class);
-        DefaultMemoryRetriever retriever = new DefaultMemoryRetriever(repository, scoringService, new MemoryScopePolicy());
+        DefaultMemoryRetriever retriever = new DefaultMemoryRetriever(repository, properties(10), new MemoryScopePolicy());
 
-        MemoryEntry matchLow = entry(MemoryScope.AGENT, MemoryType.FACT, MemoryStatus.ACTIVE);
-        MemoryEntry matchHigh = entry(MemoryScope.AGENT, MemoryType.FACT, MemoryStatus.ACTIVE);
+        MemoryEntry match = entry(MemoryScope.AGENT, MemoryType.FACT, MemoryStatus.ACTIVE);
         MemoryEntry wrongScope = entry(MemoryScope.PROJECT, MemoryType.FACT, MemoryStatus.ACTIVE);
         MemoryEntry wrongType = entry(MemoryScope.AGENT, MemoryType.DECISION, MemoryStatus.ACTIVE);
         MemoryEntry archived = entry(MemoryScope.AGENT, MemoryType.FACT, MemoryStatus.ARCHIVED);
 
-        when(repository.searchCandidates("agent-1", MemoryStatus.ACTIVE, null))
-                .thenReturn(List.of(matchLow, matchHigh, wrongScope, wrongType, archived));
-
-        when(scoringService.computeScore(matchLow)).thenReturn(1.0);
-        when(scoringService.computeScore(matchHigh)).thenReturn(5.0);
+        when(repository.searchCandidates(eq("agent-1"), eq(MemoryStatus.ACTIVE), isNull(), any(Pageable.class)))
+                .thenReturn(List.of(match, wrongScope, wrongType, archived));
 
         MemoryQuery query = new MemoryQuery(
                 "agent-1",
+                null,
                 null,
                 null,
                 Set.of(MemoryScope.AGENT),
@@ -49,43 +50,41 @@ class DefaultMemoryRetrieverTest {
 
         List<MemoryEntry> result = retriever.retrieve(query);
 
-        assertThat(result).containsExactly(matchHigh, matchLow);
+        assertThat(result).containsExactly(match);
     }
 
     @Test
-    void limitsResults() {
+    void usesConfiguredCandidatePoolBound() {
         MemoryEntryRepository repository = mock(MemoryEntryRepository.class);
-        MemoryScoringService scoringService = mock(MemoryScoringService.class);
-        DefaultMemoryRetriever retriever = new DefaultMemoryRetriever(repository, scoringService, new MemoryScopePolicy());
+        DefaultMemoryRetriever retriever = new DefaultMemoryRetriever(repository, properties(2), new MemoryScopePolicy());
 
-        MemoryEntry first = entry(MemoryScope.AGENT, MemoryType.FACT, MemoryStatus.ACTIVE);
-        MemoryEntry second = entry(MemoryScope.AGENT, MemoryType.FACT, MemoryStatus.ACTIVE);
-
-        when(repository.searchCandidates("agent-1", MemoryStatus.ACTIVE, "alpha"))
-                .thenReturn(List.of(first, second));
-
-        when(scoringService.computeScore(first)).thenReturn(2.0);
-        when(scoringService.computeScore(second)).thenReturn(1.0);
+        when(repository.searchCandidates(eq("agent-1"), eq(MemoryStatus.ACTIVE), eq("alpha"), any(Pageable.class)))
+                .thenReturn(List.of());
 
         MemoryQuery query = new MemoryQuery(
                 "agent-1",
                 null,
+                null,
                 "alpha",
                 Set.of(),
                 Set.of(),
-                1
+                5
         );
 
-        List<MemoryEntry> result = retriever.retrieve(query);
+        retriever.retrieve(query);
 
-        assertThat(result).containsExactly(first);
+        verify(repository).searchCandidates(
+                org.mockito.Mockito.eq("agent-1"),
+                org.mockito.Mockito.eq(MemoryStatus.ACTIVE),
+                org.mockito.Mockito.eq("alpha"),
+                org.mockito.ArgumentMatchers.argThat(pageable -> pageable.getPageSize() == 2)
+        );
     }
 
     @Test
-    void rejectNullQuery() {
+    void rejectsNullQuery() {
         MemoryEntryRepository repository = mock(MemoryEntryRepository.class);
-        MemoryScoringService scoringService = mock(MemoryScoringService.class);
-        DefaultMemoryRetriever retriever = new DefaultMemoryRetriever(repository, scoringService, new MemoryScopePolicy());
+        DefaultMemoryRetriever retriever = new DefaultMemoryRetriever(repository, properties(10), new MemoryScopePolicy());
 
         assertThatThrownBy(() -> retriever.retrieve(null))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -95,22 +94,17 @@ class DefaultMemoryRetrieverTest {
     @Test
     void filtersProjectScopeAccordingToProjectId() {
         MemoryEntryRepository repository = mock(MemoryEntryRepository.class);
-        MemoryScoringService scoringService = mock(MemoryScoringService.class);
-        DefaultMemoryRetriever retriever = new DefaultMemoryRetriever(repository, scoringService, new MemoryScopePolicy());
+        DefaultMemoryRetriever retriever = new DefaultMemoryRetriever(repository, properties(10), new MemoryScopePolicy());
 
         MemoryEntry projectEntry = entry(MemoryScope.PROJECT, MemoryType.FACT, MemoryStatus.ACTIVE, "project-1");
         MemoryEntry agentEntry = entry(MemoryScope.AGENT, MemoryType.FACT, MemoryStatus.ACTIVE);
 
-        List<MemoryEntry> allEntries = List.of(projectEntry, agentEntry);
-
-        when(repository.searchCandidates("agent-1", MemoryStatus.ACTIVE, null))
-                .thenReturn(allEntries);
-
-        when(scoringService.computeScore(projectEntry)).thenReturn(2.0);
-        when(scoringService.computeScore(agentEntry)).thenReturn(1.0);
+        when(repository.searchCandidates(eq("agent-1"), eq(MemoryStatus.ACTIVE), isNull(), any(Pageable.class)))
+                .thenReturn(List.of(projectEntry, agentEntry));
 
         MemoryQuery withProject = new MemoryQuery(
                 "agent-1",
+                null,
                 "project-1",
                 null,
                 Set.of(MemoryScope.PROJECT),
@@ -124,6 +118,7 @@ class DefaultMemoryRetrieverTest {
                 "agent-1",
                 null,
                 null,
+                null,
                 Set.of(MemoryScope.AGENT, MemoryScope.PROJECT),
                 Set.of(MemoryType.FACT),
                 10
@@ -135,17 +130,13 @@ class DefaultMemoryRetrieverTest {
     @Test
     void filtersUserScopeAccordingToUserId() {
         MemoryEntryRepository repository = mock(MemoryEntryRepository.class);
-        MemoryScoringService scoringService = mock(MemoryScoringService.class);
-        DefaultMemoryRetriever retriever = new DefaultMemoryRetriever(repository, scoringService, new MemoryScopePolicy());
+        DefaultMemoryRetriever retriever = new DefaultMemoryRetriever(repository, properties(10), new MemoryScopePolicy());
 
         MemoryEntry userMatch = entry(MemoryScope.USER, MemoryType.FACT, MemoryStatus.ACTIVE, "user-1");
         MemoryEntry userOther = entry(MemoryScope.USER, MemoryType.FACT, MemoryStatus.ACTIVE, "user-2");
 
-        when(repository.searchCandidates("agent-1", MemoryStatus.ACTIVE, null))
+        when(repository.searchCandidates(eq("agent-1"), eq(MemoryStatus.ACTIVE), isNull(), any(Pageable.class)))
                 .thenReturn(List.of(userMatch, userOther));
-
-        when(scoringService.computeScore(userMatch)).thenReturn(2.0);
-        when(scoringService.computeScore(userOther)).thenReturn(1.0);
 
         MemoryQuery query = new MemoryQuery(
                 "agent-1",
@@ -159,6 +150,12 @@ class DefaultMemoryRetrieverTest {
 
         List<MemoryEntry> result = retriever.retrieve(query);
         assertThat(result).containsExactly(userMatch);
+    }
+
+    private MemoryRetrievalProperties properties(int maxCandidatePoolSize) {
+        MemoryRetrievalProperties properties = new MemoryRetrievalProperties();
+        properties.setMaxCandidatePoolSize(maxCandidatePoolSize);
+        return properties;
     }
 
     private MemoryEntry entry(MemoryScope scope, MemoryType type, MemoryStatus status) {

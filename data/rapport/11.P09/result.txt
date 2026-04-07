@@ -1,0 +1,63 @@
+Résultat
+Le retrieval mémoire est maintenant séparé en deux étapes nettes, comme demandé par 9.A puis 9.B :
+
+9.A : le retriever ne score plus. Il récupère un pool candidat borné, stable et filtré par scope, type et visibilité projet/utilisateur dans DefaultMemoryRetriever.java (line 17), avec les bornes portées par MemoryQuery.java (line 8) et MemoryRetrievalProperties.java.
+9.B : le scoring V1 devient une vraie brique dédiée via MemoryScoringService.java et DefaultMemoryScoringService.java (line 14). La formule reste simple et lisible : importance + fréquence + récence, avec poids configurables. L’intégration retrieval + scoring est faite proprement dans DefaultMemoryRetrievalFacade.java (line 28), pas dans l’orchestrator.
+Le point structurant est donc : retrieval brut borné -> scoring/ranking V1 -> assemblage de contexte, sans mélange de responsabilités.
+
+Tests
+J’ai adapté les tests de retrieval/scoring/facade ici :
+
+DefaultMemoryRetrieverTest.java
+MemoryRetrieverIT.java
+DefaultMemoryRetrievalFacadeTest.java
+DefaultMemoryScoringServiceTest.java
+Je n’ai pas pu exécuter la suite Maven ici : l’environnement local refuse la compilation car le projet cible Java 21 et le JDK disponible ne supporte pas --release 21.
+
+Fichiers modifiés
+
+MemoryRetrievalProperties.java
+DefaultMemoryRetrievalFacade.java
+MemoryQuery.java
+DefaultMemoryRetriever.java
+MemoryScoringProperties.java
+DefaultMemoryScoringService.java
+MemoryScoringService.java
+MemoryEntryRepository.java
+DefaultMemoryRetrievalFacadeTest.java
+DefaultMemoryRetrieverTest.java
+MemoryRetrieverIT.java
+DefaultMemoryScoringServiceTest.java
+Ouvert volontairement pour la suite
+
+pondération adaptative selon le contexte de tâche
+scoring différencié par type de mémoire
+permissions mémoire plus fines par scope
+retrieval sémantique/vectoriel
+condensation automatique avancée
+À noter : le worktree contenait déjà d’autres modifications hors périmètre, notamment DefaultController.java et les fichiers de consigne 9.A.md / 9.B.md; je ne les ai pas touchés.
+
+
+
+
+Après relecture :
+Points discutables
+
+Le point le plus faible de ma première version était le modèle MemoryQuery.java. Il portait à la fois une borne de candidats et une borne finale de ranking, alors que le retriever n’utilisait que la première. C’était un couplage inutile entre retrieval et scoring, donc une frontière 9.A / 9.B imparfaite.
+Le repository MemoryEntryRepository.java exposait deux searchCandidates(...) quasi identiques. Ce n’était pas dramatique, mais c’était une duplication de contrat qui commençait à brouiller la séparation entre usage runtime et héritage des tests.
+Le reste est plutôt sain pour le périmètre demandé : la configuration reste dans Properties, le runtime dans les services, l’orchestrator n’embarque pas la logique mémoire, et le scoring V1 reste simple et remplaçable dans DefaultMemoryScoringService.java.
+Corrections utiles
+
+Simplifier MemoryQuery pour qu’il représente uniquement la requête de retrieval, avec une seule borne pertinente : candidateLimit.
+Garder la limite finale de ranking dans la façade de retrieval, là où l’étape 9.B est réellement orchestrée.
+Supprimer la surcharge redondante de searchCandidates(...) et aligner le test d’intégration repository sur le contrat réellement utilisé.
+Corrections appliquées
+
+J’ai simplifié MemoryQuery.java pour retirer la borne finale inutile.
+J’ai ajusté DefaultMemoryRetrievalFacade.java pour conserver localement semanticLimit pour le ranking, et ne passer au retriever qu’une vraie requête de retrieval.
+J’ai nettoyé MemoryEntryRepository.java en retirant la surcharge dupliquée.
+J’ai réaligné les tests concernés, notamment DefaultMemoryRetrievalFacadeTest.java, DefaultMemoryRetrieverTest.java, MemoryRetrieverIT.java et MemoryEntryRepositoryIT.java.
+Résumé
+Après relecture critique, je ne vois pas de couplage problématique avec l’orchestrator, le tooling, la policy ou le workspace dans cette phase. L’architecture mémoire est maintenant plus nette : configuration dans les Properties, retrieval borné dans DefaultMemoryRetriever.java, scoring V1 dans DefaultMemoryScoringService.java, intégration dans DefaultMemoryRetrievalFacade.java.
+
+La dette résiduelle me paraît acceptable et volontaire pour cette étape : le scoring reste global, pas spécialisé par type de mémoire, et le candidate pool reste une politique simple plutôt qu’un mécanisme adaptatif. Je n’ai pas pu relancer Maven ici à cause du blocage environnemental sur Java 21, donc la validation finale d’exécution reste à faire dans un JDK compatible.

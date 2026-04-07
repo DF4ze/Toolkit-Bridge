@@ -24,7 +24,7 @@ import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest
+@SpringBootTest(properties = "toolkit.memory.retrieval.max-candidate-pool-size=5")
 @Transactional
 @Import(MemoryRetrieverIT.FixedClockConfig.class)
 class MemoryRetrieverIT {
@@ -38,17 +38,16 @@ class MemoryRetrieverIT {
     private MemoryRetriever retriever;
 
     @Test
-    void retrieveFiltersAndSortsAndRespectsLimit() {
-        MemoryEntry high = entry("agent-1", MemoryScope.AGENT, MemoryType.FACT, "alpha content");
-        high.setImportance(0.9);
-        high.setLastAccessedAt(NOW.minusSeconds(86400L * 10));
-        high.setTags(Set.of("alpha"));
-        repository.save(high);
+    void retrieveFiltersAndRespectsCandidatePoolBound() {
+        MemoryEntry recent = entry("agent-1", MemoryScope.AGENT, MemoryType.FACT, "alpha recent");
+        recent.setImportance(0.1);
+        recent.setLastAccessedAt(NOW.minusSeconds(86400L));
+        repository.save(recent);
 
-        MemoryEntry low = entry("agent-1", MemoryScope.AGENT, MemoryType.FACT, "beta content");
-        low.setImportance(0.2);
-        low.setLastAccessedAt(NOW.minusSeconds(86400L * 1));
-        repository.save(low);
+        MemoryEntry older = entry("agent-1", MemoryScope.AGENT, MemoryType.FACT, "alpha older");
+        older.setImportance(0.9);
+        older.setLastAccessedAt(NOW.minusSeconds(86400L * 10));
+        repository.save(older);
 
         MemoryEntry archived = entry("agent-1", MemoryScope.AGENT, MemoryType.FACT, "alpha archived");
         archived.setStatus(MemoryStatus.ARCHIVED);
@@ -60,15 +59,16 @@ class MemoryRetrieverIT {
         MemoryQuery query = new MemoryQuery(
                 "agent-1",
                 null,
+                null,
                 "alpha",
                 Set.of(MemoryScope.AGENT),
                 Set.of(MemoryType.FACT),
-                1
+                5
         );
 
         List<MemoryEntry> result = retriever.retrieve(query);
 
-        assertThat(result).containsExactly(high);
+        assertThat(result).containsExactly(older, recent);
     }
 
     @Test
@@ -80,10 +80,11 @@ class MemoryRetrieverIT {
         MemoryQuery query = new MemoryQuery(
                 "agent-1",
                 null,
+                null,
                 "tag-alpha",
                 Set.of(),
                 Set.of(),
-                10
+                5
         );
 
         List<MemoryEntry> result = retriever.retrieve(query);

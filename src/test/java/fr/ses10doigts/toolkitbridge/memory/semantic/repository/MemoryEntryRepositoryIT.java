@@ -7,6 +7,8 @@ import fr.ses10doigts.toolkitbridge.memory.semantic.model.MemoryType;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -80,7 +82,12 @@ class MemoryEntryRepositoryIT {
         repository.save(activeWithTag);
         repository.save(archivedWithTag);
 
-        List<MemoryEntry> result = repository.searchCandidates("agent-1", MemoryStatus.ACTIVE, "alpha");
+        List<MemoryEntry> result = repository.searchCandidates(
+                "agent-1",
+                MemoryStatus.ACTIVE,
+                "alpha",
+                PageRequest.of(0, 10, Sort.by(Sort.Order.desc("updatedAt"), Sort.Order.desc("createdAt"), Sort.Order.desc("id")))
+        );
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).getStatus()).isEqualTo(MemoryStatus.ACTIVE);

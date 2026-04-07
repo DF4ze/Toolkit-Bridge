@@ -1,24 +1,31 @@
 package fr.ses10doigts.toolkitbridge.memory.retrieval.service;
 
+import fr.ses10doigts.toolkitbridge.memory.retrieval.config.MemoryRetrievalProperties;
 import fr.ses10doigts.toolkitbridge.memory.retrieval.model.MemoryQuery;
 import fr.ses10doigts.toolkitbridge.memory.retrieval.port.MemoryRetriever;
-import fr.ses10doigts.toolkitbridge.memory.scoring.service.MemoryScoringService;
 import fr.ses10doigts.toolkitbridge.memory.semantic.model.MemoryEntry;
 import fr.ses10doigts.toolkitbridge.memory.semantic.model.MemoryStatus;
 import fr.ses10doigts.toolkitbridge.memory.semantic.repository.MemoryEntryRepository;
 import fr.ses10doigts.toolkitbridge.memory.semantic.scope.MemoryScopePolicy;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
-import java.util.Comparator;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class DefaultMemoryRetriever implements MemoryRetriever {
 
+    private static final Sort STABLE_CANDIDATE_ORDER = Sort.by(
+            Sort.Order.desc("updatedAt"),
+            Sort.Order.desc("createdAt"),
+            Sort.Order.desc("id")
+    );
+
     private final MemoryEntryRepository repository;
-    private final MemoryScoringService scoringService;
+    private final MemoryRetrievalProperties properties;
     private final MemoryScopePolicy scopePolicy;
 
     @Override
@@ -30,7 +37,8 @@ public class DefaultMemoryRetriever implements MemoryRetriever {
         List<MemoryEntry> candidates = repository.searchCandidates(
                 query.agentId(),
                 MemoryStatus.ACTIVE,
-                query.textQuery()
+                query.textQuery(),
+                PageRequest.of(0, resolveCandidateFetchLimit(query), STABLE_CANDIDATE_ORDER)
         );
 
         return candidates.stream()
@@ -38,8 +46,12 @@ public class DefaultMemoryRetriever implements MemoryRetriever {
                 .filter(entry -> query.scopes().isEmpty() || query.scopes().contains(entry.getScope()))
                 .filter(entry -> scopePolicy.isEntryVisible(entry, query.userId(), query.projectId()))
                 .filter(entry -> query.types().isEmpty() || query.types().contains(entry.getType()))
-                .sorted(Comparator.comparingDouble(scoringService::computeScore).reversed())
-                .limit(query.limit())
+                .limit(query.candidateLimit())
                 .toList();
+    }
+
+    private int resolveCandidateFetchLimit(MemoryQuery query) {
+        int configuredLimit = Math.max(1, properties.getMaxCandidatePoolSize());
+        return Math.min(query.candidateLimit(), configuredLimit);
     }
 }

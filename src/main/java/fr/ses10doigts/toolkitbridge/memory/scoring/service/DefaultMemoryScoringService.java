@@ -8,6 +8,8 @@ import org.springframework.stereotype.Service;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Comparator;
+import java.util.List;
 
 @Service
 @AllArgsConstructor
@@ -22,11 +24,24 @@ public class DefaultMemoryScoringService implements MemoryScoringService {
             throw new IllegalArgumentException("memory must not be null");
         }
 
-        double importance = memory.getImportance();
-        double usage = memory.getUsageCount() * properties.getUsageWeight();
-        double recency = computeRecency(resolveReferenceTime(memory));
+        double importance = memory.getImportance() * properties.getImportanceWeight();
+        double frequency = memory.getUsageCount() * properties.getUsageWeight();
+        double recency = computeRecency(resolveReferenceTime(memory)) * properties.getRecencyWeight();
 
-        return importance + usage + recency;
+        return importance + frequency + recency;
+    }
+
+    @Override
+    public <T extends ScorableMemory> List<T> rank(List<T> memories, int limit) {
+        if (memories == null || memories.isEmpty() || limit <= 0) {
+            return List.of();
+        }
+
+        return memories.stream()
+                .filter(memory -> memory != null)
+                .sorted(scoreComparator())
+                .limit(limit)
+                .toList();
     }
 
     private Instant resolveReferenceTime(ScorableMemory memory) {
@@ -46,5 +61,14 @@ public class DefaultMemoryScoringService implements MemoryScoringService {
             days = 0;
         }
         return 1.0 / (1 + days);
+    }
+
+    private <T extends ScorableMemory> Comparator<T> scoreComparator() {
+        return Comparator.<T>comparingDouble(this::computeScore)
+                .reversed()
+                .thenComparing(this::resolveReferenceTime, Comparator.nullsLast(Comparator.reverseOrder()))
+                .thenComparing(ScorableMemory::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder()))
+                .thenComparing(Comparator.comparingInt(ScorableMemory::getUsageCount).reversed())
+                .thenComparing(Comparator.comparingDouble(ScorableMemory::getImportance).reversed());
     }
 }

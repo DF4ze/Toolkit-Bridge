@@ -9,6 +9,7 @@ import fr.ses10doigts.toolkitbridge.memory.episodic.model.EpisodeScope;
 import fr.ses10doigts.toolkitbridge.memory.episodic.model.EpisodeStatus;
 import fr.ses10doigts.toolkitbridge.memory.episodic.service.EpisodicMemoryService;
 import fr.ses10doigts.toolkitbridge.memory.retrieval.config.MemoryRetrievalProperties;
+import fr.ses10doigts.toolkitbridge.memory.retrieval.model.MemoryQuery;
 import fr.ses10doigts.toolkitbridge.memory.retrieval.model.RetrievedMemories;
 import fr.ses10doigts.toolkitbridge.memory.retrieval.port.MemoryRetriever;
 import fr.ses10doigts.toolkitbridge.memory.rule.model.RuleEntry;
@@ -16,10 +17,11 @@ import fr.ses10doigts.toolkitbridge.memory.rule.model.RulePriority;
 import fr.ses10doigts.toolkitbridge.memory.rule.model.RuleScope;
 import fr.ses10doigts.toolkitbridge.memory.rule.model.RuleStatus;
 import fr.ses10doigts.toolkitbridge.memory.rule.service.RuleService;
+import fr.ses10doigts.toolkitbridge.memory.scoring.service.MemoryScoringService;
 import fr.ses10doigts.toolkitbridge.memory.semantic.model.MemoryEntry;
 import fr.ses10doigts.toolkitbridge.memory.semantic.model.MemoryScope;
-import fr.ses10doigts.toolkitbridge.memory.semantic.model.MemoryType;
 import fr.ses10doigts.toolkitbridge.memory.semantic.model.MemoryStatus;
+import fr.ses10doigts.toolkitbridge.memory.semantic.model.MemoryType;
 import fr.ses10doigts.toolkitbridge.memory.semantic.scope.MemoryScopePolicy;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -30,6 +32,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -40,17 +43,20 @@ class DefaultMemoryRetrievalFacadeTest {
     void returnsAllSectionsFromDependencies() {
         RuleService ruleService = mock(RuleService.class);
         MemoryRetriever memoryRetriever = mock(MemoryRetriever.class);
+        MemoryScoringService scoringService = mock(MemoryScoringService.class);
         EpisodicMemoryService episodicMemoryService = mock(EpisodicMemoryService.class);
         ConversationMemoryService conversationMemoryService = mock(ConversationMemoryService.class);
         MemoryRetrievalProperties properties = new MemoryRetrievalProperties();
         properties.setMaxRules(2);
         properties.setMaxSemanticMemories(2);
+        properties.setMaxCandidatePoolSize(4);
         properties.setMaxEpisodes(1);
         properties.setConversationSliceMaxCharacters(25);
 
         DefaultMemoryRetrievalFacade facade = new DefaultMemoryRetrievalFacade(
                 ruleService,
                 memoryRetriever,
+                scoringService,
                 episodicMemoryService,
                 conversationMemoryService,
                 properties,
@@ -64,8 +70,8 @@ class DefaultMemoryRetrievalFacadeTest {
 
         MemoryEntry firstMemory = memoryEntry("memory-1");
         MemoryEntry secondMemory = memoryEntry("memory-2");
-        when(memoryRetriever.retrieve(any()))
-                .thenReturn(List.of(firstMemory, secondMemory));
+        when(memoryRetriever.retrieve(any())).thenReturn(List.of(firstMemory, secondMemory));
+        when(scoringService.rank(List.of(firstMemory, secondMemory), 2)).thenReturn(List.of(secondMemory, firstMemory));
 
         EpisodeEvent episode = new EpisodeEvent();
         episode.setAgentId("agent-1");
@@ -86,7 +92,7 @@ class DefaultMemoryRetrievalFacadeTest {
         RetrievedMemories result = facade.retrieve(request);
 
         assertThat(result.rules()).containsExactly(firstRule, secondRule);
-        assertThat(result.semanticMemories()).containsExactly(firstMemory, secondMemory);
+        assertThat(result.semanticMemories()).containsExactly(secondMemory, firstMemory);
         assertThat(result.episodicMemories()).hasSize(1);
         assertThat(result.episodicMemories().get(0).summary()).endsWith("detail");
         assertThat(result.conversationSlice()).isEqualTo("conversation-slice");
@@ -96,6 +102,7 @@ class DefaultMemoryRetrievalFacadeTest {
     void trimsConversationSliceWhenTooLong() {
         RuleService ruleService = mock(RuleService.class);
         MemoryRetriever memoryRetriever = mock(MemoryRetriever.class);
+        MemoryScoringService scoringService = mock(MemoryScoringService.class);
         EpisodicMemoryService episodicMemoryService = mock(EpisodicMemoryService.class);
         ConversationMemoryService conversationMemoryService = mock(ConversationMemoryService.class);
         MemoryRetrievalProperties properties = new MemoryRetrievalProperties();
@@ -104,6 +111,7 @@ class DefaultMemoryRetrievalFacadeTest {
         DefaultMemoryRetrievalFacade facade = new DefaultMemoryRetrievalFacade(
                 ruleService,
                 memoryRetriever,
+                scoringService,
                 episodicMemoryService,
                 conversationMemoryService,
                 properties,
@@ -112,6 +120,7 @@ class DefaultMemoryRetrievalFacadeTest {
 
         when(ruleService.getApplicableRules(any(), any())).thenReturn(List.of());
         when(memoryRetriever.retrieve(any())).thenReturn(List.of());
+        when(scoringService.rank(org.mockito.ArgumentMatchers.<MemoryEntry>anyList(), eq(10))).thenReturn(List.of());
         when(episodicMemoryService.findRecent(any(), anyInt())).thenReturn(List.of());
         when(conversationMemoryService.buildContext(any())).thenReturn("abcdef");
 
@@ -125,6 +134,7 @@ class DefaultMemoryRetrievalFacadeTest {
     void includesSuccessAndFailureEpisodesAndFiltersProjects() {
         RuleService ruleService = mock(RuleService.class);
         MemoryRetriever memoryRetriever = mock(MemoryRetriever.class);
+        MemoryScoringService scoringService = mock(MemoryScoringService.class);
         EpisodicMemoryService episodicMemoryService = mock(EpisodicMemoryService.class);
         ConversationMemoryService conversationMemoryService = mock(ConversationMemoryService.class);
         MemoryRetrievalProperties properties = new MemoryRetrievalProperties();
@@ -133,6 +143,7 @@ class DefaultMemoryRetrievalFacadeTest {
         DefaultMemoryRetrievalFacade facade = new DefaultMemoryRetrievalFacade(
                 ruleService,
                 memoryRetriever,
+                scoringService,
                 episodicMemoryService,
                 conversationMemoryService,
                 properties,
@@ -141,6 +152,7 @@ class DefaultMemoryRetrievalFacadeTest {
 
         when(ruleService.getApplicableRules(any(), any())).thenReturn(List.of());
         when(memoryRetriever.retrieve(any())).thenReturn(List.of());
+        when(scoringService.rank(org.mockito.ArgumentMatchers.<MemoryEntry>anyList(), eq(10))).thenReturn(List.of());
         when(conversationMemoryService.buildContext(any())).thenReturn("");
 
         EpisodeEvent success = episode("success", EpisodeScope.AGENT, null, EpisodeStatus.SUCCESS);
@@ -168,6 +180,7 @@ class DefaultMemoryRetrievalFacadeTest {
     void ignoresOutOfScopeProjectEpisodesWhenProjectMissing() {
         RuleService ruleService = mock(RuleService.class);
         MemoryRetriever memoryRetriever = mock(MemoryRetriever.class);
+        MemoryScoringService scoringService = mock(MemoryScoringService.class);
         EpisodicMemoryService episodicMemoryService = mock(EpisodicMemoryService.class);
         ConversationMemoryService conversationMemoryService = mock(ConversationMemoryService.class);
         MemoryRetrievalProperties properties = new MemoryRetrievalProperties();
@@ -176,6 +189,7 @@ class DefaultMemoryRetrievalFacadeTest {
         DefaultMemoryRetrievalFacade facade = new DefaultMemoryRetrievalFacade(
                 ruleService,
                 memoryRetriever,
+                scoringService,
                 episodicMemoryService,
                 conversationMemoryService,
                 properties,
@@ -184,6 +198,7 @@ class DefaultMemoryRetrievalFacadeTest {
 
         when(ruleService.getApplicableRules(any(), any())).thenReturn(List.of());
         when(memoryRetriever.retrieve(any())).thenReturn(List.of());
+        when(scoringService.rank(org.mockito.ArgumentMatchers.<MemoryEntry>anyList(), eq(10))).thenReturn(List.of());
         when(conversationMemoryService.buildContext(any())).thenReturn("");
 
         EpisodeEvent projectOnly = episode("project-only", EpisodeScope.PROJECT, "project-1", EpisodeStatus.SUCCESS);
@@ -198,18 +213,21 @@ class DefaultMemoryRetrievalFacadeTest {
     }
 
     @Test
-    void appliesRequestOverridesForSemanticAndEpisodeLimits() {
+    void appliesRequestOverridesForSemanticAndEpisodeLimitsAndUsesCandidatePool() {
         RuleService ruleService = mock(RuleService.class);
         MemoryRetriever memoryRetriever = mock(MemoryRetriever.class);
+        MemoryScoringService scoringService = mock(MemoryScoringService.class);
         EpisodicMemoryService episodicMemoryService = mock(EpisodicMemoryService.class);
         ConversationMemoryService conversationMemoryService = mock(ConversationMemoryService.class);
         MemoryRetrievalProperties properties = new MemoryRetrievalProperties();
         properties.setMaxSemanticMemories(10);
+        properties.setMaxCandidatePoolSize(6);
         properties.setMaxEpisodes(8);
 
         DefaultMemoryRetrievalFacade facade = new DefaultMemoryRetrievalFacade(
                 ruleService,
                 memoryRetriever,
+                scoringService,
                 episodicMemoryService,
                 conversationMemoryService,
                 properties,
@@ -218,16 +236,16 @@ class DefaultMemoryRetrievalFacadeTest {
 
         when(ruleService.getApplicableRules(any(), any())).thenReturn(List.of());
         when(memoryRetriever.retrieve(any())).thenReturn(List.of());
+        when(scoringService.rank(org.mockito.ArgumentMatchers.<MemoryEntry>anyList(), eq(3))).thenReturn(List.of());
         when(episodicMemoryService.findRecent(any(), anyInt())).thenReturn(List.of());
         when(conversationMemoryService.buildContext(any())).thenReturn("");
 
         ContextRequest request = new ContextRequest("agent-1", "conversation-1", "project-1", "msg", 3, 2);
         facade.retrieve(request);
 
-        ArgumentCaptor<fr.ses10doigts.toolkitbridge.memory.retrieval.model.MemoryQuery> queryCaptor =
-                ArgumentCaptor.forClass(fr.ses10doigts.toolkitbridge.memory.retrieval.model.MemoryQuery.class);
+        ArgumentCaptor<MemoryQuery> queryCaptor = ArgumentCaptor.forClass(MemoryQuery.class);
         verify(memoryRetriever).retrieve(queryCaptor.capture());
-        assertThat(queryCaptor.getValue().limit()).isEqualTo(3);
+        assertThat(queryCaptor.getValue().candidateLimit()).isEqualTo(6);
         assertThat(queryCaptor.getValue().scopes()).containsExactlyInAnyOrder(
                 MemoryScope.SYSTEM,
                 MemoryScope.AGENT,
@@ -235,6 +253,7 @@ class DefaultMemoryRetrievalFacadeTest {
                 MemoryScope.PROJECT,
                 MemoryScope.SHARED
         );
+        verify(scoringService).rank(org.mockito.ArgumentMatchers.<MemoryEntry>anyList(), eq(3));
         verify(episodicMemoryService).findRecent("agent-1", 2);
     }
 

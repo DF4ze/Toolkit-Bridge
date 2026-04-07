@@ -18,6 +18,11 @@ public class MemoryRetrievalProperties {
     private int maxSemanticMemories = 10;
 
     /**
+     * Maximum number of semantic memory candidates fetched before scoring.
+     */
+    private int maxCandidatePoolSize = 25;
+
+    /**
      * Maximum number of episodic events to return.
      */
     private int maxEpisodes = 5;
