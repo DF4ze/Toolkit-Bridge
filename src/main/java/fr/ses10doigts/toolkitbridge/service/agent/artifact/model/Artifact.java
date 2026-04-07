@@ -1,5 +1,8 @@
 package fr.ses10doigts.toolkitbridge.service.agent.artifact.model;
 
+import fr.ses10doigts.toolkitbridge.persistence.model.DurableObject;
+import fr.ses10doigts.toolkitbridge.persistence.model.PersistableObjectFamily;
+
 import java.time.Instant;
 import java.util.Map;
 import java.util.Objects;
@@ -14,7 +17,7 @@ public record Artifact(
         Instant expiresAt,
         Map<String, String> metadata,
         ArtifactContentPointer contentPointer
-) {
+) implements DurableObject {
 
     public Artifact {
         if (artifactId == null || artifactId.isBlank()) {
@@ -37,5 +40,15 @@ public record Artifact(
 
     public ArtifactReference toReference() {
         return new ArtifactReference(artifactId, type);
+    }
+
+    @Override
+    public PersistableObjectFamily persistableFamily() {
+        return PersistableObjectFamily.ARTIFACT;
+    }
+
+    @Override
+    public String persistenceDomain() {
+        return type == null ? null : type.key();
     }
 }

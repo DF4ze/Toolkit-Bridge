@@ -1,5 +1,7 @@
 package fr.ses10doigts.toolkitbridge.memory.episodic.model;
 
+import fr.ses10doigts.toolkitbridge.persistence.model.DurableObject;
+import fr.ses10doigts.toolkitbridge.persistence.model.PersistableObjectFamily;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -27,7 +29,7 @@ import java.time.Instant;
                 @Index(name = "idx_episodic_memory_created", columnList = "created_at")
         }
 )
-public class EpisodeEvent {
+public class EpisodeEvent implements DurableObject {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -78,5 +80,15 @@ public class EpisodeEvent {
         if (status == null) {
             status = EpisodeStatus.UNKNOWN;
         }
+    }
+
+    @Override
+    public PersistableObjectFamily persistableFamily() {
+        return PersistableObjectFamily.MEMORY;
+    }
+
+    @Override
+    public String persistenceDomain() {
+        return "episodic";
     }
 }

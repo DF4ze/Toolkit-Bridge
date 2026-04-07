@@ -1,5 +1,7 @@
 package fr.ses10doigts.toolkitbridge.service.tool.scripted.model;
 
+import fr.ses10doigts.toolkitbridge.persistence.model.DurableObject;
+import fr.ses10doigts.toolkitbridge.persistence.model.PersistableObjectFamily;
 import fr.ses10doigts.toolkitbridge.service.tool.ToolCategory;
 import fr.ses10doigts.toolkitbridge.service.tool.ToolRiskLevel;
 import jakarta.persistence.Column;
@@ -29,7 +31,7 @@ import java.time.Instant;
                 @Index(name = "idx_scripted_tool_validation", columnList = "validation_status")
         }
 )
-public class ScriptedToolMetadata {
+public class ScriptedToolMetadata implements DurableObject {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -138,5 +140,9 @@ public class ScriptedToolMetadata {
     @PreUpdate
     public void preUpdate() {
         updatedAt = Instant.now();
+    }
+
+    public PersistableObjectFamily persistableFamily() {
+        return PersistableObjectFamily.SCRIPTED_TOOL;
     }
 }

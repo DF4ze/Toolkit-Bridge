@@ -1,5 +1,7 @@
 package fr.ses10doigts.toolkitbridge.memory.rule.model;
 
+import fr.ses10doigts.toolkitbridge.persistence.model.DurableObject;
+import fr.ses10doigts.toolkitbridge.persistence.model.PersistableObjectFamily;
 import fr.ses10doigts.toolkitbridge.memory.shared.model.MemoryWriteMode;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -30,7 +32,7 @@ import java.time.Instant;
                 @Index(name = "idx_rule_memory_status", columnList = "status")
         }
 )
-public class RuleEntry {
+public class RuleEntry implements DurableObject {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -100,5 +102,15 @@ public class RuleEntry {
     @PreUpdate
     public void preUpdate() {
         updatedAt = Instant.now();
+    }
+
+    @Override
+    public PersistableObjectFamily persistableFamily() {
+        return PersistableObjectFamily.MEMORY;
+    }
+
+    @Override
+    public String persistenceDomain() {
+        return "rule";
     }
 }

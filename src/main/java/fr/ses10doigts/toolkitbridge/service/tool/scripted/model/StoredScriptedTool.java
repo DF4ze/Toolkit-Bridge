@@ -1,5 +1,7 @@
 package fr.ses10doigts.toolkitbridge.service.tool.scripted.model;
 
+import fr.ses10doigts.toolkitbridge.persistence.model.DurableObject;
+import fr.ses10doigts.toolkitbridge.persistence.model.PersistableObjectFamily;
 import fr.ses10doigts.toolkitbridge.service.tool.ToolCapability;
 import fr.ses10doigts.toolkitbridge.service.tool.ToolCategory;
 import fr.ses10doigts.toolkitbridge.service.tool.ToolRiskLevel;
@@ -30,5 +32,10 @@ public record StoredScriptedTool(
         String scriptChecksum,
         Instant createdAt,
         Instant updatedAt
-) {
+) implements DurableObject {
+
+    @Override
+    public PersistableObjectFamily persistableFamily() {
+        return PersistableObjectFamily.SCRIPTED_TOOL;
+    }
 }

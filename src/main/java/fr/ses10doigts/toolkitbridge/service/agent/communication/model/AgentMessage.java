@@ -1,5 +1,8 @@
 package fr.ses10doigts.toolkitbridge.service.agent.communication.model;
 
+import fr.ses10doigts.toolkitbridge.persistence.model.DurableObject;
+import fr.ses10doigts.toolkitbridge.persistence.model.PersistableObjectFamily;
+
 import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
@@ -12,7 +15,7 @@ public record AgentMessage(
         Instant timestamp,
         AgentMessageType type,
         AgentMessagePayload payload
-) {
+) implements DurableObject {
 
     public AgentMessage {
         if (messageId == null || messageId.isBlank()) {
@@ -63,5 +66,9 @@ public record AgentMessage(
                 payload
         );
     }
-}
 
+    @Override
+    public PersistableObjectFamily persistableFamily() {
+        return PersistableObjectFamily.MESSAGE;
+    }
+}

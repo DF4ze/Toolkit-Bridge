@@ -1,0 +1,81 @@
+J’ai exécuté les phases 17.A puis 17.B dans la continuité demandée.
+
+Résultat
+J’ai introduit un noyau explicite de typage durable/éphémère, puis une politique de rétention centralisée et configurable par famille persistable, avec surcharge par domaine quand c’est utile. Concrètement, tasks, messages, traces, artifacts, memories et scripted tools exposent maintenant une famille durable claire, tandis que des objets runtime comme TaskPrompt, MemoryContext et ConversationMemoryState sont marqués explicitement comme éphémères. La rétention des artefacts ne repose plus sur une logique locale isolée : elle passe par un résolveur central, ce qui prépare proprement purge, archivage et futur pilotage admin.
+
+Les points d’entrée principaux sont PersistenceLifecycle.java, DurableObject.java, PersistenceRetentionProperties.java, PersistenceRetentionPolicyResolver.java et le raccord artefact dans ArtifactRetentionPolicy.java.
+
+Tests
+J’ai exécuté avec succès :
+
+./mvnw -q "-Dtest=PersistenceTypingTest,PersistenceRetentionPolicyResolverTest,ArtifactRetentionPolicyTest" test
+./mvnw -q "-Dtest=PersistenceTypingTest,PersistenceRetentionPolicyResolverTest,ArtifactRetentionPolicyTest,ScriptedToolCatalogServiceTest,JsonLinesAgentTraceSinkTest,TaskTest,TaskFactoryTest,DefaultSemanticMemoryServiceTest,RuleServiceTest,EpisodicMemoryServiceTest" test
+Fichiers créés / modifiés
+Créés :
+
+PersistenceLifecycle.java
+PersistableObjectFamily.java
+StorageClassifiedObject.java
+DurableObject.java
+EphemeralObject.java
+RetentionDisposition.java
+RetentionPolicy.java
+PersistenceRetentionProperties.java
+PersistenceRetentionConfiguration.java
+PersistenceRetentionPolicyResolver.java
+PersistenceTypingTest.java
+PersistenceRetentionPolicyResolverTest.java
+Modifiés :
+
+Task.java
+AgentMessage.java
+AgentTraceEvent.java
+Artifact.java
+StoredScriptedTool.java
+ScriptedToolMetadata.java
+MemoryEntry.java
+RuleEntry.java
+EpisodeEvent.java
+MemoryContext.java
+TaskPrompt.java
+ConversationMemoryState.java
+ArtifactRetentionPolicy.java
+application.yml
+ArtifactRetentionPolicyTest.java
+Points volontairement laissés pour les phases suivantes
+
+persistance réelle de tasks et messages dans un store durable dédié
+moteur de purge/archivage effectif
+supervision/admin UI de la rétention
+règles plus fines par contexte métier ou contrainte réglementaire
+
+
+
+
+Après relecture :
+Findings
+
+Corrigé : la configuration de rétention écrasait les défauts au lieu de les enrichir. Une surcharge partielle de families ou domains faisait disparaître les autres règles implicites, ce qui aurait rendu la rétention instable dès la première personnalisation. Le correctif est dans PersistenceRetentionProperties.java (line 27) et PersistenceRetentionProperties.java (line 51), avec tests dans PersistenceRetentionPolicyResolverTest.java (line 43).
+
+Corrigé : le noyau de rétention dépendait du domaine artefact via ArtifactType, ce qui introduisait un couplage inutile du sous-système persistence vers artifact. J’ai retiré ce lien en gardant des clés normalisées dans PersistenceRetentionProperties.java (line 72).
+
+Point discutable restant : Task et AgentMessage implémentent DurableObject, alors qu’ils n’ont pas encore de stockage durable explicite dans le dépôt. Le modèle est cohérent si on lit “durable” comme “destiné à être durable”, mais le nom peut prêter à confusion plus tard. Références : Task.java (line 22), AgentMessage.java (line 18), DurableObject.java (line 3).
+
+Point discutable restant : le noyau StorageClassifiedObject / DurableObject / EphemeralObject est lisible, mais la nomenclature reste un peu abstraite et peut brouiller la différence entre “classification métier” et “garantie d’infrastructure”. Ce n’est pas bloquant, mais c’est une dette de vocabulaire.
+
+Point discutable restant : les tests ajoutés sont utiles sur le contrat métier et la fusion des règles, mais il manque encore un test de binding Spring sur application.yml pour verrouiller le comportement réel de @ConfigurationProperties. Ce n’était pas indispensable pour cette phase, donc je ne l’ai pas ajouté pour éviter d’élargir le périmètre.
+
+Corrections utiles proposées
+
+préserver les défauts lors des overrides partiels de rétention
+supprimer le couplage du noyau de rétention avec le module artefact
+renforcer les tests sur le contrat de fusion configuration/défauts
+Corrections appliquées
+J’ai appliqué exactement ces trois corrections, sans ajouter de nouvelle fonctionnalité. Le changement principal est dans PersistenceRetentionProperties.java, et les tests ont été renforcés dans PersistenceRetentionPolicyResolverTest.java.
+
+Tests exécutés avec succès :
+
+./mvnw -q "-Dtest=PersistenceRetentionPolicyResolverTest,ArtifactRetentionPolicyTest,PersistenceTypingTest" test
+./mvnw -q "-Dtest=ScriptedToolCatalogServiceTest,JsonLinesAgentTraceSinkTest,TaskTest,TaskFactoryTest,DefaultSemanticMemoryServiceTest,RuleServiceTest,EpisodicMemoryServiceTest" test
+Résumé
+L’implémentation est globalement saine sur la séparation configuration/runtime, le découplage entre sous-systèmes, et la centralisation de la rétention. La faiblesse réelle que j’ai corrigée était surtout dans le binding de configuration, qui menaçait la maintenabilité future. Le principal point encore ouvert est sémantique : DurableObject exprime aujourd’hui une intention d’architecture plus qu’une garantie de persistance effective. Je n’ai pas renommé ce modèle maintenant pour ne pas lancer un refactor transversal prématuré.

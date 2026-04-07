@@ -1,5 +1,7 @@
 package fr.ses10doigts.toolkitbridge.memory.semantic.model;
 
+import fr.ses10doigts.toolkitbridge.persistence.model.DurableObject;
+import fr.ses10doigts.toolkitbridge.persistence.model.PersistableObjectFamily;
 import fr.ses10doigts.toolkitbridge.memory.scoring.model.ScorableMemory;
 import fr.ses10doigts.toolkitbridge.memory.shared.model.MemoryWriteMode;
 import jakarta.persistence.CollectionTable;
@@ -36,7 +38,7 @@ import java.util.Set;
                 @Index(name = "idx_semantic_memory_type", columnList = "type")
         }
 )
-public class MemoryEntry implements ScorableMemory {
+public class MemoryEntry implements ScorableMemory, DurableObject {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -116,5 +118,13 @@ public class MemoryEntry implements ScorableMemory {
         updatedAt = Instant.now();
     }
 
+    @Override
+    public PersistableObjectFamily persistableFamily() {
+        return PersistableObjectFamily.MEMORY;
+    }
 
+    @Override
+    public String persistenceDomain() {
+        return type == null ? "semantic" : "semantic_" + type.name().toLowerCase(java.util.Locale.ROOT);
+    }
 }

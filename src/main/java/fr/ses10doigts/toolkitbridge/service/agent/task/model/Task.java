@@ -1,5 +1,7 @@
 package fr.ses10doigts.toolkitbridge.service.agent.task.model;
 
+import fr.ses10doigts.toolkitbridge.persistence.model.DurableObject;
+import fr.ses10doigts.toolkitbridge.persistence.model.PersistableObjectFamily;
 import fr.ses10doigts.toolkitbridge.service.agent.artifact.model.ArtifactReference;
 
 import java.util.List;
@@ -17,7 +19,7 @@ public record Task(
         TaskStatus status,
         Map<String, Object> metadata,
         List<ArtifactReference> artifacts
-) {
+) implements DurableObject {
     public Task {
         if (isBlank(taskId)) {
             throw new IllegalArgumentException("taskId must not be blank");
@@ -91,5 +93,10 @@ public record Task(
 
     private static boolean isBlank(String value) {
         return value == null || value.isBlank();
+    }
+
+    @Override
+    public PersistableObjectFamily persistableFamily() {
+        return PersistableObjectFamily.TASK;
     }
 }
