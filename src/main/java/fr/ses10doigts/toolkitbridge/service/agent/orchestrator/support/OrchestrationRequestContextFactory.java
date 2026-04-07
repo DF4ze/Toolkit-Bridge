@@ -3,6 +3,7 @@ package fr.ses10doigts.toolkitbridge.service.agent.orchestrator.support;
 import fr.ses10doigts.toolkitbridge.exception.AgentException;
 import fr.ses10doigts.toolkitbridge.model.dto.agent.comm.AgentRequest;
 import fr.ses10doigts.toolkitbridge.model.dto.agent.definition.AgentDefinition;
+import fr.ses10doigts.toolkitbridge.service.agent.policy.AgentPermissionControlService;
 import fr.ses10doigts.toolkitbridge.service.agent.orchestrator.model.OrchestrationRequestContext;
 import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentRuntime;
 import org.springframework.stereotype.Component;
@@ -13,6 +14,11 @@ import java.util.Map;
 public class OrchestrationRequestContextFactory {
 
     private static final int MAX_USER_MESSAGE_LENGTH = 8_000;
+    private final AgentPermissionControlService permissionControlService;
+
+    public OrchestrationRequestContextFactory(AgentPermissionControlService permissionControlService) {
+        this.permissionControlService = permissionControlService;
+    }
 
     public OrchestrationRequestContext create(AgentRuntime runtime, AgentRequest request) {
         validate(runtime, request);
@@ -26,7 +32,7 @@ public class OrchestrationRequestContextFactory {
                 traceId(request),
                 extractProjectId(request),
                 request.message().trim(),
-                runtime.policy().allowTools(runtime, request)
+                permissionControlService.canExposeTools(runtime)
         );
     }
 

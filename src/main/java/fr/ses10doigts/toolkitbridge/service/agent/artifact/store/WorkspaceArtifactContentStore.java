@@ -4,7 +4,10 @@ import fr.ses10doigts.toolkitbridge.service.agent.artifact.config.ArtifactStorag
 import fr.ses10doigts.toolkitbridge.service.agent.artifact.model.ArtifactContentPointer;
 import fr.ses10doigts.toolkitbridge.service.agent.artifact.model.ArtifactType;
 import fr.ses10doigts.toolkitbridge.service.agent.artifact.port.ArtifactContentStore;
+import fr.ses10doigts.toolkitbridge.service.agent.policy.AgentPermissionControlService;
+import fr.ses10doigts.toolkitbridge.service.auth.CurrentAgentService;
 import fr.ses10doigts.toolkitbridge.service.workspace.WorkspaceService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 
 import java.io.IOException;
@@ -19,11 +22,18 @@ public class WorkspaceArtifactContentStore implements ArtifactContentStore {
 
     private final WorkspaceService workspaceService;
     private final ArtifactStorageProperties properties;
+    private final CurrentAgentService currentAgentService;
+    private final AgentPermissionControlService permissionControlService;
 
+    @Autowired
     public WorkspaceArtifactContentStore(WorkspaceService workspaceService,
-                                         ArtifactStorageProperties properties) {
+                                         ArtifactStorageProperties properties,
+                                         CurrentAgentService currentAgentService,
+                                         AgentPermissionControlService permissionControlService) {
         this.workspaceService = workspaceService;
         this.properties = properties;
+        this.currentAgentService = currentAgentService;
+        this.permissionControlService = permissionControlService;
     }
 
     @Override
@@ -43,6 +53,10 @@ public class WorkspaceArtifactContentStore implements ArtifactContentStore {
         String safeMediaType = (mediaType == null || mediaType.isBlank()) ? "text/plain" : mediaType.trim();
         String safeContent = content == null ? "" : content;
         byte[] contentBytes = safeContent.getBytes(StandardCharsets.UTF_8);
+        permissionControlService.checkSharedWorkspaceWrite(
+                currentAgentService.getCurrentAgent().agentIdent(),
+                "store_artifact:" + type.key()
+        );
 
         try {
             Path sharedRoot = workspaceService.getSharedWorkspace();

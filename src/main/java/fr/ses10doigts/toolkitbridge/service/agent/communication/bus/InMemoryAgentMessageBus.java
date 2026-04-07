@@ -5,13 +5,14 @@ import fr.ses10doigts.toolkitbridge.model.dto.agent.comm.AgentResponse;
 import fr.ses10doigts.toolkitbridge.service.agent.communication.model.AgentMessage;
 import fr.ses10doigts.toolkitbridge.service.agent.communication.model.AgentMessagePayload;
 import fr.ses10doigts.toolkitbridge.service.agent.communication.routing.AgentRecipientResolver;
+import fr.ses10doigts.toolkitbridge.service.agent.policy.AgentPermissionControlService;
 import fr.ses10doigts.toolkitbridge.service.agent.communication.routing.ResolvedRecipient;
 import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentRuntime;
 import fr.ses10doigts.toolkitbridge.service.auth.AgentAccountService;
 import fr.ses10doigts.toolkitbridge.service.auth.AgentContextHolder;
 import fr.ses10doigts.toolkitbridge.model.dto.auth.AuthenticatedAgent;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
@@ -19,7 +20,6 @@ import java.util.Map;
 import java.util.Optional;
 
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class InMemoryAgentMessageBus implements AgentMessageBus {
 
@@ -28,11 +28,34 @@ public class InMemoryAgentMessageBus implements AgentMessageBus {
     private final AgentRecipientResolver recipientResolver;
     private final AgentAccountService agentAccountService;
     private final AgentContextHolder agentContextHolder;
+    private final AgentPermissionControlService permissionControlService;
+
+    @Autowired
+    public InMemoryAgentMessageBus(AgentRecipientResolver recipientResolver,
+                                   AgentAccountService agentAccountService,
+                                   AgentContextHolder agentContextHolder,
+                                   AgentPermissionControlService permissionControlService) {
+        this.recipientResolver = recipientResolver;
+        this.agentAccountService = agentAccountService;
+        this.agentContextHolder = agentContextHolder;
+        this.permissionControlService = permissionControlService;
+    }
 
     @Override
     public AgentMessageDispatchResult dispatch(AgentMessage message) {
         if (message == null) {
             throw new IllegalArgumentException("message must not be null");
+        }
+
+        try {
+            permissionControlService.checkDelegation(message.senderAgentId(), message.recipient().kind().name());
+        } catch (Exception e) {
+            return AgentMessageDispatchResult.failed(
+                    message.messageId(),
+                    message.correlationId(),
+                    null,
+                    "Delegation denied"
+            );
         }
 
         Optional<ResolvedRecipient> resolved = recipientResolver.resolve(message.recipient());

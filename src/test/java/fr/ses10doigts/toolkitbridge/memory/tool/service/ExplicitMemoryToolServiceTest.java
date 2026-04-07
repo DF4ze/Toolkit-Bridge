@@ -14,6 +14,7 @@ import fr.ses10doigts.toolkitbridge.memory.shared.model.MemoryWriteMode;
 import fr.ses10doigts.toolkitbridge.memory.tool.model.ExplicitFactMemoryWriteRequest;
 import fr.ses10doigts.toolkitbridge.memory.tool.model.ExplicitRuleMemoryWriteRequest;
 import fr.ses10doigts.toolkitbridge.memory.tool.model.MemoryContextRecallRequest;
+import fr.ses10doigts.toolkitbridge.service.agent.policy.AgentPermissionControlService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -30,6 +31,7 @@ class ExplicitMemoryToolServiceTest {
     private MemoryFacade memoryFacade;
     private SemanticMemoryService semanticMemoryService;
     private RuleService ruleService;
+    private AgentPermissionControlService permissionControlService;
     private ExplicitMemoryToolService service;
 
     @BeforeEach
@@ -37,12 +39,14 @@ class ExplicitMemoryToolServiceTest {
         memoryFacade = mock(MemoryFacade.class);
         semanticMemoryService = mock(SemanticMemoryService.class);
         ruleService = mock(RuleService.class);
+        permissionControlService = mock(AgentPermissionControlService.class);
 
         service = new ExplicitMemoryToolService(
                 memoryFacade,
                 semanticMemoryService,
                 ruleService,
-                new MemoryScopePolicy()
+                new MemoryScopePolicy(),
+                permissionControlService
         );
     }
 

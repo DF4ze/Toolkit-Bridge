@@ -7,6 +7,7 @@ import fr.ses10doigts.toolkitbridge.service.agent.orchestrator.AgentOrchestrator
 import fr.ses10doigts.toolkitbridge.service.agent.orchestrator.AgentOrchestratorResolver;
 import fr.ses10doigts.toolkitbridge.service.agent.policy.AgentPolicy;
 import fr.ses10doigts.toolkitbridge.service.agent.policy.AgentPolicyRegistry;
+import fr.ses10doigts.toolkitbridge.service.agent.policy.ResolvedAgentPolicy;
 import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentRuntime;
 import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentToolAccess;
 import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentWorkspaceScope;
@@ -30,12 +31,13 @@ public class AgentRuntimeFactory {
 
     public AgentRuntime create(AgentDefinition definition, AuthenticatedAgent authenticatedAgent) {
         AgentOrchestrator orchestrator = orchestratorResolver.resolve(definition);
-        AgentPolicy policy = policyRegistry.getRequired(definition.policyName());
+        AgentPolicy policyResolver = policyRegistry.getRequired(definition.policyName());
 
         AgentToolAccess toolAccess = new AgentToolAccess(
                 definition.toolsEnabled(),
                 toolRegistryService.getToolNames()
         );
+        ResolvedAgentPolicy policy = policyResolver.resolve(definition, toolAccess);
 
         AgentWorkspaceScope workspace = resolveWorkspace(authenticatedAgent);
 

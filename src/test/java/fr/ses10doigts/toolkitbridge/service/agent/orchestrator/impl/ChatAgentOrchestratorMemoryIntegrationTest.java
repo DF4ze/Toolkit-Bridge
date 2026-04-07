@@ -13,6 +13,7 @@ import fr.ses10doigts.toolkitbridge.service.agent.orchestrator.support.LlmOrches
 import fr.ses10doigts.toolkitbridge.service.agent.orchestrator.support.MemoryRequestFactory;
 import fr.ses10doigts.toolkitbridge.service.agent.orchestrator.support.OrchestrationRequestContextFactory;
 import fr.ses10doigts.toolkitbridge.service.agent.orchestrator.support.OrchestrationResponseSanitizer;
+import fr.ses10doigts.toolkitbridge.service.agent.policy.AgentPermissionControlService;
 import fr.ses10doigts.toolkitbridge.service.agent.policy.AgentPolicy;
 import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentRuntime;
 import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentRuntimeState;
@@ -40,12 +41,13 @@ class ChatAgentOrchestratorMemoryIntegrationTest {
         LlmService llmService = mock(LlmService.class);
         InMemoryMemoryFacade memoryFacade = new InMemoryMemoryFacade();
         LlmDebugStore llmDebugStore = mock(LlmDebugStore.class);
+        AgentPermissionControlService permissionControlService = mock(AgentPermissionControlService.class);
 
         ChatAgentOrchestrator orchestrator = new ChatAgentOrchestrator(
                 llmService,
                 llmDebugStore,
                 new LlmOrchestrationValidator(),
-                new OrchestrationRequestContextFactory(),
+                new OrchestrationRequestContextFactory(permissionControlService),
                 new MemoryRequestFactory(),
                 new OrchestrationResponseSanitizer()
         );
@@ -65,6 +67,7 @@ class ChatAgentOrchestratorMemoryIntegrationTest {
 
         when(llmService.chat(eq("provider"), eq("model"), eq("system"), any(), eq(true)))
                 .thenReturn("ok");
+        when(permissionControlService.canExposeTools(any())).thenReturn(true);
 
         AgentRuntime runtime = runtime(orchestrator, definition, memoryFacade);
         AgentResponse first = orchestrator.handle(runtime, request("first message"));

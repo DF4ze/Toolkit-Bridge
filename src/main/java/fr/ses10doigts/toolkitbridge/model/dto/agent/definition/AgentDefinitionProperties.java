@@ -34,4 +34,6 @@ public class AgentDefinitionProperties {
     private String policyName = "default";
 
     private Boolean toolsEnabled = true;
+
+    private AgentPolicyProperties policy = new AgentPolicyProperties();
 }

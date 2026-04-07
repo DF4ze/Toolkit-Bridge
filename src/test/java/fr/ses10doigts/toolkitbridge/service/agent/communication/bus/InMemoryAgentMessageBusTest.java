@@ -9,17 +9,23 @@ import fr.ses10doigts.toolkitbridge.service.agent.communication.model.AgentMessa
 import fr.ses10doigts.toolkitbridge.service.agent.communication.model.AgentMessagePayload;
 import fr.ses10doigts.toolkitbridge.service.agent.communication.model.AgentMessageType;
 import fr.ses10doigts.toolkitbridge.service.agent.communication.model.AgentRecipient;
+import fr.ses10doigts.toolkitbridge.service.agent.policy.AgentPermissionControlService;
 import fr.ses10doigts.toolkitbridge.service.agent.communication.routing.AgentRecipientResolver;
 import fr.ses10doigts.toolkitbridge.service.agent.communication.routing.ResolvedRecipient;
 import fr.ses10doigts.toolkitbridge.service.agent.orchestrator.AgentOrchestrator;
+import fr.ses10doigts.toolkitbridge.service.agent.policy.ResolvedAgentPolicy;
 import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentRuntime;
 import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentRuntimeState;
+import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentToolAccess;
+import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentWorkspaceScope;
 import fr.ses10doigts.toolkitbridge.service.auth.AgentAccountService;
 import fr.ses10doigts.toolkitbridge.service.auth.AgentContextHolder;
 import org.junit.jupiter.api.Test;
 
+import java.util.EnumSet;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -28,6 +34,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.doNothing;
 
 class InMemoryAgentMessageBusTest {
 
@@ -36,7 +43,9 @@ class InMemoryAgentMessageBusTest {
         AgentRecipientResolver resolver = mock(AgentRecipientResolver.class);
         AgentAccountService accountService = mock(AgentAccountService.class);
         AgentContextHolder contextHolder = mock(AgentContextHolder.class);
-        InMemoryAgentMessageBus bus = new InMemoryAgentMessageBus(resolver, accountService, contextHolder);
+        AgentPermissionControlService permissionControlService = mock(AgentPermissionControlService.class);
+        doNothing().when(permissionControlService).checkDelegation(any(), any());
+        InMemoryAgentMessageBus bus = new InMemoryAgentMessageBus(resolver, accountService, contextHolder, permissionControlService);
 
         AgentOrchestrator orchestrator = mock(AgentOrchestrator.class);
         when(orchestrator.getType()).thenReturn(AgentOrchestratorType.CHAT);
@@ -72,7 +81,9 @@ class InMemoryAgentMessageBusTest {
         AgentRecipientResolver resolver = mock(AgentRecipientResolver.class);
         AgentAccountService accountService = mock(AgentAccountService.class);
         AgentContextHolder contextHolder = mock(AgentContextHolder.class);
-        InMemoryAgentMessageBus bus = new InMemoryAgentMessageBus(resolver, accountService, contextHolder);
+        AgentPermissionControlService permissionControlService = mock(AgentPermissionControlService.class);
+        doNothing().when(permissionControlService).checkDelegation(any(), any());
+        InMemoryAgentMessageBus bus = new InMemoryAgentMessageBus(resolver, accountService, contextHolder, permissionControlService);
 
         AgentMessage message = AgentMessage.create(
                 "agent-sender",
@@ -93,7 +104,9 @@ class InMemoryAgentMessageBusTest {
         AgentRecipientResolver resolver = mock(AgentRecipientResolver.class);
         AgentAccountService accountService = mock(AgentAccountService.class);
         AgentContextHolder contextHolder = mock(AgentContextHolder.class);
-        InMemoryAgentMessageBus bus = new InMemoryAgentMessageBus(resolver, accountService, contextHolder);
+        AgentPermissionControlService permissionControlService = mock(AgentPermissionControlService.class);
+        doNothing().when(permissionControlService).checkDelegation(any(), any());
+        InMemoryAgentMessageBus bus = new InMemoryAgentMessageBus(resolver, accountService, contextHolder, permissionControlService);
 
         AgentOrchestrator orchestrator = mock(AgentOrchestrator.class);
         when(orchestrator.getType()).thenReturn(AgentOrchestratorType.CHAT);
@@ -134,9 +147,9 @@ class InMemoryAgentMessageBusTest {
                 ),
                 orchestrator,
                 mock(),
-                mock(),
-                mock(),
-                mock(),
+                new AgentToolAccess(true, Set.of("run_command")),
+                new ResolvedAgentPolicy("default", Set.of("run_command"), EnumSet.allOf(fr.ses10doigts.toolkitbridge.model.dto.agent.definition.AgentMemoryScope.class), true, true, true, true),
+                new AgentWorkspaceScope(null, null),
                 new AgentRuntimeState()
         );
     }

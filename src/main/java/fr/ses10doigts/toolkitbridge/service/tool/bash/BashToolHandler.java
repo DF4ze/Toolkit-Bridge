@@ -6,6 +6,7 @@ import fr.ses10doigts.toolkitbridge.model.dto.tool.bash.BashResponse;
 import fr.ses10doigts.toolkitbridge.service.workspace.WorkspaceService;
 import fr.ses10doigts.toolkitbridge.service.tool.JsonSchemaBuilder;
 import fr.ses10doigts.toolkitbridge.service.tool.ToolHandler;
+import fr.ses10doigts.toolkitbridge.service.tool.ToolSecurityDescriptor;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -67,6 +68,11 @@ public class BashToolHandler implements ToolHandler {
                         true
                 )
                 .build();
+    }
+
+    @Override
+    public ToolSecurityDescriptor securityDescriptor() {
+        return ToolSecurityDescriptor.scripted();
     }
 
     @Override

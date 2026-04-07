@@ -38,6 +38,10 @@ public class ToolRegistryService {
         return Set.copyOf(handlers.keySet());
     }
 
+    public ToolSecurityDescriptor getSecurityDescriptor(String toolName) {
+        return getRequiredHandler(toolName).securityDescriptor();
+    }
+
     private ToolDefinition toDefinition(ToolHandler handler) {
         return ToolDefinition.function(
                 new ToolSpec(

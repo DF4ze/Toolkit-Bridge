@@ -14,6 +14,7 @@ import fr.ses10doigts.toolkitbridge.service.agent.orchestrator.support.LlmOrches
 import fr.ses10doigts.toolkitbridge.service.agent.orchestrator.support.MemoryRequestFactory;
 import fr.ses10doigts.toolkitbridge.service.agent.orchestrator.support.OrchestrationRequestContextFactory;
 import fr.ses10doigts.toolkitbridge.service.agent.orchestrator.support.OrchestrationResponseSanitizer;
+import fr.ses10doigts.toolkitbridge.service.agent.policy.AgentPermissionControlService;
 import fr.ses10doigts.toolkitbridge.service.agent.policy.AgentPolicy;
 import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentRuntime;
 import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentRuntimeState;
@@ -41,6 +42,7 @@ class ChatAgentOrchestratorTest {
     private final LlmService llmService = mock(LlmService.class);
     private final MemoryFacade memoryFacade = mock(MemoryFacade.class);
     private final LlmDebugStore llmDebugStore = mock(LlmDebugStore.class);
+    private final AgentPermissionControlService permissionControlService = mock(AgentPermissionControlService.class);
     private final AgentPolicy policy = new AgentPolicy() {
         @Override
         public String name() {
@@ -57,7 +59,7 @@ class ChatAgentOrchestratorTest {
             llmService,
             llmDebugStore,
             new LlmOrchestrationValidator(),
-            new OrchestrationRequestContextFactory(),
+            new OrchestrationRequestContextFactory(permissionControlService),
             new MemoryRequestFactory(),
             new OrchestrationResponseSanitizer()
     );
@@ -66,6 +68,7 @@ class ChatAgentOrchestratorTest {
     void runsMemoryFlowBeforeAndAfterLlm() {
         AgentDefinition agentDefinition = agentDefinition();
         AgentRequest request = request("hello", Map.of("traceId", "t-1"));
+        when(permissionControlService.canExposeTools(any())).thenReturn(true);
 
         when(memoryFacade.buildContext(any(MemoryContextRequest.class)))
                 .thenReturn(new MemoryContext("CTX", java.util.List.of(10L)));
@@ -89,6 +92,7 @@ class ChatAgentOrchestratorTest {
     void propagatesProjectIdToMemoryRequest() {
         AgentDefinition agentDefinition = agentDefinition();
         AgentRequest request = request("hello", "project-42", Map.of("traceId", "t-1"));
+        when(permissionControlService.canExposeTools(any())).thenReturn(true);
 
         when(memoryFacade.buildContext(any(MemoryContextRequest.class)))
                 .thenReturn(new MemoryContext("CTX", java.util.List.of()));
@@ -105,6 +109,7 @@ class ChatAgentOrchestratorTest {
     void recordsFailureThroughToolExecution() {
         AgentDefinition agentDefinition = agentDefinition();
         AgentRequest request = request("hello", Map.of());
+        when(permissionControlService.canExposeTools(any())).thenReturn(true);
 
         when(memoryFacade.buildContext(any(MemoryContextRequest.class)))
                 .thenReturn(new MemoryContext("CTX", java.util.List.of()));

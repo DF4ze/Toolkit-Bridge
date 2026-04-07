@@ -16,6 +16,7 @@ import fr.ses10doigts.toolkitbridge.service.agent.orchestrator.support.Orchestra
 import fr.ses10doigts.toolkitbridge.service.agent.orchestrator.support.OrchestrationResponseSanitizer;
 import fr.ses10doigts.toolkitbridge.service.agent.orchestrator.task.TaskPrompt;
 import fr.ses10doigts.toolkitbridge.service.agent.orchestrator.task.TaskPromptBuilder;
+import fr.ses10doigts.toolkitbridge.service.agent.policy.AgentPermissionControlService;
 import fr.ses10doigts.toolkitbridge.service.agent.policy.AgentPolicy;
 import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentRuntime;
 import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentRuntimeState;
@@ -40,6 +41,7 @@ class TaskAgentOrchestratorTest {
     private final MemoryFacade memoryFacade = mock(MemoryFacade.class);
     private final LlmDebugStore llmDebugStore = mock(LlmDebugStore.class);
     private final TaskPromptBuilder taskPromptBuilder = mock(TaskPromptBuilder.class);
+    private final AgentPermissionControlService permissionControlService = mock(AgentPermissionControlService.class);
 
     private final AgentPolicy policy = new AgentPolicy() {
         @Override
@@ -58,7 +60,7 @@ class TaskAgentOrchestratorTest {
             llmDebugStore,
             taskPromptBuilder,
             new LlmOrchestrationValidator(),
-            new OrchestrationRequestContextFactory(),
+            new OrchestrationRequestContextFactory(permissionControlService),
             new MemoryRequestFactory(),
             new OrchestrationResponseSanitizer(),
             new TaskFactory()
@@ -68,6 +70,7 @@ class TaskAgentOrchestratorTest {
     void runsTaskFlowWithExtensionPromptBuilder() {
         AgentDefinition definition = agentDefinition();
         AgentRequest request = request("build release checklist", Map.of("traceId", "trace-1"));
+        when(permissionControlService.canExposeTools(any())).thenReturn(true);
 
         when(memoryFacade.buildContext(any(MemoryContextRequest.class)))
                 .thenReturn(new MemoryContext("CTX", java.util.List.of(7L)));
@@ -90,6 +93,7 @@ class TaskAgentOrchestratorTest {
     void recordsFailureWhenProviderFails() {
         AgentDefinition definition = agentDefinition();
         AgentRequest request = request("ship release", Map.of());
+        when(permissionControlService.canExposeTools(any())).thenReturn(true);
 
         when(memoryFacade.buildContext(any(MemoryContextRequest.class)))
                 .thenReturn(new MemoryContext("CTX", java.util.List.of()));

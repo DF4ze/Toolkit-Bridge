@@ -76,6 +76,15 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.FORBIDDEN, ex.getMessage(), request, null);
     }
 
+    @ExceptionHandler(AgentPermissionDeniedException.class)
+    public org.springframework.http.ResponseEntity<ErrorResponse> handlePermissionDenied(
+            AgentPermissionDeniedException ex,
+            HttpServletRequest request
+    ) {
+        log.warn("Permission denied: {}", ex.getMessage());
+        return buildResponse(HttpStatus.FORBIDDEN, ex.getMessage(), request, null);
+    }
+
     @ExceptionHandler(Exception.class)
     public org.springframework.http.ResponseEntity<ErrorResponse> handleGeneric(
             Exception ex,

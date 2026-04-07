@@ -1,0 +1,56 @@
+J’ai lu attentivement les 4 fichiers demandés, puis j’ai appliqué 10.A avant 10.B dans le code.
+
+Ce qui a été mis en place
+Pour 10.A, j’ai introduit une vraie politique explicite par agent, séparée du rôle, avec:
+
+outils autorisés,
+scopes mémoire accessibles,
+droit ou non de déléguer,
+accès web,
+écriture dans le workspace partagé,
+usage d’outils scriptés.
+Le coeur de cette modélisation est dans AgentPolicyDefinition.java, ResolvedAgentPolicy.java et DefaultAgentPolicy.java.
+
+Pour 10.B, j’ai centralisé les contrôles de permissions dans un seul point clair et testable: AgentPermissionControlService.java. Les vérifications passent maintenant par ce service avant les actions sensibles:
+
+exécution d’outil via ToolExecutionService.java,
+exposition des outils dans OrchestrationRequestContextFactory.java,
+délégation via InMemoryAgentMessageBus.java,
+accès mémoire explicite via ExplicitMemoryToolService.java,
+écriture workspace partagé via WorkspaceArtifactContentStore.java.
+J’ai aussi supprimé le contournement côté web: AgentBashController.java et AgentFileController.java passent désormais par le pipeline central, ce qui respecte bien l’intention de 10.B.
+
+Vérification
+J’ai exécuté la suite de tests avec Java 21:
+
+$env:JAVA_HOME='C:\Program Files\Java\jdk-21.0.10'; ./mvnw test -DskipITs
+Résultat:
+
+BUILD SUCCESS
+Tests run: 170, Failures: 0, Errors: 0, Skipped: 1
+
+
+
+Après relecture :
+Points discutables
+
+La séparation configuration / runtime n’était pas totalement nette pour l’exposition des tools: AgentPermissionControlService.java recalculait ce point à partir de definition + toolAccess, alors que le runtime porte déjà une ResolvedAgentPolicy. C’était un petit glissement architectural, pas un bug immédiat, mais ça affaiblissait le modèle.
+L’API de contrôle de permissions était asymétrique: checkDelegation, checkMemoryScopeAccess et checkSharedWorkspaceWrite travaillaient avec un agentId, tandis que checkToolExecution dépendait implicitement du CurrentAgentService. Ça introduisait un couplage évitable au contexte courant et risquait de gêner les prochaines phases non strictement HTTP/request-scoped.
+Les tests couvraient bien les intégrations indirectes, mais pas assez le contrat architectural lui-même. En particulier, il manquait un test direct garantissant que l’exposition des tools dépend bien de la policy résolue, et un test dédié sur un refus de permission sensible piloté par la policy.
+Corrections utiles
+J’ai appliqué uniquement les corrections qui améliorent vraiment l’architecture sans élargir le périmètre:
+
+canExposeTools(...) repose maintenant sur le runtime résolu, ce qui clarifie la frontière config/runtime dans AgentPermissionControlService.java et OrchestrationRequestContextFactory.java.
+checkToolExecution(...) a maintenant une variante explicite par agentId, et la variante implicite délègue dessus. L’API est plus cohérente et moins ad hoc dans AgentPermissionControlService.java.
+J’ai ajouté des tests ciblés dans AgentPermissionControlServiceTest.java et réaligné les tests d’orchestrateur existants, notamment OrchestrationRequestContextFactoryTest.java.
+Lecture critique finale
+Le modèle reste globalement propre et soutenable pour la suite:
+
+La séparation entre définition d’agent, policy résolue et runtime est correcte.
+Le découplage entre orchestrator, mémoire, tooling, policy et workspace est bon, même si la policy reste naturellement au centre des garde-fous.
+Je n’ai pas vu de logique “IAM compliquée” ou de sur-ingénierie contraire au cadre.
+Les noms sont cohérents dans l’ensemble, avec une terminologie stable entre AgentPolicyDefinition, ResolvedAgentPolicy et AgentPermissionControlService.
+Les deux dettes résiduelles que je garderais en tête, sans les corriger maintenant pour ne pas sortir du périmètre:
+
+Le mapping local des scopes dans ExplicitMemoryToolService.java est acceptable aujourd’hui, mais pourrait devenir un point d’extraction si les scopes se multiplient.
+AgentPermissionControlService re-résout encore la policy depuis la définition pour les actions sensibles. C’est cohérent avec les call sites actuels, mais si une future phase introduit un runtime enrichi partout, il faudra peut-être unifier sur ce runtime pour éviter une double source d’accès.

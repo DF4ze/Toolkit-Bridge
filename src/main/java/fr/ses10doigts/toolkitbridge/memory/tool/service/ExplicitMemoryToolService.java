@@ -8,6 +8,7 @@ import fr.ses10doigts.toolkitbridge.memory.rule.model.RulePriority;
 import fr.ses10doigts.toolkitbridge.memory.rule.model.RuleScope;
 import fr.ses10doigts.toolkitbridge.memory.rule.model.RuleStatus;
 import fr.ses10doigts.toolkitbridge.memory.rule.service.RuleService;
+import fr.ses10doigts.toolkitbridge.model.dto.agent.definition.AgentMemoryScope;
 import fr.ses10doigts.toolkitbridge.memory.semantic.model.MemoryEntry;
 import fr.ses10doigts.toolkitbridge.memory.semantic.model.MemoryScope;
 import fr.ses10doigts.toolkitbridge.memory.semantic.model.MemoryStatus;
@@ -18,6 +19,8 @@ import fr.ses10doigts.toolkitbridge.memory.shared.model.MemoryWriteMode;
 import fr.ses10doigts.toolkitbridge.memory.tool.model.ExplicitFactMemoryWriteRequest;
 import fr.ses10doigts.toolkitbridge.memory.tool.model.ExplicitRuleMemoryWriteRequest;
 import fr.ses10doigts.toolkitbridge.memory.tool.model.MemoryContextRecallRequest;
+import fr.ses10doigts.toolkitbridge.service.agent.policy.AgentPermissionControlService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.LinkedHashSet;
@@ -34,23 +37,28 @@ public class ExplicitMemoryToolService {
     private final SemanticMemoryService semanticMemoryService;
     private final RuleService ruleService;
     private final MemoryScopePolicy memoryScopePolicy;
+    private final AgentPermissionControlService permissionControlService;
 
+    @Autowired
     public ExplicitMemoryToolService(
             MemoryFacade memoryFacade,
             SemanticMemoryService semanticMemoryService,
             RuleService ruleService,
-            MemoryScopePolicy memoryScopePolicy
+            MemoryScopePolicy memoryScopePolicy,
+            AgentPermissionControlService permissionControlService
     ) {
         this.memoryFacade = memoryFacade;
         this.semanticMemoryService = semanticMemoryService;
         this.ruleService = ruleService;
         this.memoryScopePolicy = memoryScopePolicy;
+        this.permissionControlService = permissionControlService;
     }
 
     public MemoryContext recallContext(MemoryContextRecallRequest request) {
         if (request == null) {
             throw new IllegalArgumentException("request must not be null");
         }
+        checkRecallScopes(request);
 
         MemoryContextRequest memoryRequest = new MemoryContextRequest(
                 requireText(request.agentId(), "agentId"),
@@ -78,6 +86,11 @@ public class ExplicitMemoryToolService {
         }
 
         MemoryScope scope = resolveFactScope(request);
+        permissionControlService.checkMemoryScopeAccess(
+                requireText(request.agentId(), "agentId"),
+                mapFactScope(scope),
+                "write_fact:" + scope.name()
+        );
         String scopeId = resolveFactScopeId(request, scope);
 
         MemoryEntry entry = new MemoryEntry();
@@ -103,6 +116,11 @@ public class ExplicitMemoryToolService {
         }
 
         RuleScope scope = resolveRuleScope(request);
+        permissionControlService.checkMemoryScopeAccess(
+                requireText(request.agentId(), "agentId"),
+                mapRuleScope(scope),
+                "write_rule:" + scope.name()
+        );
         String scopeId = resolveRuleScopeId(request, scope);
 
         RuleEntry entry = new RuleEntry();
@@ -186,5 +204,33 @@ public class ExplicitMemoryToolService {
             return contextText;
         }
         return contextText.substring(0, markerIndex);
+    }
+
+    private void checkRecallScopes(MemoryContextRecallRequest request) {
+        String agentId = requireText(request.agentId(), "agentId");
+        permissionControlService.checkMemoryScopeAccess(agentId, AgentMemoryScope.AGENT, "recall_context:AGENT");
+        if (hasText(request.userId())) {
+            permissionControlService.checkMemoryScopeAccess(agentId, AgentMemoryScope.USER, "recall_context:USER");
+        }
+        if (hasText(request.projectId())) {
+            permissionControlService.checkMemoryScopeAccess(agentId, AgentMemoryScope.PROJECT, "recall_context:PROJECT");
+        }
+    }
+
+    private AgentMemoryScope mapFactScope(MemoryScope scope) {
+        return switch (scope) {
+            case AGENT -> AgentMemoryScope.AGENT;
+            case USER -> AgentMemoryScope.USER;
+            case PROJECT -> AgentMemoryScope.PROJECT;
+            case SYSTEM, SHARED -> AgentMemoryScope.SYSTEM;
+        };
+    }
+
+    private AgentMemoryScope mapRuleScope(RuleScope scope) {
+        return switch (scope) {
+            case AGENT -> AgentMemoryScope.AGENT;
+            case PROJECT -> AgentMemoryScope.PROJECT;
+            case GLOBAL -> AgentMemoryScope.GLOBAL;
+        };
     }
 }
