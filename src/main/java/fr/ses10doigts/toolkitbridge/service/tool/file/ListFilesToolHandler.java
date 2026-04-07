@@ -5,6 +5,7 @@ import fr.ses10doigts.toolkitbridge.exception.ToolExecutionException;
 import fr.ses10doigts.toolkitbridge.model.dto.tool.ToolExecutionResult;
 import fr.ses10doigts.toolkitbridge.model.dto.tool.file.FileEntryResponse;
 import fr.ses10doigts.toolkitbridge.model.dto.tool.file.FileResponse;
+import fr.ses10doigts.toolkitbridge.service.tool.ToolCapability;
 import fr.ses10doigts.toolkitbridge.service.workspace.WorkspaceService;
 import fr.ses10doigts.toolkitbridge.service.tool.JsonSchemaBuilder;
 import org.springframework.stereotype.Component;
@@ -39,6 +40,11 @@ public class ListFilesToolHandler extends AbstractFileToolHandler {
         return JsonSchemaBuilder.object()
                 .stringProperty("path", "Relative directory path in workspace. Use '.' for root.", false)
                 .build();
+    }
+
+    @Override
+    protected ToolCapability defaultFileCapability() {
+        return ToolCapability.FILE_READ;
     }
 
     @Override

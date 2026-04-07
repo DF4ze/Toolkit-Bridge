@@ -33,11 +33,19 @@ public class AgentRuntimeFactory {
         AgentOrchestrator orchestrator = orchestratorResolver.resolve(definition);
         AgentPolicy policyResolver = policyRegistry.getRequired(definition.policyName());
 
+        AgentToolAccess availableToolAccess = new AgentToolAccess(
+                definition.toolsEnabled(),
+                toolRegistryService.getToolNames(),
+                toolRegistryService.getToolDescriptors(),
+                java.util.List.of()
+        );
+        ResolvedAgentPolicy policy = policyResolver.resolve(definition, availableToolAccess);
         AgentToolAccess toolAccess = new AgentToolAccess(
                 definition.toolsEnabled(),
-                toolRegistryService.getToolNames()
+                availableToolAccess.allowedTools(),
+                availableToolAccess.registeredTools(),
+                toolRegistryService.getToolDescriptors(policy.allowedTools())
         );
-        ResolvedAgentPolicy policy = policyResolver.resolve(definition, toolAccess);
 
         AgentWorkspaceScope workspace = resolveWorkspace(authenticatedAgent);
 

@@ -7,6 +7,7 @@ import fr.ses10doigts.toolkitbridge.memory.tool.model.ExplicitRuleMemoryWriteReq
 import fr.ses10doigts.toolkitbridge.memory.tool.service.ExplicitMemoryToolService;
 import fr.ses10doigts.toolkitbridge.model.dto.tool.ToolExecutionResult;
 import fr.ses10doigts.toolkitbridge.service.auth.CurrentAgentService;
+import fr.ses10doigts.toolkitbridge.service.tool.ToolCapability;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -54,6 +55,11 @@ public class WriteMemoryRuleToolHandler extends AbstractMemoryToolHandler {
                         "priority", Map.of("type", "string", "enum", List.of("LOW", "MEDIUM", "HIGH", "CRITICAL"))
                 )
         );
+    }
+
+    @Override
+    protected ToolCapability defaultMemoryCapability() {
+        return ToolCapability.MEMORY_WRITE;
     }
 
     @Override

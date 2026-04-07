@@ -3,6 +3,7 @@ package fr.ses10doigts.toolkitbridge.service.tool.file;
 
 import fr.ses10doigts.toolkitbridge.exception.ToolExecutionException;
 import fr.ses10doigts.toolkitbridge.model.dto.tool.ToolExecutionResult;
+import fr.ses10doigts.toolkitbridge.service.tool.ToolCapability;
 import fr.ses10doigts.toolkitbridge.service.workspace.WorkspaceService;
 import fr.ses10doigts.toolkitbridge.service.tool.JsonSchemaBuilder;
 import org.springframework.stereotype.Component;
@@ -36,6 +37,11 @@ public class MoveFileToolHandler extends AbstractFileToolHandler {
                 .stringProperty("source_path", "Current relative source path", true)
                 .stringProperty("target_path", "New relative target path", true)
                 .build();
+    }
+
+    @Override
+    protected ToolCapability defaultFileCapability() {
+        return ToolCapability.FILE_WRITE;
     }
 
     @Override

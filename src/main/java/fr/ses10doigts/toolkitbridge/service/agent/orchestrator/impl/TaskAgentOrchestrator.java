@@ -83,7 +83,7 @@ public class TaskAgentOrchestrator implements AgentOrchestrator {
                     definition.model(),
                     prompt.systemPrompt(),
                     prompt.userPrompt(),
-                    context.toolsEnabled()
+                    runtime.toolAccess().exposedToolDefinitions()
             );
             log.info("Task orchestrator LLM response traceId={} length={} durationMs={}",
                     context.traceId(),
@@ -94,7 +94,7 @@ public class TaskAgentOrchestrator implements AgentOrchestrator {
                     context.agentId(),
                     definition.llmProvider(),
                     definition.model(),
-                    context.toolsEnabled(),
+                    runtime.toolAccess().hasExposedTools(),
                     context.traceId(),
                     prompt.systemPrompt(),
                     prompt.userPrompt(),
@@ -124,7 +124,7 @@ public class TaskAgentOrchestrator implements AgentOrchestrator {
                     context.agentId(),
                     definition.llmProvider(),
                     definition.model(),
-                    context.toolsEnabled(),
+                    runtime.toolAccess().hasExposedTools(),
                     context.traceId(),
                     prompt == null ? definition.systemPrompt() : prompt.systemPrompt(),
                     prompt == null ? request.message() : prompt.userPrompt(),
@@ -140,7 +140,7 @@ public class TaskAgentOrchestrator implements AgentOrchestrator {
                     context.agentId(),
                     definition.llmProvider(),
                     definition.model(),
-                    context.toolsEnabled(),
+                    runtime.toolAccess().hasExposedTools(),
                     context.traceId(),
                     prompt == null ? definition.systemPrompt() : prompt.systemPrompt(),
                     prompt == null ? request.message() : prompt.userPrompt(),

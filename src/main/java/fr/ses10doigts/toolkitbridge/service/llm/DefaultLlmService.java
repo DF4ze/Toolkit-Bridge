@@ -12,7 +12,6 @@ import fr.ses10doigts.toolkitbridge.service.llm.provider.LlmProvider;
 import fr.ses10doigts.toolkitbridge.service.llm.provider.LlmProviderRegistry;
 import fr.ses10doigts.toolkitbridge.model.dto.tool.ToolExecutionResult;
 import fr.ses10doigts.toolkitbridge.service.tool.ToolExecutionService;
-import fr.ses10doigts.toolkitbridge.service.tool.ToolRegistryService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -32,23 +31,21 @@ public class DefaultLlmService implements LlmService {
     private static final int MAX_TOOL_CALLS_PER_ROUND = 8;
 
     private final LlmProviderRegistry llmProviderRegistry;
-    private final ToolRegistryService toolRegistryService;
     private final ToolExecutionService toolExecutionService;
     private final ObjectMapper objectMapper;
 
 
     @Override
-    public String chat(String providerName, String model, String systemPrompt, String userMessage, boolean toolsEnabled) {
+    public String chat(String providerName, String model, String systemPrompt, String userMessage, List<ToolDefinition> toolDefinitions) {
         long startNanos = System.nanoTime();
         LlmProvider provider = llmProviderRegistry.getRequired(providerName);
-        List<ToolDefinition> toolDefinitions = toolsEnabled
-                ? toolRegistryService.getToolDefinitions()
-                : List.of();
+        List<ToolDefinition> effectiveToolDefinitions = toolDefinitions == null ? List.of() : List.copyOf(toolDefinitions);
+        boolean toolsEnabled = !effectiveToolDefinitions.isEmpty();
 
         log.debug("LLM request build provider={} model={} tools={} systemPromptLength={} userMessageLength={}",
                 providerName,
                 model,
-                toolDefinitions.size(),
+                effectiveToolDefinitions.size(),
                 systemPrompt == null ? 0 : systemPrompt.length(),
                 userMessage == null ? 0 : userMessage.length());
 
@@ -61,7 +58,7 @@ public class DefaultLlmService implements LlmService {
             ChatRequest request = new ChatRequest(
                     model,
                     List.copyOf(messages),
-                    toolDefinitions
+                    effectiveToolDefinitions
             );
 
             ChatResponse response = provider.chat(request);

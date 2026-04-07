@@ -11,12 +11,16 @@ import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentRuntimeStat
 import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentToolAccess;
 import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentWorkspaceScope;
 import fr.ses10doigts.toolkitbridge.service.auth.CurrentAgentService;
+import fr.ses10doigts.toolkitbridge.service.tool.ToolCategory;
+import fr.ses10doigts.toolkitbridge.service.tool.ToolDescriptor;
+import fr.ses10doigts.toolkitbridge.service.tool.ToolKind;
+import fr.ses10doigts.toolkitbridge.service.tool.ToolRiskLevel;
 import fr.ses10doigts.toolkitbridge.service.tool.ToolRegistryService;
-import fr.ses10doigts.toolkitbridge.service.tool.ToolSecurityDescriptor;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.support.StaticListableBeanFactory;
 
+import java.util.List;
 import java.util.EnumSet;
 import java.util.Optional;
 import java.util.Set;
@@ -44,7 +48,12 @@ class AgentPermissionControlServiceTest {
                 definition("agent-1"),
                 mock(fr.ses10doigts.toolkitbridge.service.agent.orchestrator.AgentOrchestrator.class),
                 mock(fr.ses10doigts.toolkitbridge.memory.facade.MemoryFacade.class),
-                new AgentToolAccess(true, Set.of("run_command")),
+                new AgentToolAccess(
+                        true,
+                        Set.of("run_command"),
+                        List.of(scriptedCommandDescriptor()),
+                        List.of()
+                ),
                 new ResolvedAgentPolicy(
                         "default",
                         Set.of(),
@@ -84,7 +93,7 @@ class AgentPermissionControlServiceTest {
                         false
                 ));
         when(toolRegistryService.getToolNames()).thenReturn(Set.of("run_command"));
-        when(toolRegistryService.getSecurityDescriptor("run_command")).thenReturn(ToolSecurityDescriptor.scripted());
+        when(toolRegistryService.getDescriptor("run_command")).thenReturn(scriptedCommandDescriptor());
 
         AgentPermissionControlService service = new AgentPermissionControlService(
                 mock(CurrentAgentService.class),
@@ -96,6 +105,18 @@ class AgentPermissionControlServiceTest {
         assertThatThrownBy(() -> service.checkToolExecution("agent-1", "run_command"))
                 .isInstanceOf(AgentPermissionDeniedException.class)
                 .hasMessageContaining("SCRIPTED_TOOL_EXECUTION");
+    }
+
+    private ToolDescriptor scriptedCommandDescriptor() {
+        return new ToolDescriptor(
+                "run_command",
+                ToolKind.SCRIPTED,
+                ToolCategory.EXECUTION,
+                "Run an allowed command in the workspace.",
+                java.util.Map.of(),
+                Set.of(),
+                ToolRiskLevel.EXECUTION
+        );
     }
 
     private AgentDefinition definition(String agentId) {

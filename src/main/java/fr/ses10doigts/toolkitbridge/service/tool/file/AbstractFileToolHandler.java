@@ -2,10 +2,13 @@ package fr.ses10doigts.toolkitbridge.service.tool.file;
 
 
 import fr.ses10doigts.toolkitbridge.exception.ToolValidationException;
+import fr.ses10doigts.toolkitbridge.service.tool.ToolCapability;
+import fr.ses10doigts.toolkitbridge.service.tool.ToolCategory;
 import fr.ses10doigts.toolkitbridge.model.dto.tool.ToolExecutionResult;
 import fr.ses10doigts.toolkitbridge.model.dto.tool.file.FileResponse;
 import fr.ses10doigts.toolkitbridge.service.workspace.WorkspaceService;
 import fr.ses10doigts.toolkitbridge.service.tool.ToolHandler;
+import fr.ses10doigts.toolkitbridge.service.tool.ToolRiskLevel;
 import lombok.RequiredArgsConstructor;
 
 import java.io.IOException;
@@ -14,6 +17,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.Map;
+import java.util.Set;
 
 @RequiredArgsConstructor
 public abstract class AbstractFileToolHandler implements ToolHandler {
@@ -21,6 +25,25 @@ public abstract class AbstractFileToolHandler implements ToolHandler {
     protected static final int MAX_FILE_SIZE = 1_000_000;
 
     protected final WorkspaceService workspaceService;
+
+    @Override
+    public ToolCategory category() {
+        return ToolCategory.FILES;
+    }
+
+    @Override
+    public Set<ToolCapability> capabilities() {
+        return Set.of(defaultFileCapability());
+    }
+
+    @Override
+    public ToolRiskLevel riskLevel() {
+        return defaultFileCapability() == ToolCapability.FILE_READ
+                ? ToolRiskLevel.READ_ONLY
+                : ToolRiskLevel.LOCAL_WRITE;
+    }
+
+    protected abstract ToolCapability defaultFileCapability();
 
     protected void validateTextContent(String content) {
         if (content == null) {

@@ -8,8 +8,8 @@ import fr.ses10doigts.toolkitbridge.service.agent.definition.AgentDefinitionServ
 import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentRuntime;
 import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentToolAccess;
 import fr.ses10doigts.toolkitbridge.service.auth.CurrentAgentService;
+import fr.ses10doigts.toolkitbridge.service.tool.ToolDescriptor;
 import fr.ses10doigts.toolkitbridge.service.tool.ToolRegistryService;
-import fr.ses10doigts.toolkitbridge.service.tool.ToolSecurityDescriptor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
@@ -31,7 +31,7 @@ public class AgentPermissionControlService {
         }
         return runtime.definition().toolsEnabled()
                 && runtime.toolAccess().enabled()
-                && runtime.policy().allowsAnyTool();
+                && runtime.toolAccess().hasExposedTools();
     }
 
     public void checkToolExecution(String toolName) {
@@ -53,12 +53,12 @@ public class AgentPermissionControlService {
                     "tool not allowed by agent policy");
         }
 
-        ToolSecurityDescriptor descriptor = toolRegistryService().getSecurityDescriptor(normalizedToolName);
-        if (descriptor.scriptedExecution() && !policy.scriptedToolExecutionAllowed()) {
+        ToolDescriptor descriptor = toolRegistryService().getDescriptor(normalizedToolName);
+        if (descriptor.scripted() && !policy.scriptedToolExecutionAllowed()) {
             deny(definition.id(), AgentSensitiveAction.SCRIPTED_TOOL_EXECUTION, normalizedToolName,
                     "scripted tool execution disabled by agent policy");
         }
-        if (descriptor.webAccess() && !policy.webAccessAllowed()) {
+        if (descriptor.requiresWebAccess() && !policy.webAccessAllowed()) {
             deny(definition.id(), AgentSensitiveAction.WEB_ACCESS, normalizedToolName,
                     "web access disabled by agent policy");
         }

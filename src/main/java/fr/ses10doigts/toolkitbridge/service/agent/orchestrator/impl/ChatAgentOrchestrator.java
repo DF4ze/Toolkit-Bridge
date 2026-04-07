@@ -66,7 +66,7 @@ public class ChatAgentOrchestrator implements AgentOrchestrator {
                     definition.model(),
                     definition.systemPrompt(),
                     memoryContext.text(),
-                    context.toolsEnabled()
+                    runtime.toolAccess().exposedToolDefinitions()
             );
             log.info("Chat orchestrator LLM response traceId={} length={} durationMs={}",
                     context.traceId(),
@@ -77,7 +77,7 @@ public class ChatAgentOrchestrator implements AgentOrchestrator {
                     context.agentId(),
                     definition.llmProvider(),
                     definition.model(),
-                    context.toolsEnabled(),
+                    runtime.toolAccess().hasExposedTools(),
                     context.traceId(),
                     definition.systemPrompt(),
                     memoryContext.text(),
@@ -107,7 +107,7 @@ public class ChatAgentOrchestrator implements AgentOrchestrator {
                     context.agentId(),
                     definition.llmProvider(),
                     definition.model(),
-                    context.toolsEnabled(),
+                    runtime.toolAccess().hasExposedTools(),
                     context.traceId(),
                     definition.systemPrompt(),
                     request.message(),
@@ -123,7 +123,7 @@ public class ChatAgentOrchestrator implements AgentOrchestrator {
                     context.agentId(),
                     definition.llmProvider(),
                     definition.model(),
-                    context.toolsEnabled(),
+                    runtime.toolAccess().hasExposedTools(),
                     context.traceId(),
                     definition.systemPrompt(),
                     request.message(),

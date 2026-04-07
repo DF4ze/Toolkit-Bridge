@@ -5,8 +5,11 @@ import fr.ses10doigts.toolkitbridge.model.dto.tool.bash.BashRequest;
 import fr.ses10doigts.toolkitbridge.model.dto.tool.bash.BashResponse;
 import fr.ses10doigts.toolkitbridge.service.workspace.WorkspaceService;
 import fr.ses10doigts.toolkitbridge.service.tool.JsonSchemaBuilder;
+import fr.ses10doigts.toolkitbridge.service.tool.ToolCapability;
+import fr.ses10doigts.toolkitbridge.service.tool.ToolCategory;
 import fr.ses10doigts.toolkitbridge.service.tool.ToolHandler;
-import fr.ses10doigts.toolkitbridge.service.tool.ToolSecurityDescriptor;
+import fr.ses10doigts.toolkitbridge.service.tool.ToolKind;
+import fr.ses10doigts.toolkitbridge.service.tool.ToolRiskLevel;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,6 +25,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -71,8 +75,23 @@ public class BashToolHandler implements ToolHandler {
     }
 
     @Override
-    public ToolSecurityDescriptor securityDescriptor() {
-        return ToolSecurityDescriptor.scripted();
+    public ToolKind kind() {
+        return ToolKind.SCRIPTED;
+    }
+
+    @Override
+    public ToolCategory category() {
+        return ToolCategory.EXECUTION;
+    }
+
+    @Override
+    public Set<ToolCapability> capabilities() {
+        return Set.of(ToolCapability.COMMAND_EXECUTION);
+    }
+
+    @Override
+    public ToolRiskLevel riskLevel() {
+        return ToolRiskLevel.EXECUTION;
     }
 
     @Override

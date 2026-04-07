@@ -1,0 +1,103 @@
+Les phases 11.A et 11.B sont implémentées.
+
+J’ai introduit une taxonomie métier explicite des tools avec ToolKind (NATIVE / SCRIPTED), ToolRiskLevel, ToolCategory, ToolCapability et un descripteur central ToolDescriptor. Les handlers existants exposent maintenant cette métadonnée de façon homogène, avec des defaults simples dans ToolHandler.java et des spécialisations propres dans les handlers bash, file et memory. La policy ne lit plus un signal de sécurité minimaliste: elle s’appuie désormais sur le descripteur réel du tool via AgentPermissionControlService.java.
+
+Pour 11.B, le registre a été structuré autour de ces descripteurs dans ToolRegistryService.java. Il décrit les tools de façon homogène et permet un filtrage par nom pour préparer l’exposition contrôlée par agent. Le runtime embarque maintenant une vue filtrée des tools exposables via AgentToolAccess.java, et les orchestrateurs n’envoient plus “tous les tools si activés”, mais uniquement les tools réellement autorisés à l’agent vers le LLM via ChatAgentOrchestrator.java, TaskAgentOrchestrator.java et LlmService.java.
+
+Validation: tests ciblés passés avec Java 21 en forçant JAVA_HOME sur la JDK 21 locale.
+Commande utilisée:
+
+$env:JAVA_HOME='C:\Program Files\Java\jdk-21.0.10'; $env:Path='C:\Program Files\Java\jdk-21.0.10\bin;' + $env:Path; ./mvnw test -Dtest="ToolRegistryServiceTest,AgentPermissionControlServiceTest,AgentRuntimeFactoryTest,ChatAgentOrchestratorTest,ChatAgentOrchestratorMemoryIntegrationTest,TaskAgentOrchestratorTest,OrchestrationRequestContextFactoryTest,DefaultAgentPolicyTest"
+Points laissés volontairement ouverts pour les phases suivantes:
+
+support réel et persistant des scripted tools
+gouvernance/approbation selon le risque
+enrichissement futur des capacités et catégories sans alourdir la V1
+tools web/external output réels
+administration, lifecycle et marketplace interne
+Fichiers créés:
+
+ToolKind.java
+ToolCategory.java
+ToolRiskLevel.java
+ToolCapability.java
+ToolDescriptor.java
+ToolRegistryServiceTest.java
+Fichiers modifiés:
+
+ToolHandler.java
+ToolRegistryService.java
+BashToolHandler.java
+AbstractFileToolHandler.java
+AppendFileToolHandler.java
+DeleteFileToolHandler.java
+ListFilesToolHandler.java
+MoveFileToolHandler.java
+ReadFileToolHandler.java
+WriteFileToolHandler.java
+AbstractMemoryToolHandler.java
+RecallMemoryContextToolHandler.java
+WriteMemoryFactToolHandler.java
+WriteMemoryRuleToolHandler.java
+AgentPermissionControlService.java
+AgentRuntimeFactory.java
+AgentToolAccess.java
+LlmService.java
+DefaultLlmService.java
+ChatAgentOrchestrator.java
+TaskAgentOrchestrator.java
+AgentPermissionControlServiceTest.java
+AgentRuntimeFactoryTest.java
+ChatAgentOrchestratorTest.java
+ChatAgentOrchestratorMemoryIntegrationTest.java
+TaskAgentOrchestratorTest.java
+Fichier supprimé:
+
+ToolSecurityDescriptor.java
+Je n’ai pas touché à tes fichiers de consigne 11.A.md et 11.B.md, qui étaient déjà modifiés dans ton working tree.
+
+
+
+Après relecture :
+Revue Critique
+
+Faiblesses / points discutables relevés
+
+Le registre acceptait implicitement des incohérences entre ToolHandler.name() et ToolDescriptor.name(). C’était une dette sournoise: une future phase aurait pu enregistrer un handler “valide” mais non récupérable proprement par nom.
+L’ordre du registre n’était pas explicitement stabilisé. Pour un registre servant aussi à exposer les tools aux LLM, laisser l’ordre dépendre d’implémentations internes de Map n’était pas idéal.
+ToolDescriptor.requiresWebAccess() mélangeait deux concepts distincts: capacité WEB_ACCESS et risque EXTERNAL_OUTPUT. C’était un couplage sémantique trop implicite, qui aurait gêné les futures phases de gouvernance.
+AgentToolAccess reste un peu chargé: allowedTools, registeredTools, exposedTools. Ce n’est pas bloquant, mais il y a un début de redondance à surveiller.
+La séparation configuration/runtime est globalement bonne, mais la résolution du sous-ensemble exposé est encore assemblée dans AgentRuntimeFactory.java. Ce n’est pas ad hoc aujourd’hui, mais si la logique grossit, elle méritera probablement un composant dédié.
+Les tests sont utiles sur les flux principaux, mais ils restent surtout orientés intégration légère entre policy/runtime/orchestrator. Ils ne couvrent pas encore des cas plus riches de taxonomie future, ce qui est acceptable à ce stade.
+Corrections utiles proposées
+
+Verrouiller le registre sur des noms normalisés et cohérents.
+Rendre l’ordre du catalogue stable.
+Supprimer l’inférence implicite “external output => web access”.
+Ajouter un test de garde-fou sur l’incohérence handler/descripteur.
+Corrections réellement appliquées
+
+ToolRegistryService.java
+normalisation explicite des noms
+validation stricte handler/descripteur
+détection des doublons
+conservation d’un ordre stable dans le registre
+ToolDescriptor.java
+requiresWebAccess() ne dépend plus du riskLevel
+ToolRegistryServiceTest.java
+ajout d’un test de mismatch handler/descripteur
+vérification d’un ordre de catalogue cohérent
+Ce que je n’ai pas changé volontairement
+
+Je n’ai pas extrait un nouveau service de “tool exposure resolution” hors du runtime factory, car ce serait déjà un micro-refactoring structurel au-delà du gain immédiat.
+Je n’ai pas réduit AgentToolAccess pour l’instant: la structure reste un peu riche, mais elle reste lisible et utile pour la phase actuelle.
+Je n’ai pas introduit de nouvelle policy liée au riskLevel, conformément au périmètre demandé.
+Validation
+
+Tests ciblés passés:
+$env:JAVA_HOME='C:\Program Files\Java\jdk-21.0.10'; $env:Path='C:\Program Files\Java\jdk-21.0.10\bin;' + $env:Path; ./mvnw test -Dtest="ToolRegistryServiceTest,AgentPermissionControlServiceTest,AgentRuntimeFactoryTest,ChatAgentOrchestratorTest,ChatAgentOrchestratorMemoryIntegrationTest,TaskAgentOrchestratorTest,OrchestrationRequestContextFactoryTest,DefaultAgentPolicyTest"
+Résumé Final
+
+L’implémentation est globalement saine pour le périmètre 11.A / 11.B: la taxonomie est devenue un vrai contrat, le registre est descriptif et exploitable, et l’exposition des tools au LLM est désormais filtrée par agent au runtime au lieu d’être globale. Les corrections appliquées ont surtout supprimé deux fragilités architecturales réelles: le registre trop permissif et l’inférence sémantique trop implicite entre risque et web access.
+
+La dette restante est modérée et bien contenue: principalement une logique de composition encore dans le runtime factory et un AgentToolAccess un peu dense. À ce stade, je ne recommande pas d’aller plus loin sans besoin de phase suivante.

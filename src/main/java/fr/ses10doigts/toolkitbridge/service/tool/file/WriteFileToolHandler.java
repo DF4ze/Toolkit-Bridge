@@ -2,6 +2,7 @@ package fr.ses10doigts.toolkitbridge.service.tool.file;
 
 
 import fr.ses10doigts.toolkitbridge.model.dto.tool.ToolExecutionResult;
+import fr.ses10doigts.toolkitbridge.service.tool.ToolCapability;
 import fr.ses10doigts.toolkitbridge.service.workspace.WorkspaceService;
 import fr.ses10doigts.toolkitbridge.service.tool.JsonSchemaBuilder;
 import org.springframework.stereotype.Component;
@@ -33,6 +34,11 @@ public class WriteFileToolHandler extends AbstractFileToolHandler {
                 .stringProperty("path", "Relative file path in workspace", true)
                 .stringProperty("content", "Full text content to write", true)
                 .build();
+    }
+
+    @Override
+    protected ToolCapability defaultFileCapability() {
+        return ToolCapability.FILE_WRITE;
     }
 
     @Override

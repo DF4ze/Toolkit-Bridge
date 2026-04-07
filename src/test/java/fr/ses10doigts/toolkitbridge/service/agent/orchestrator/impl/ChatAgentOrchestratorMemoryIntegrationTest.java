@@ -19,6 +19,10 @@ import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentRuntime;
 import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentRuntimeState;
 import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentToolAccess;
 import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentWorkspaceScope;
+import fr.ses10doigts.toolkitbridge.service.tool.ToolCategory;
+import fr.ses10doigts.toolkitbridge.service.tool.ToolDescriptor;
+import fr.ses10doigts.toolkitbridge.service.tool.ToolKind;
+import fr.ses10doigts.toolkitbridge.service.tool.ToolRiskLevel;
 import fr.ses10doigts.toolkitbridge.service.llm.LlmService;
 import fr.ses10doigts.toolkitbridge.service.llm.debug.LlmDebugStore;
 import org.junit.jupiter.api.Test;
@@ -30,6 +34,7 @@ import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -65,7 +70,7 @@ class ChatAgentOrchestratorMemoryIntegrationTest {
                 true
         );
 
-        when(llmService.chat(eq("provider"), eq("model"), eq("system"), any(), eq(true)))
+        when(llmService.chat(eq("provider"), eq("model"), eq("system"), any(), anyList()))
                 .thenReturn("ok");
         when(permissionControlService.canExposeTools(any())).thenReturn(true);
 
@@ -99,10 +104,27 @@ class ChatAgentOrchestratorMemoryIntegrationTest {
                 definition,
                 orchestrator,
                 memoryFacade,
-                new AgentToolAccess(true, Set.of("run_command")),
+                new AgentToolAccess(
+                        true,
+                        Set.of("run_command"),
+                        List.of(commandDescriptor()),
+                        List.of(commandDescriptor())
+                ),
                 policy,
                 new AgentWorkspaceScope(null, null),
                 new AgentRuntimeState()
+        );
+    }
+
+    private ToolDescriptor commandDescriptor() {
+        return new ToolDescriptor(
+                "run_command",
+                ToolKind.SCRIPTED,
+                ToolCategory.EXECUTION,
+                "Run command",
+                Map.of(),
+                Set.of(),
+                ToolRiskLevel.EXECUTION
         );
     }
 

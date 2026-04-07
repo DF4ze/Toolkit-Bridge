@@ -5,6 +5,7 @@ import fr.ses10doigts.toolkitbridge.memory.tool.model.MemoryContextRecallRequest
 import fr.ses10doigts.toolkitbridge.memory.tool.service.ExplicitMemoryToolService;
 import fr.ses10doigts.toolkitbridge.model.dto.tool.ToolExecutionResult;
 import fr.ses10doigts.toolkitbridge.service.auth.CurrentAgentService;
+import fr.ses10doigts.toolkitbridge.service.tool.ToolCapability;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -51,6 +52,11 @@ public class RecallMemoryContextToolHandler extends AbstractMemoryToolHandler {
                         "max_episodes", Map.of("type", "integer")
                 )
         );
+    }
+
+    @Override
+    protected ToolCapability defaultMemoryCapability() {
+        return ToolCapability.MEMORY_READ;
     }
 
     @Override
