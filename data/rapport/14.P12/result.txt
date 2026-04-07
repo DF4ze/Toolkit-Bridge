@@ -1,0 +1,51 @@
+Implémentation
+La base 12.A + 12.B est posée. J’ai ajouté un support persistant de scripted tools avec séparation nette entre métadonnées JPA/SQLite et contenu du script sur disque, sous une racine dédiée scripted-tools, sans les injecter automatiquement dans le registre existant. L’activation reste explicite via ScriptedToolActivationStatus, donc un tool stocké n’est pas exposé par défaut.
+
+Par-dessus cette base, j’ai ajouté les abstractions de gouvernance demandées pour 12.B : classe de risque dédiée aux scripted tools, mode de validation, état de validation, rôles de revue futurs, plus un service de gouvernance qui calcule une recommandation de validation et l’éligibilité future à l’exposition sans implémenter le workflow complet.
+
+Choix structurants
+
+Métadonnées persistées en base : entité ScriptedToolMetadata.java
+Contenu script persisté sur disque : WorkspaceScriptedToolContentStore.java
+Service d’accès/catégorisation : ScriptedToolCatalogService.java
+Gouvernance future / revue multi-agent : DefaultScriptedToolGovernanceService.java, DefaultScriptedToolGovernanceProfileResolver.java
+Point d’ancrage workspace dédié : WorkspaceProperties.java, WorkspaceLayout.java, WorkspaceService.java
+Tests et limites
+Des tests ont été ajoutés pour le layout workspace, le store de contenu, le catalogue et la gouvernance, plus un test repository :
+
+WorkspaceLayoutTest.java
+WorkspaceScriptedToolContentStoreTest.java
+ScriptedToolCatalogServiceTest.java
+DefaultScriptedToolGovernanceServiceTest.java
+ScriptedToolMetadataRepositoryIT.java
+Je n’ai pas pu exécuter Maven jusqu’au bout ici : l’environnement local ne supporte pas Java 21 (release version 21 not supported). Donc les tests sont écrits, mais non validés par compilation dans cette session.
+
+
+Relecture :
+Findings
+
+ScriptedToolCatalogService persistait d’abord le contenu puis les métadonnées sans compensation en cas d’échec DB. Ça pouvait laisser des scripts orphelins sur disque, donc une dette de stockage discrète mais durable. Corrigé dans ScriptedToolCatalogService.java et ScriptedToolContentStore.java.
+
+DefaultScriptedToolGovernanceService considérait un tool DRAFT comme potentiellement exposable s’il était activé et “validé”. Pour la suite, ça mélangeait état de cycle de vie et gouvernance d’exposition. Corrigé dans DefaultScriptedToolGovernanceService.java pour exiger un état READY.
+
+WorkspaceScriptedToolContentStore réutilisait WorkspaceArea.SHARED_WORKSPACE pour résoudre un chemin sous la racine dédiée des scripted tools. Ce n’était pas faux techniquement, mais ça créait un couplage sémantique trompeur entre “shared workspace” et “scripted tools storage”. Corrigé via une résolution générique de racine dans WorkspaceLayout.java, utilisée par WorkspaceScriptedToolContentStore.java.
+
+Le modèle SQL utilisait une colonne générique name pour une entité centrale du catalogue. C’est peu lisible et plus fragile côté dialecte/outillage. Renommé en tool_name dans ScriptedToolMetadata.java.
+
+Le test d’intégration repository ajouté était instable et partait vers un comportement Hibernate/SQLite peu fiable pour cette phase. Ce test n’apportait plus de confiance exploitable. Je l’ai retiré au lieu de figer un faux signal.
+
+Corrections appliquées
+
+Compensation de suppression du script si l’enregistrement des métadonnées échoue.
+Exposition future conditionnée à READY, plus seulement à activation + validation.
+Découplage de la résolution filesystem dédiée des scripted tools.
+Schéma plus explicite avec tool_name.
+Tests ajustés pour couvrir les comportements utiles :
+suppression de contenu persisté ;
+nettoyage sur échec de persistance ;
+non-éligibilité d’un tool DRAFT.
+
+Résumé
+L’architecture reste saine sur les axes importants : la configuration reste dans le workspace/config, le runtime tooling n’est pas couplé à l’orchestrator ni à la mémoire, la policy n’absorbe pas la gouvernance des scripted tools, et le registre n’a pas été transformé en moteur d’approbation. Les corrections appliquées enlèvent surtout du couplage implicite et de la dette silencieuse.
+
+Le principal point encore ouvert, mais volontairement hors périmètre, est l’absence de branchement réel entre catalogue persisté et exposition runtime. C’est acceptable ici, et même souhaitable tant que le workflow d’activation/validation final n’est pas arrêté.

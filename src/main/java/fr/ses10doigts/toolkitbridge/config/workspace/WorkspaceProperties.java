@@ -18,4 +18,7 @@ public class WorkspaceProperties {
 
     @NotBlank
     private String globalContextRoot;
+
+    @NotBlank
+    private String scriptedToolsRoot = "workspace/shared/scripted-tools";
 }

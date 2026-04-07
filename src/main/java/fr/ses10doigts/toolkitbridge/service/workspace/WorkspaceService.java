@@ -27,6 +27,7 @@ public class WorkspaceService {
         workspaceLayout.agentsRoot();
         workspaceLayout.sharedRoot();
         workspaceLayout.globalContextRoot();
+        workspaceLayout.scriptedToolsRoot();
     }
 
     public Path getCurrentAgentWorkspace() throws IOException {
@@ -44,6 +45,10 @@ public class WorkspaceService {
 
     public Path getGlobalContextRoot() throws IOException {
         return workspaceLayout.globalContextRoot();
+    }
+
+    public Path getScriptedToolsRoot() throws IOException {
+        return workspaceLayout.scriptedToolsRoot();
     }
 
     public Path resolveInCurrentAgentWorkspace(String userPath) throws IOException {
