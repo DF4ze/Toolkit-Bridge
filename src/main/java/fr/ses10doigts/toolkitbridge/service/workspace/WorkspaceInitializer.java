@@ -1,7 +1,7 @@
 package fr.ses10doigts.toolkitbridge.service.workspace;
 
-import fr.ses10doigts.toolkitbridge.config.agent.AgentsProperties;
 import fr.ses10doigts.toolkitbridge.model.dto.agent.definition.AgentDefinitionProperties;
+import fr.ses10doigts.toolkitbridge.service.configuration.admin.AdministrableConfigurationGateway;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NonNull;
@@ -19,7 +19,7 @@ import java.util.List;
 public class WorkspaceInitializer implements ApplicationRunner {
 
     private final WorkspaceLayout workspaceLayout;
-    private final AgentsProperties agentsProperties; // adapte le type réel
+    private final AdministrableConfigurationGateway configurationGateway;
 
     @Override
     public void run(@NonNull ApplicationArguments unused) throws IOException {
@@ -28,7 +28,7 @@ public class WorkspaceInitializer implements ApplicationRunner {
         Path globalContextRoot = workspaceLayout.globalContextRoot();
         Path externalProcessesRoot = workspaceLayout.externalProcessesRoot();
 
-        List<AgentDefinitionProperties> agents = agentsProperties.getDefinitions(); // adapte selon ton modèle
+        List<AgentDefinitionProperties> agents = configurationGateway.loadAgentDefinitions();
         if (agents == null || agents.isEmpty()) {
             log.info("No agent definitions found, only root workspaces created");
             return;

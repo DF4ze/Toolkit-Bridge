@@ -1,9 +1,9 @@
 package fr.ses10doigts.toolkitbridge.service.auth;
 
-import fr.ses10doigts.toolkitbridge.config.agent.AgentsProperties;
 import fr.ses10doigts.toolkitbridge.model.dto.agent.definition.AgentDefinitionProperties;
 import fr.ses10doigts.toolkitbridge.model.dto.auth.AgentProvisioningResult;
 import fr.ses10doigts.toolkitbridge.repository.AgentAccountRepository;
+import fr.ses10doigts.toolkitbridge.service.configuration.admin.AdministrableConfigurationGateway;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NonNull;
@@ -21,13 +21,13 @@ import java.util.stream.Collectors;
 @Slf4j
 public class AgentAccountInitializer implements ApplicationRunner {
 
-    private final AgentsProperties agentsProperties;
+    private final AdministrableConfigurationGateway configurationGateway;
     private final AgentAccountService agentAccountService;
     private final AgentAccountRepository agentAccountRepository;
 
     @Override
     public void run(@NonNull ApplicationArguments args) {
-        List<AgentDefinitionProperties> definitions = agentsProperties.getDefinitions();
+        List<AgentDefinitionProperties> definitions = configurationGateway.loadAgentDefinitions();
         if (definitions == null || definitions.isEmpty()) {
             log.info("No agent definitions configured, skipping account initialization");
             return;

@@ -1,0 +1,113 @@
+Pré-analyse (2.preAnalyse)
+Analyse réalisée sur le dépôt réel: les zones structurantes concernées étaient surtout la config agents (toolkit.agents.definitions) et providers LLM (toolkit.llm.openai-like.providers), avec dépendances directes dans AgentDefinitionService, AgentAccountInitializer, WorkspaceInitializer, OpenAiLikeConfiguration.
+Points sensibles: ambiguïté source de vérité YAML vs runtime, couplage de plusieurs composants à la config YAML, absence de bootstrap DB explicite.
+
+Phase 18.1.A livrée
+Artefact de cartographie/migration créé: configuration-migration-plan.md
+
+Contenu inclus:
+
+inventaire YAML / @ConfigurationProperties / usages directs
+classification technique vs administrable vs contenu
+source cible (YAML / DB / fichiers)
+besoins de refactor
+zones explicites à traiter en 18.2.A
+Phase 18.2.A implémentée
+Nouvelle couche de source de vérité administrable (DB) + fallback seed YAML introduite, puis refactor des accès critiques.
+
+Nouveaux composants:
+
+AdministrableConfigKey.java
+AdministrableConfigurationEntity.java
+AdministrableConfigurationRepository.java
+AdministrableConfigurationStoreService.java
+AdministrableConfigurationGateway.java
+Refactors critiques:
+
+AgentDefinitionService.java
+AgentAccountInitializer.java
+WorkspaceInitializer.java
+OpenAiLikeConfiguration.java
+Phase 18.2.B implémentée
+Bootstrap first-init ajouté: seed DB depuis YAML uniquement si config absente.
+
+AdministrableConfigurationBootstrap.java
+Ce bootstrap:
+
+ne fait pas de RW sur application.yml
+n’écrase pas une config DB existante
+rend explicite la différence seed initiale vs config courante
+Tests ajoutés
+
+AdministrableConfigurationGatewayTest.java
+AdministrableConfigurationStoreServiceTest.java
+AdministrableConfigurationBootstrapTest.java
+Exécution tests: impossible de valider jusqu’au bout, le dépôt échoue en compilation sur des éléments préexistants manquants (WorkspaceLayout, WorkspaceArea dans service.workspace), non introduits par cette phase.
+
+Points ouverts pour 18.3
+
+API/REST d’administration de la config administrable.
+UI d’administration.
+Stratégie de hot-reload runtime (si souhaitée) pour éviter redémarrage.
+Gestion sécurisée des secrets providers (vault/secret manager).
+
+
+
+
+
+
+
+Après relecture :
+Faiblesses / points discutables (revue critique)
+
+[P0] Le dépôt ne compile pas à cause d’éléments manquants préexistants (WorkspaceLayout, WorkspaceArea), ce qui bloque toute validation complète des tests.
+Fichiers impactés par l’erreur de build: WorkspaceService.java, WorkspaceInitializer.java + classes qui importent WorkspaceLayout.
+
+[P1] La gateway retombait sur le YAML quand la DB contenait une valeur vide, ce qui brouillait la source de vérité DB (comportement implicite).
+Corrigé dans AdministrableConfigurationGateway.java:37 et :45.
+
+[P1] AgentDefinitionService faisait un cache au démarrage, donc pas de relecture de config administrable en cours de vie.
+Corrigé dans AgentDefinitionService.java:13-40.
+
+[P1] Log des providers LLM exposait potentiellement des informations sensibles via toString() (clé API).
+Corrigé dans OpenAiLikeConfiguration.java:31-34.
+
+[P2] Couverture tests initiale incomplète sur la nouvelle sémantique “DB explicite vide”.
+Corrigé via test dédié dans AdministrableConfigurationGatewayTest.java:64-82.
+
+Corrections proposées
+
+Respect strict de la DB si une entrée existe (même vide).
+Supprimer le cache figé des définitions et charger via gateway à l’appel.
+Sanitiser les logs provider (noms uniquement).
+Ajouter tests ciblés sur ces contrats.
+Corrections appliquées (uniquement pertinentes, sans hors-périmètre)
+
+Mise à jour de AdministrableConfigurationGateway.java.
+Refactor de AgentDefinitionService.java.
+Durcissement de OpenAiLikeConfiguration.java.
+Ajout/ajustement tests:
+AdministrableConfigurationGatewayTest.java
+AgentDefinitionServiceTest.java
+Validation
+Commande lancée: ./mvnw -q "-Dtest=AdministrableConfigurationGatewayTest,AdministrableConfigurationStoreServiceTest,AdministrableConfigurationBootstrapTest" test
+Résultat: échec de compilation préexistant (classes workspace manquantes), donc impossible de valider les tests jusqu’au bout dans l’état actuel du dépôt.
+
+Résumé final
+L’architecture de phase est globalement saine (séparation config/runtime, source de vérité DB + seed YAML, découplage conservé entre orchestrator/mémoire/tooling/policy/workspace).
+Les 3 faiblesses structurantes introduites par mon implémentation ont été corrigées sans ajouter de fonctionnalités hors périmètre.
+La dette principale restante est externe à cette phase: le bloc compilation workspace, à traiter pour sécuriser la validation complète.
+
+
+
+Corrigé.
+
+Cause: app.workspace.global-context-root manquait dans application.yml, alors que globalContextRoot était @NotBlank sans valeur par défaut dans WorkspaceProperties.java.
+
+Fix appliqué:
+
+globalContextRoot a maintenant une valeur par défaut:
+"workspace/shared/global-context"
+Validation:
+
+./mvnw -q -DskipTests install passe maintenant.

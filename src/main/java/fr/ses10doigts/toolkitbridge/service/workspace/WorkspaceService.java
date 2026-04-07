@@ -1,6 +1,5 @@
 package fr.ses10doigts.toolkitbridge.service.workspace;
 
-import fr.ses10doigts.toolkitbridge.config.workspace.WorkspaceProperties;
 import fr.ses10doigts.toolkitbridge.model.dto.auth.AuthenticatedAgent;
 import fr.ses10doigts.toolkitbridge.service.auth.CurrentAgentService;
 import fr.ses10doigts.toolkitbridge.service.workspace.model.WorkspaceArea;

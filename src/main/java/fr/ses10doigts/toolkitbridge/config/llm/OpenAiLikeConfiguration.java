@@ -1,6 +1,7 @@
 package fr.ses10doigts.toolkitbridge.config.llm;
 
 import fr.ses10doigts.toolkitbridge.exception.LlmProviderException;
+import fr.ses10doigts.toolkitbridge.service.configuration.admin.AdministrableConfigurationGateway;
 import fr.ses10doigts.toolkitbridge.service.llm.provider.LlmProvider;
 import fr.ses10doigts.toolkitbridge.service.llm.provider.LlmProviderRegistry;
 import fr.ses10doigts.toolkitbridge.service.llm.provider.ProviderHttpExecutor;
@@ -12,6 +13,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Configuration
@@ -20,13 +22,16 @@ public class OpenAiLikeConfiguration {
 
     @Bean
     public LlmProviderRegistry llmProviderRegistry(
-            OpenAiLikeProvidersProperties openAiLikeProvidersProperties,
+            AdministrableConfigurationGateway configurationGateway,
             OpenAiLikeMapper openAiLikeMapper,
             ProviderHttpExecutor providerHttpExecutor
     ) {
-        List<OpenAiLikeProperties> providerPropertiesList = openAiLikeProvidersProperties.getProviders();
+        List<OpenAiLikeProperties> providerPropertiesList = configurationGateway.loadOpenAiLikeProviders();
 
-        log.info("providerPropertiesList: {}", providerPropertiesList);
+        log.info("Configured OpenAI-like providers: {}",
+                providerPropertiesList.stream()
+                        .map(OpenAiLikeProperties::name)
+                        .collect(Collectors.toList()));
 
         if (providerPropertiesList == null || providerPropertiesList.isEmpty()) {
             throw new LlmProviderException("No OpenAI-like providers configured");
