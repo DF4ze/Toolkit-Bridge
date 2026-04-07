@@ -451,24 +451,61 @@
 ---
 
 ## 18. Administration et pilotage
-### 18.1 Ne pas commencer par une grosse UI
-#### 18.1.1 Stabiliser d’abord le modèle d’administration
+### 18.1 Cartographie et classification de la configuration
+#### 18.1.1 Recenser les paramètres existants
+Identifier les propriétés actuellement dispersées dans le code et le YAML.
+Repérer les constantes métier, techniques et hybrides.
+Lister les zones où la source de vérité est encore floue.
+
+#### 18.1.2 Classer par nature et source cible
+Distinguer configuration technique, configuration administrable et contenu éditable.
+Déterminer ce qui doit rester dans le YAML, aller en base ou rester en fichiers.
+Préparer une matrice claire de migration et de responsabilité.
+
+#### 18.1.3 Identifier les accès à refactorer
+Repérer les composants qui lisent directement le YAML ou des properties devenues métier.
+Prévoir le remplacement par des services de lecture centralisés.
+Éviter les accès implicites ou disséminés à la configuration.
+
+### 18.2 Externalisation, refactoring et bootstrap de first-initialisation
+#### 18.2.1 Définir la nouvelle source de vérité
+Conserver le YAML pour le bootstrap et la configuration technique.
+Déplacer en base les paramètres administrables modifiables à chaud.
+Réserver les fichiers aux contenus métier lisibles et éditables.
+
+#### 18.2.2 Refactorer l’accès à la configuration administrable
+Introduire des services ou repositories dédiés à la lecture/écriture de config métier.
+Remplacer progressivement les lectures directes du YAML devenues inadaptées.
+Rendre explicite la frontière entre config statique et config administrable.
+
+#### 18.2.3 Mettre en place un bootstrap de first-initialisation
+Initialiser la base avec des valeurs par défaut si aucune configuration administrable n’existe.
+Utiliser le YAML comme seed initial et non comme source vivante principale.
+Garantir un démarrage cohérent sans reconfiguration manuelle complète.
+
+#### 18.2.4 Préparer l’évolution sans dépendre du YAML en écriture
+Éviter le RW applicatif sur application.yml comme mécanisme principal.
+Permettre la persistance durable des changements faits depuis l’admin.
+Préparer proprement les futures interfaces REST et UI d’administration.
+
+### 18.3 Ne pas commencer par une grosse UI
+#### 18.3.1 Stabiliser d’abord le modèle d’administration
 - Agents, policies, tools, mémoire, bus, tâches et rétention.
 - Éviter de figer une UI sur un modèle mouvant.
 - Prioriser les concepts.
 
-#### 18.1.2 Commencer par de l’admin technique simple
+#### 18.3.2 Commencer par de l’admin technique simple
 - Properties propres.
 - Endpoints REST d’admin ciblés.
 - Traces et états lisibles.
 
-### 18.2 Préparer une future UI web d’administration
-#### 18.2.1 Cibler les usages prioritaires
+### 18.4 Préparer une future UI web d’administration
+#### 18.4.1 Cibler les usages prioritaires
 - Voir les agents, tâches, traces, policies et artefacts.
 - Gérer les configurations liées.
 - Aider au debug et à l’exploitation.
 
-#### 18.2.2 La brancher sur un modèle déjà propre
+#### 18.4.2 La brancher sur un modèle déjà propre
 - L’UI devient une couche de confort.
 - Pas un pansement sur un modèle confus.
 - Réduction forte des futures refontes.
