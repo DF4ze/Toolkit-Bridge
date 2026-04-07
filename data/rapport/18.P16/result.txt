@@ -1,0 +1,58 @@
+
+Implémenté
+J’ai exécuté 16.A puis 16.B dans l’esprit demandé.
+
+Pour 16.A, j’ai introduit un stockage dédié des process externes sous workspace/shared/processes/task-execution-prompt/content.json, avec un service centralisé de lecture/écriture, backup avant réécriture et historique simple via ExternalProcessService.java et WorkspaceExternalProcessStore.java. J’ai aussi branché deux usages concrets du runtime sur ces process externes: le prompt task dans DefaultTaskPromptBuilder.java et la synthèse de review dans ArtifactReviewCollaborationService.java.
+
+Pour 16.B, j’ai posé une base d’auto-amélioration strictement en mode proposition avec ImprovementProposalService.java. Le système produit des observations et recommandations traçables, persistées en artefact PROPOSAL, avec garde-fou explicite “proposal only”, sans modification silencieuse du runtime. J’ai ajouté le template externe correspondant dans workspace/shared/processes/improvement-proposal-report/content.json.
+
+Vérification
+./mvnw test passe.
+
+Fichiers principaux créés / modifiés
+
+Modifiés: WorkspaceProperties.java, WorkspaceLayout.java, WorkspaceService.java, application.yml, ArtifactType.java, AgentTraceEventType.java, DefaultTaskPromptBuilder.java, ArtifactReviewCollaborationService.java
+Créés: service/agent/process/..., service/agent/improvement/..., workspace/shared/processes/task-execution-prompt/metadata.json, workspace/shared/processes/artifact-review-synthesis/metadata.json, workspace/shared/processes/improvement-proposal-report/metadata.json
+Tests ajoutés / ajustés: WorkspaceExternalProcessStoreTest.java, DefaultTaskPromptBuilderTest.java, ImprovementProposalServiceTest.java, ArtifactReviewCollaborationServiceTest.java, WorkspaceServiceTest.java
+Ouvert volontairement pour la suite
+
+vrai workflow d’approbation / revue humaine
+génération de patchs ou de nouveaux process
+activation contrôlée d’une proposition
+rollback outillé au-delà du backup + historique simple déjà posés
+
+
+
+Après relecture :
+
+Findings
+
+P1 Configuration et runtime étaient mélangés: les process “par défaut” vivaient directement sous le workspace mutable, ce qui brouillait la frontière entre contenu versionné et contenu modifiable à chaud. J’ai corrigé ça en déplaçant les defaults vers src/main/resources/external-processes et en ajoutant un fallback dédié via DefaultExternalProcessCatalog.java.
+P1 La persistance des process dépendait du contexte agent/policy, ce qui couplait un repository au runtime de sécurité. J’ai corrigé ça en retirant le contrôle de permission du store WorkspaceExternalProcessStore.java et en le remontant dans ExternalProcessService.java, ce qui clarifie la séparation responsabilité métier / persistance.
+P2 L’initialisation du workspace n’exposait pas explicitement la nouvelle zone de process externes. J’ai corrigé ça dans WorkspaceInitializer.java pour rendre le layout plus lisible et cohérent au démarrage.
+P3 Il reste un petit couplage par identifiants de process en chaînes statiques dans DefaultTaskPromptBuilder.java, ArtifactReviewCollaborationService.java et ImprovementProposalService.java. Je ne l’ai pas abstrait davantage maintenant: ce serait une surcouche prématurée pour le périmètre actuel.
+P3 Le rendu de template dans ExternalProcessService.java reste volontairement minimal et ad hoc. C’est acceptable en V1, mais ce serait le premier point à refactorer si les process deviennent plus riches.
+Corrections utiles proposées puis appliquées
+
+Séparer defaults versionnés et runtime mutable.
+Découpler stockage des process et policy runtime.
+Garder les tests alignés sur cette nouvelle frontière architecturale.
+Ne pas ajouter de nouveau workflow, de patching automatique ou de moteur plus abstrait.
+Corrections appliquées
+
+Ajout du catalogue de defaults embarqués: DefaultExternalProcessCatalog.java
+Fallback lecture workspace puis classpath: ExternalProcessService.java
+Store recentré sur la seule persistance: WorkspaceExternalProcessStore.java
+Defaults déplacés vers src/main/resources/external-processes
+Tests ajoutés/ajustés:
+ExternalProcessServiceTest.java
+WorkspaceExternalProcessStoreTest.java
+Résumé
+L’architecture est maintenant plus saine qu’après ma première passe: la séparation configuration/runtime est nette, le couplage policy/workspace est réduit, et le modèle “process externe modifiable + proposition traçable sans auto-modification” reste cohérent avec les phases suivantes.
+
+Les points encore discutables mais acceptables en l’état sont surtout:
+
+les IDs de process en constantes locales
+le mini moteur de templating très simple
+l’absence volontaire d’un vrai registre/contrat de process plus formel
+La base reste lisible, testée, et surtout extensible sans verrouiller les futures phases. ./mvnw test passe.

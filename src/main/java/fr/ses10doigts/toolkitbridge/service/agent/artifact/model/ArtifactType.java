@@ -9,6 +9,7 @@ public enum ArtifactType {
     SCRIPT("script"),
     PLAN("plan"),
     SUMMARY("summary"),
+    PROPOSAL("proposal"),
     FILE("file"),
     MEMORY_CANDIDATE("memory candidate");
 

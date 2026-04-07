@@ -13,6 +13,7 @@ import fr.ses10doigts.toolkitbridge.service.agent.communication.bus.AgentMessage
 import fr.ses10doigts.toolkitbridge.service.agent.communication.model.AgentMessage;
 import fr.ses10doigts.toolkitbridge.service.agent.debate.model.ArtifactReviewRequest;
 import fr.ses10doigts.toolkitbridge.service.agent.debate.model.ArtifactReviewResult;
+import fr.ses10doigts.toolkitbridge.service.agent.process.ExternalProcessService;
 import fr.ses10doigts.toolkitbridge.service.agent.trace.AgentTraceService;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -34,6 +35,7 @@ class ArtifactReviewCollaborationServiceTest {
         DebateMessageFactory debateMessageFactory = new DebateMessageFactory();
         AgentMessageBus messageBus = mock(AgentMessageBus.class);
         ArtifactService artifactService = mock(ArtifactService.class);
+        ExternalProcessService externalProcessService = mock(ExternalProcessService.class);
         AgentTraceService traceService = mock(AgentTraceService.class);
 
         Artifact sourceArtifact = new Artifact(
@@ -65,12 +67,20 @@ class ArtifactReviewCollaborationServiceTest {
                 "agent-critic",
                 AgentResponse.success("The plan is solid but needs rollback criteria.")
         ));
+        when(externalProcessService.loadTypedContent(
+                ArtifactReviewCollaborationService.ARTIFACT_REVIEW_SYNTHESIS_PROCESS_ID,
+                fr.ses10doigts.toolkitbridge.service.agent.process.model.TextTemplateProcess.class
+        )).thenReturn(new fr.ses10doigts.toolkitbridge.service.agent.process.model.TextTemplateProcess(
+                "# Artifact review synthesis\n\n- Review question: `{{reviewQuestion}}`\n\n## Critique\n{{critique}}\n"
+        ));
+        when(externalProcessService.renderTemplate(any(), any())).thenCallRealMethod();
         when(artifactService.create(any(ArtifactDraft.class))).thenReturn(summaryArtifact);
 
         ArtifactReviewCollaborationService service = new ArtifactReviewCollaborationService(
                 debateMessageFactory,
                 messageBus,
                 artifactService,
+                externalProcessService,
                 traceService
         );
 
@@ -117,6 +127,7 @@ class ArtifactReviewCollaborationServiceTest {
         DebateMessageFactory debateMessageFactory = new DebateMessageFactory();
         AgentMessageBus messageBus = mock(AgentMessageBus.class);
         ArtifactService artifactService = mock(ArtifactService.class);
+        ExternalProcessService externalProcessService = mock(ExternalProcessService.class);
         AgentTraceService traceService = mock(AgentTraceService.class);
 
         Artifact sourceArtifact = new Artifact(
@@ -141,6 +152,7 @@ class ArtifactReviewCollaborationServiceTest {
                 debateMessageFactory,
                 messageBus,
                 artifactService,
+                externalProcessService,
                 traceService
         );
 

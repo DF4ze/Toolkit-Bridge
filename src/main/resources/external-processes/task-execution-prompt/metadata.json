@@ -1,0 +1,11 @@
+{
+  "processId": "task-execution-prompt",
+  "description": "Task-mode prompt contract used by the task orchestrator.",
+  "mediaType": "application/json",
+  "createdAt": "2026-04-07T00:00:00Z",
+  "updatedAt": "2026-04-07T00:00:00Z",
+  "updatedBy": "system-bootstrap",
+  "changeSummary": "Initial externalized task execution prompt.",
+  "relativeContentPath": "external-processes/task-execution-prompt/content.json",
+  "relativeMetadataPath": "external-processes/task-execution-prompt/metadata.json"
+}

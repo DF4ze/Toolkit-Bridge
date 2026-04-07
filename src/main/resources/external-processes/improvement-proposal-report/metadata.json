@@ -1,0 +1,11 @@
+{
+  "processId": "improvement-proposal-report",
+  "description": "Markdown template used to persist self-improvement proposals in proposal-only mode.",
+  "mediaType": "application/json",
+  "createdAt": "2026-04-07T00:00:00Z",
+  "updatedAt": "2026-04-07T00:00:00Z",
+  "updatedBy": "system-bootstrap",
+  "changeSummary": "Initial externalized improvement proposal report template.",
+  "relativeContentPath": "external-processes/improvement-proposal-report/content.json",
+  "relativeMetadataPath": "external-processes/improvement-proposal-report/metadata.json"
+}

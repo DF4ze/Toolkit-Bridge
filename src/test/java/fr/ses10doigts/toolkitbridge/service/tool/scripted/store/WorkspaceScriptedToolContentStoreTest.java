@@ -45,6 +45,7 @@ class WorkspaceScriptedToolContentStoreTest {
         properties.setSharedRoot(tempDir.resolve("shared").toString());
         properties.setGlobalContextRoot(tempDir.resolve("global-context").toString());
         properties.setScriptedToolsRoot(tempDir.resolve("shared").resolve("scripted-tools").toString());
+        properties.setExternalProcessesRoot(tempDir.resolve("shared").resolve("processes").toString());
         return properties;
     }
 }

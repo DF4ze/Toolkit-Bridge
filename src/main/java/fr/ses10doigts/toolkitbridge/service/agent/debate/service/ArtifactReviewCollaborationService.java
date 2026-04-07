@@ -16,6 +16,8 @@ import fr.ses10doigts.toolkitbridge.service.agent.debate.model.DebateContext;
 import fr.ses10doigts.toolkitbridge.service.agent.debate.model.DebateMessageCommand;
 import fr.ses10doigts.toolkitbridge.service.agent.debate.model.DebateStage;
 import fr.ses10doigts.toolkitbridge.service.agent.debate.model.DebateTranscriptEntry;
+import fr.ses10doigts.toolkitbridge.service.agent.process.ExternalProcessService;
+import fr.ses10doigts.toolkitbridge.service.agent.process.model.TextTemplateProcess;
 import fr.ses10doigts.toolkitbridge.service.agent.trace.AgentTraceService;
 import fr.ses10doigts.toolkitbridge.service.agent.trace.model.AgentTraceCorrelation;
 import fr.ses10doigts.toolkitbridge.service.agent.trace.model.AgentTraceEventType;
@@ -30,18 +32,23 @@ import java.util.Map;
 @Service
 public class ArtifactReviewCollaborationService {
 
+    static final String ARTIFACT_REVIEW_SYNTHESIS_PROCESS_ID = "artifact-review-synthesis";
+
     private final DebateMessageFactory debateMessageFactory;
     private final AgentMessageBus agentMessageBus;
     private final ArtifactService artifactService;
+    private final ExternalProcessService externalProcessService;
     private final AgentTraceService agentTraceService;
 
     public ArtifactReviewCollaborationService(DebateMessageFactory debateMessageFactory,
                                               AgentMessageBus agentMessageBus,
                                               ArtifactService artifactService,
+                                              ExternalProcessService externalProcessService,
                                               AgentTraceService agentTraceService) {
         this.debateMessageFactory = debateMessageFactory;
         this.agentMessageBus = agentMessageBus;
         this.artifactService = artifactService;
+        this.externalProcessService = externalProcessService;
         this.agentTraceService = agentTraceService;
     }
 
@@ -195,33 +202,25 @@ public class ArtifactReviewCollaborationService {
                                       AgentRole reviewerRole,
                                       String reviewerAgentId,
                                       List<DebateTranscriptEntry> transcript) {
+        TextTemplateProcess template = externalProcessService.loadTypedContent(
+                ARTIFACT_REVIEW_SYNTHESIS_PROCESS_ID,
+                TextTemplateProcess.class
+        );
         String critique = transcript.stream()
                 .filter(entry -> entry.stage() == DebateStage.CRITIQUE)
                 .map(DebateTranscriptEntry::text)
                 .findFirst()
                 .orElse("No critique available.");
 
-        return """
-                # Artifact review synthesis
-
-                - Reviewed artifact: `%s`
-                - Artifact type: `%s`
-                - Producer agent: `%s`
-                - Reviewer role: `%s`
-                - Reviewer agent: `%s`
-                - Review question: `%s`
-
-                ## Critique
-                %s
-                """.formatted(
-                artifact.artifactId(),
-                artifact.type().key(),
-                artifact.producerAgentId(),
-                reviewerRole.name(),
-                reviewerAgentId,
-                reviewQuestion,
-                critique
-        ).trim();
+        return externalProcessService.renderTemplate(template.template(), Map.of(
+                "artifactId", artifact.artifactId(),
+                "artifactType", artifact.type().key(),
+                "producerAgentId", artifact.producerAgentId(),
+                "reviewerRole", reviewerRole.name(),
+                "reviewerAgentId", reviewerAgentId,
+                "reviewQuestion", reviewQuestion,
+                "critique", critique
+        )).trim();
     }
 
     private String safeTitle(Artifact artifact) {

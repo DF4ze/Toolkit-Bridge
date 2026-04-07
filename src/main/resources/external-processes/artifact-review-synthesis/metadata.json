@@ -1,0 +1,11 @@
+{
+  "processId": "artifact-review-synthesis",
+  "description": "Markdown synthesis template used to summarize artifact reviews.",
+  "mediaType": "application/json",
+  "createdAt": "2026-04-07T00:00:00Z",
+  "updatedAt": "2026-04-07T00:00:00Z",
+  "updatedBy": "system-bootstrap",
+  "changeSummary": "Initial externalized artifact review synthesis template.",
+  "relativeContentPath": "external-processes/artifact-review-synthesis/content.json",
+  "relativeMetadataPath": "external-processes/artifact-review-synthesis/metadata.json"
+}

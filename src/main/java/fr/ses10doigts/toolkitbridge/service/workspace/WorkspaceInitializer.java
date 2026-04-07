@@ -26,6 +26,7 @@ public class WorkspaceInitializer implements ApplicationRunner {
         Path botsRoot = workspaceLayout.agentsRoot();
         Path sharedRoot = workspaceLayout.sharedRoot();
         Path globalContextRoot = workspaceLayout.globalContextRoot();
+        Path externalProcessesRoot = workspaceLayout.externalProcessesRoot();
 
         List<AgentDefinitionProperties> agents = agentsProperties.getDefinitions(); // adapte selon ton modèle
         if (agents == null || agents.isEmpty()) {
@@ -40,5 +41,6 @@ public class WorkspaceInitializer implements ApplicationRunner {
 
         log.info("Shared workspace initialized at {}", sharedRoot);
         log.info("Global context root initialized at {}", globalContextRoot);
+        log.info("External processes root initialized at {}", externalProcessesRoot);
     }
 }

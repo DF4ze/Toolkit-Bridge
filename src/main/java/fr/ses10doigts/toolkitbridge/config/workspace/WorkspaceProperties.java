@@ -21,4 +21,7 @@ public class WorkspaceProperties {
 
     @NotBlank
     private String scriptedToolsRoot = "workspace/shared/scripted-tools";
+
+    @NotBlank
+    private String externalProcessesRoot = "workspace/shared/processes";
 }

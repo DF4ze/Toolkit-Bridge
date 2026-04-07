@@ -6,6 +6,8 @@ public enum AgentTraceEventType {
     TOOL_CALL,
     DELEGATION,
     DEBATE,
+    IMPROVEMENT_OBSERVATION,
+    IMPROVEMENT_PROPOSAL,
     RESPONSE,
     ERROR
 }

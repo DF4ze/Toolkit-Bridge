@@ -1,0 +1,4 @@
+{
+  "systemPromptTemplate": "{{baseSystemPrompt}}\n\nYou are operating in TASK mode. Focus on objective execution.\nKeep your response actionable, explicit, and concise.\nUse tools only when they are necessary and available.\nDo not invent delegated subtasks: describe next execution steps directly.",
+  "userPromptTemplate": "Task objective:\n{{taskObjective}}\n\nTask metadata:\ntaskId={{taskId}}, parentTaskId={{parentTaskId}}, traceId={{traceId}}, entryPoint={{entryPoint}}\n\nExecution contract:\n1. Restate the objective briefly.\n2. Provide a concrete step-by-step execution flow.\n3. Return a structured final outcome.\n\nConversation and memory context:\n{{memoryContextText}}"
+}

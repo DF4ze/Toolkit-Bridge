@@ -37,6 +37,7 @@ class WorkspaceServiceTest {
         properties.setAgentsRoot(tempDir.resolve("agents").toString());
         properties.setSharedRoot(tempDir.resolve("shared").toString());
         properties.setGlobalContextRoot(tempDir.resolve("global-context").toString());
+        properties.setExternalProcessesRoot(tempDir.resolve("shared").resolve("processes").toString());
 
         workspaceService = new WorkspaceService(new WorkspaceLayout(properties), currentAgentService);
     }
@@ -92,6 +93,14 @@ class WorkspaceServiceTest {
         assertTrue(resolved.startsWith(tempDir.resolve("global-context")));
         assertEquals("user.md", resolved.getFileName().toString());
         assertEquals("profiles/user.md", workspaceService.relativizeFromGlobalContext(resolved));
+    }
+
+    @Test
+    void shouldExposeExternalProcessesRoot() throws IOException {
+        Path root = workspaceService.getExternalProcessesRoot();
+
+        assertTrue(Files.exists(root));
+        assertTrue(root.startsWith(tempDir.resolve("shared").resolve("processes")));
     }
 
     @Test

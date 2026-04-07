@@ -2,13 +2,25 @@ package fr.ses10doigts.toolkitbridge.service.agent.orchestrator.task;
 
 import fr.ses10doigts.toolkitbridge.memory.facade.model.MemoryContext;
 import fr.ses10doigts.toolkitbridge.model.dto.agent.comm.AgentRequest;
+import fr.ses10doigts.toolkitbridge.service.agent.process.ExternalProcessService;
+import fr.ses10doigts.toolkitbridge.service.agent.process.model.PromptProcessTemplate;
 import fr.ses10doigts.toolkitbridge.service.agent.orchestrator.model.OrchestrationRequestContext;
 import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentRuntime;
 import fr.ses10doigts.toolkitbridge.service.agent.task.model.Task;
 import org.springframework.stereotype.Component;
 
+import java.util.Map;
+
 @Component
 public class DefaultTaskPromptBuilder implements TaskPromptBuilder {
+
+    static final String TASK_EXECUTION_PROCESS_ID = "task-execution-prompt";
+
+    private final ExternalProcessService externalProcessService;
+
+    public DefaultTaskPromptBuilder(ExternalProcessService externalProcessService) {
+        this.externalProcessService = externalProcessService;
+    }
 
     @Override
     public TaskPrompt build(AgentRuntime runtime,
@@ -16,28 +28,24 @@ public class DefaultTaskPromptBuilder implements TaskPromptBuilder {
                             OrchestrationRequestContext context,
                             Task task,
                             MemoryContext memoryContext) {
+        PromptProcessTemplate template = externalProcessService.loadTypedContent(
+                TASK_EXECUTION_PROCESS_ID,
+                PromptProcessTemplate.class
+        );
 
-        String systemPrompt = runtime.definition().systemPrompt() + "\n\n"
-                + "You are operating in TASK mode. Focus on objective execution.\n"
-                + "Keep your response actionable, explicit, and concise.\n"
-                + "Use tools only when they are necessary and available.\n"
-                + "Do not invent delegated subtasks: describe next execution steps directly.";
+        Map<String, String> variables = Map.of(
+                "baseSystemPrompt", runtime.definition().systemPrompt(),
+                "taskObjective", task.objective(),
+                "taskId", task.taskId(),
+                "parentTaskId", task.parentTaskId() == null ? "none" : task.parentTaskId(),
+                "traceId", task.traceId(),
+                "entryPoint", task.entryPoint().name(),
+                "memoryContextText", memoryContext.text()
+        );
 
-        // Extension point for future task model enrichment (subtasks, delegates, planners).
-        String userPrompt = "Task objective:\n"
-                + task.objective()
-                + "\n\nTask metadata:\n"
-                + "taskId=" + task.taskId()
-                + ", parentTaskId=" + (task.parentTaskId() == null ? "none" : task.parentTaskId())
-                + ", traceId=" + task.traceId()
-                + ", entryPoint=" + task.entryPoint()
-                + "\n\nExecution contract:\n"
-                + "1. Restate the objective briefly.\n"
-                + "2. Provide a concrete step-by-step execution flow.\n"
-                + "3. Return a structured final outcome.\n\n"
-                + "Conversation and memory context:\n"
-                + memoryContext.text();
-
-        return new TaskPrompt(systemPrompt, userPrompt);
+        return new TaskPrompt(
+                externalProcessService.renderTemplate(template.systemPromptTemplate(), variables),
+                externalProcessService.renderTemplate(template.userPromptTemplate(), variables)
+        );
     }
 }

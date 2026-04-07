@@ -1,0 +1,3 @@
+{
+  "template": "# Improvement proposal\n\n- Mode: `{{mode}}`\n- Task id: `{{taskId}}`\n- Trace id: `{{traceId}}`\n- Producer agent: `{{producerAgentId}}`\n\n## Observation\n- Category: `{{observationCategory}}`\n- Title: `{{observationTitle}}`\n\n{{observationDetail}}\n\n### Evidence\n{{observationEvidence}}\n\n## Recommendation\n- Target type: `{{targetType}}`\n- Target reference: `{{targetReference}}`\n- Summary: `{{recommendationSummary}}`\n\n### Rationale\n{{recommendationRationale}}\n\n### Suggested change\n{{suggestedChange}}\n\n## Guardrail\n{{guardrailNote}}\n"
+}

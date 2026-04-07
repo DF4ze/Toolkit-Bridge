@@ -1,0 +1,3 @@
+{
+  "template": "# Artifact review synthesis\n\n- Reviewed artifact: `{{artifactId}}`\n- Artifact type: `{{artifactType}}`\n- Producer agent: `{{producerAgentId}}`\n- Reviewer role: `{{reviewerRole}}`\n- Reviewer agent: `{{reviewerAgentId}}`\n- Review question: `{{reviewQuestion}}`\n\n## Critique\n{{critique}}\n"
+}
