@@ -1,13 +1,13 @@
 
-@botIdent = Cortex
+@agentId = Cortex
 
 ### Create bot
-POST http://localhost:8080/api/admin/agents/create
+POST http://localhost:8080/api/admin/agents
 Content-Type: application/json
 Accept: application/json
 
 {
-  "botIdent": "{{botIdent}}"
+  "agentId": "{{agentId}}"
 }
 
 > {%

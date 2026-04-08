@@ -1,0 +1,123 @@
+
+Refacto appliqué avec une séparation claire auth / admin.functional / admin.technical, suppression du GET créateur, et base prête pour Marcel.
+
+Code refactoré
+
+Auth déplacé dans AuthController (line 11).
+Admin fonctionnelle:
+Agents dans AgentAdminController (line 16).
+LLMs dans LlmAdminController (line 15).
+Telegram bots dans TelegramBotAdminController (line 16).
+Admin technique:
+Observabilité conservée dans TechnicalAdminController (line 15).
+Debug LLM déplacé côté technique dans LlmDebugController (line 13).
+Façades/DTO ajoutés:
+AgentAdminFacade (line 15)
+LlmAdminFacade (line 19)
+TelegramBotAdminFacade (line 13)
+DTOs sous model/dto/admin/{agent,llm,telegram}.
+Service agent étendu pour list/detail/create dans AgentAccountService (line 39).
+Nettoyage:
+suppression de GET /api/admin/agents/new
+suppression de l’ancien DTO CreateAgentRequest (non utilisé)
+wording “bot” -> “agent” dans exceptions/handler.
+Anciens endpoints
+
+GET /api/auth/me
+POST /api/admin/agents/create
+GET /api/admin/agents/new?agentIdent=... (création via GET)
+GET /api/admin/llm/debug/{agentId}
+GET /api/admin/technical/{overview|agents|tasks|traces|artifacts|configuration|retention}
+Nouveaux endpoints finaux
+
+GET /api/auth/me
+GET /api/admin/agents
+GET /api/admin/agents/{agentId}
+POST /api/admin/agents
+GET /api/admin/llms
+GET /api/admin/llms/{llmId}
+GET /api/admin/technical/llms/debug/{agentId}
+GET /api/admin/technical/overview
+GET /api/admin/technical/agents
+GET /api/admin/technical/tasks?limit=&agentId=&status=
+GET /api/admin/technical/traces?limit=&agentId=
+GET /api/admin/technical/artifacts?limit=&agentId=&taskId=
+GET /api/admin/technical/configuration
+GET /api/admin/technical/retention
+GET /api/admin/telegram-bots
+GET /api/admin/telegram-bots/{botId}
+POST /api/admin/telegram-bots (retourne 501 Not Implemented proprement, structure prête)
+Supprimés / renommés
+
+Supprimé: GET /api/admin/agents/new
+Renommé: POST /api/admin/agents/create -> POST /api/admin/agents
+Déplacé: GET /api/admin/llm/debug/{agentId} -> GET /api/admin/technical/llms/debug/{agentId}
+Harmonisé: /api/admin/llm -> /api/admin/llms
+Tests et vérif
+
+Tests ajoutés/mis à jour:
+TechnicalAdminControllerTest (line 16)
+AgentAdminControllerTest (line 17)
+LlmAdminControllerTest (line 16)
+TelegramBotAdminControllerTest (line 17)
+LlmDebugControllerTest (line 17)
+Commande exécutée:
+./mvnw -q "-Dtest=TechnicalAdminControllerTest,AgentAdminControllerTest,LlmAdminControllerTest,TelegramBotAdminControllerTest,LlmDebugControllerTest" test
+OK.
+Reste à faire pour la future UI Marcel
+
+Implémenter réellement POST /api/admin/telegram-bots (persist/config writable).
+Ajouter PUT/DELETE /api/admin/agents/{agentId} quand le service est prêt.
+Éventuellement enrichir /api/admin/llms/{llmId} (modèles, état, actions d’admin).
+Ajouter des tests d’intégration HTTP (MockMvc) quand on branchera les pages Thymeleaf.
+
+
+
+Après relecture :
+Revue critique (architecture)
+
+Mélange auth / admin
+Avant correction, AgentAccountService portait auth + provisioning + lecture admin (list/get), ce qui brouillait les responsabilités.
+
+Mélange configuration / runtime sur les LLM
+Avant correction, LlmAdminFacade combinait config persistée et capacités runtime du registry.
+
+Logique ad hoc dans le controller Telegram
+Le message NOT_IMPLEMENTED était codé en dur côté controller au lieu d’être centralisé service/facade.
+
+Cohérence de nommage incomplète
+Reste de vocabulaire bot (createBot, handlers nommés handleBot...) et incohérences agentIdent/agentId.
+
+Tests trop “délégation”
+Les tests controllers étaient utiles mais insuffisants pour verrouiller la logique de mapping/agrégation service.
+
+Corrections proposées puis appliquées
+
+Séparer clairement la lecture admin des comptes agents
+Ajout de AgentAccountAdminService (list/detail + validation).
+AgentAdminFacade utilise ce service pour GET, et AgentAccountService uniquement pour provisioning/auth.
+Suppression de createBot, usage uniformisé vers createAgent dans AgentAccountInitializer.
+Rendre LLMs strictement “config admin”
+Simplification de LlmAdminFacade pour ne dépendre que de AdministrableConfigurationGateway.
+DTO LlmAdminResponse réduit aux données de configuration (plus de capacités runtime).
+Enlever l’ad hoc du controller Telegram
+Création déplacée en façade avec TelegramBotAdminFacade#createTelegramBot (line 35).
+TelegramBotAdminController (line 33) reste fin.
+Nettoyage de cohérence
+Renommage des handlers en GlobalExceptionHandler (line 20) / :29 (handleAgent...).
+Harmonisation du sample HTTP createBot.http avec agentId.
+Tests plus utiles
+Ajout de tests façade/service:
+AgentAccountAdminServiceTest
+AgentAdminFacadeTest
+LlmAdminFacadeTest
+Vérifications exécutées
+
+./mvnw -q "-Dtest=TechnicalAdminControllerTest,AgentAdminControllerTest,LlmAdminControllerTest,TelegramBotAdminControllerTest,LlmDebugControllerTest,AgentAdminFacadeTest,LlmAdminFacadeTest,AgentAccountAdminServiceTest" test ✅
+./mvnw -q -DskipTests test-compile ✅
+Dette technique restante (assumée, hors périmètre immédiat)
+
+Le package historique controler (typo) reste globalement présent; le renommer partout serait un refacto transversal plus large.
+Le record historique AgentProvisioningResult expose encore agentIdent (héritage existant), même si l’API admin externe est uniformisée en agentId.
+La frontière “admin des définitions d’agents” vs “admin des comptes d’authentification agents” pourra être clarifiée davantage lors du lot UI/configuration éditable.
+

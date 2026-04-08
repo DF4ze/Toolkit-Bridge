@@ -27,11 +27,11 @@ public class AgentAccountService {
     private final SecureRandom secureRandom = new SecureRandom();
 
     @Transactional
-    public AgentProvisioningResult createBot(String botIdent) {
-        validateBotIdent(botIdent);
+    public AgentProvisioningResult createAgent(String agentId) {
+        validateAgentIdent(agentId);
 
-        if (agentAccountRepository.existsByAgentIdent(botIdent)) {
-            throw new AgentAlreadyExistsException(botIdent);
+        if (agentAccountRepository.existsByAgentIdent(agentId)) {
+            throw new AgentAlreadyExistsException(agentId);
         }
 
         String lookupPrefix = generateRandomToken(LOOKUP_PREFIX_LENGTH);
@@ -39,14 +39,14 @@ public class AgentAccountService {
         String apiKey = API_KEY_PREFIX + lookupPrefix + "." + secretPart;
 
         AgentAccount agentAccount = new AgentAccount();
-        agentAccount.setAgentIdent(botIdent);
+        agentAccount.setAgentIdent(agentId);
         agentAccount.setApiKeyPrefix(lookupPrefix);
         agentAccount.setApiKeyHash(hashApiKey(apiKey));
         agentAccount.setEnabled(true);
 
         agentAccountRepository.save(agentAccount);
 
-        return new AgentProvisioningResult(botIdent, apiKey);
+        return new AgentProvisioningResult(agentId, apiKey);
     }
 
     @Transactional(readOnly = true)
@@ -116,17 +116,17 @@ public class AgentAccountService {
         return hashApiKey(rawApiKey).equals(agentAccount.getApiKeyHash());
     }
 
-    private void validateBotIdent(String botIdent) {
-        if (botIdent == null || botIdent.isBlank()) {
-            throw new IllegalArgumentException("agentIdent cannot be empty");
+    private void validateAgentIdent(String agentIdent) {
+        if (agentIdent == null || agentIdent.isBlank()) {
+            throw new IllegalArgumentException("agentId cannot be empty");
         }
 
-        if (botIdent.length() > 100) {
-            throw new IllegalArgumentException("agentIdent is too long");
+        if (agentIdent.length() > 100) {
+            throw new IllegalArgumentException("agentId is too long");
         }
 
-        if (!botIdent.matches("[a-zA-Z0-9._-]+")) {
-            throw new IllegalArgumentException("agentIdent contains forbidden characters");
+        if (!agentIdent.matches("[a-zA-Z0-9._-]+")) {
+            throw new IllegalArgumentException("agentId contains forbidden characters");
         }
     }
 
@@ -151,4 +151,5 @@ public class AgentAccountService {
             throw new IllegalStateException("Unable to hash API key", e);
         }
     }
+
 }

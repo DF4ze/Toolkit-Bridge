@@ -1,4 +1,4 @@
-package fr.ses10doigts.toolkitbridge.controler.web;
+package fr.ses10doigts.toolkitbridge.controler.web.admin.technical;
 
 import fr.ses10doigts.toolkitbridge.model.dto.admin.technical.TechnicalAdminView;
 import fr.ses10doigts.toolkitbridge.service.admin.TechnicalAdminFacade;

@@ -17,20 +17,20 @@ import java.util.Map;
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(AgentAlreadyExistsException.class)
-    public org.springframework.http.ResponseEntity<ErrorResponse> handleBotAlreadyExists(
+    public org.springframework.http.ResponseEntity<ErrorResponse> handleAgentAlreadyExists(
             AgentAlreadyExistsException ex,
             HttpServletRequest request
     ) {
-        log.warn("Bot already exists: {}", ex.getMessage());
+        log.warn("Agent already exists: {}", ex.getMessage());
         return buildResponse(HttpStatus.CONFLICT, ex.getMessage(), request, null);
     }
 
     @ExceptionHandler(AgentNotFoundException.class)
-    public org.springframework.http.ResponseEntity<ErrorResponse> handleBotNotFound(
+    public org.springframework.http.ResponseEntity<ErrorResponse> handleAgentNotFound(
             AgentNotFoundException ex,
             HttpServletRequest request
     ) {
-        log.warn("Bot not found: {}", ex.getMessage());
+        log.warn("Agent not found: {}", ex.getMessage());
         return buildResponse(HttpStatus.NOT_FOUND, ex.getMessage(), request, null);
     }
 

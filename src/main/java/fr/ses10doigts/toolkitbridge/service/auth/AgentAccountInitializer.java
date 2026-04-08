@@ -47,7 +47,7 @@ public class AgentAccountInitializer implements ApplicationRunner {
 
         for (String agentIdent : declaredAgents) {
             if (!agentAccountRepository.existsByAgentIdent(agentIdent)) {
-                AgentProvisioningResult result = agentAccountService.createBot(agentIdent);
+                AgentProvisioningResult result = agentAccountService.createAgent(agentIdent);
                 log.warn("Created missing agent account agentIdent='{}' apiKey='{}'. Store this key securely.",
                         result.agentIdent(),
                         result.apiKey());

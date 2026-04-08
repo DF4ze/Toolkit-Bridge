@@ -1,4 +1,4 @@
-package fr.ses10doigts.toolkitbridge.controler.web;
+package fr.ses10doigts.toolkitbridge.controler.web.admin.technical;
 
 import fr.ses10doigts.toolkitbridge.service.llm.debug.LlmDebugSnapshot;
 import fr.ses10doigts.toolkitbridge.service.llm.debug.LlmDebugStore;
@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/admin/llm")
+@RequestMapping("/api/admin/technical/llms")
 @RequiredArgsConstructor
 public class LlmDebugController {
 
