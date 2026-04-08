@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marcel - Admin</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" th:href="@{/favicon.ico}">
+    <style>
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            font-family: "Segoe UI", Tahoma, sans-serif;
+            background: #f3f4f6;
+            color: #111827;
+            padding: 1rem;
+        }
+
+        main {
+            width: min(640px, 100%);
+            background: #ffffff;
+            border: 1px solid #d1d5db;
+            border-radius: 12px;
+            padding: 1.25rem;
+            box-shadow: 0 10px 30px rgba(17, 24, 39, 0.07);
+        }
+
+        h1 {
+            margin: 0 0 0.5rem;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.4rem;
+        }
+
+        .logo {
+            width: 44px;
+            height: 44px;
+            border-radius: 999px;
+            object-fit: cover;
+        }
+
+        p {
+            margin: 0.3rem 0;
+        }
+
+        .hint {
+            color: #6b7280;
+        }
+
+        form {
+            margin-top: 1rem;
+        }
+
+        button {
+            border: 0;
+            border-radius: 8px;
+            background: #111827;
+            color: #ffffff;
+            font-weight: 600;
+            padding: 0.6rem 1rem;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+<main>
+    <div class="brand">
+        <img class="logo" src="/img/marcel-logo.png" th:src="@{/img/marcel-logo.png}" alt="Marcel logo">
+        <h1>Marcel Admin</h1>
+    </div>
+    <p>You are authenticated on the admin session.</p>
+    <p class="hint">This is a placeholder page. Future Marcel UI pages can now live under <code>/admin/**</code>.</p>
+
+    <form action="/logout" method="post" th:action="@{/logout}">
+        <button type="submit">Logout</button>
+    </form>
+</main>
+</body>
+</html>

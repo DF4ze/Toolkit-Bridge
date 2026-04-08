@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marcel - Login</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" th:href="@{/favicon.ico}">
+    <style>
+        :root {
+            color-scheme: light;
+            --bg: #f7f8fa;
+            --card: #ffffff;
+            --text: #1f2937;
+            --muted: #6b7280;
+            --accent: #1d4ed8;
+            --accent-hover: #1e40af;
+            --error-bg: #fee2e2;
+            --error-text: #b91c1c;
+            --border: #d1d5db;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: "Segoe UI", Tahoma, sans-serif;
+            background: radial-gradient(circle at top, #eef2ff 0%, var(--bg) 55%);
+            color: var(--text);
+            display: grid;
+            place-items: center;
+            padding: 1rem;
+        }
+
+        .card {
+            width: 100%;
+            max-width: 420px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            box-shadow: 0 16px 45px rgba(15, 23, 42, 0.08);
+            padding: 1.5rem;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.4rem;
+        }
+
+        .logo {
+            width: 48px;
+            height: 48px;
+            border-radius: 999px;
+            object-fit: cover;
+        }
+
+        h1 {
+            margin: 0 0 0.25rem;
+            font-size: 1.8rem;
+        }
+
+        p {
+            margin: 0;
+            color: var(--muted);
+        }
+
+        .field {
+            margin-top: 1rem;
+        }
+
+        label {
+            font-weight: 600;
+            display: block;
+            margin-bottom: 0.4rem;
+        }
+
+        input {
+            width: 100%;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.65rem 0.75rem;
+            font-size: 1rem;
+        }
+
+        button {
+            margin-top: 1rem;
+            width: 100%;
+            border: 0;
+            border-radius: 8px;
+            background: var(--accent);
+            color: #ffffff;
+            font-size: 1rem;
+            font-weight: 600;
+            padding: 0.7rem 0.8rem;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: var(--accent-hover);
+        }
+
+        .error {
+            margin-top: 1rem;
+            border: 1px solid #fecaca;
+            border-radius: 8px;
+            background: var(--error-bg);
+            color: var(--error-text);
+            padding: 0.6rem 0.75rem;
+            font-size: 0.95rem;
+        }
+    </style>
+</head>
+<body>
+<main class="card">
+    <div class="brand">
+        <img class="logo" src="/img/marcel-logo.png" th:src="@{/img/marcel-logo.png}" alt="Marcel logo">
+        <h1>Marcel</h1>
+    </div>
+    <p>Enter the admin master token to continue.</p>
+
+    <div class="error" th:if="${error}" th:text="${error}"></div>
+
+    <form method="post" action="/login" th:action="@{/login}">
+        <div class="field">
+            <label for="token">Master token</label>
+            <input id="token" name="token" type="password" autocomplete="off" required autofocus>
+        </div>
+        <button type="submit">Sign in</button>
+    </form>
+</main>
+</body>
+</html>

@@ -29,3 +29,4 @@ target/
 **/toolkit-bridge-test.db
 **/*sqlitejdbc.dll
 **/workspace/
+data/runtime/security/

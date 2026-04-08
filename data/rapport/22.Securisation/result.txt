@@ -1,0 +1,124 @@
+Implémentation réalisée
+
+MVP sécurité admin en place avec token maître + session serveur + filtre global, sans Spring Security “lourd”, sans JWT/OAuth.
+
+Classes ajoutées/modifiées
+
+Ajout token/config sécurité:
+AdminSecurityProperties.java, AdminSecurityConfiguration.java, AdminTokenService.java, AdminTokenInitializer.java
+Ajout auth session + filtre:
+AdminAuthenticationService.java, AdminAuthFilter.java
+Ajout login/logout + page admin minimale:
+LoginController.java, AdminHomeController.java, login.html, index.html
+Ajustement filtre existant:
+ApiKeyAuthenticationFilter.java (limité à /api/** hors /api/admin/**)
+Dépendance vue:
+pom.xml (ajout spring-boot-starter-thymeleaf)
+Fichier token hors git:
+.gitignore (data/runtime/security/)
+Préparation HTTPS + propriété token:
+src/main/resources/application.yml (bloc SSL commenté + toolkit.admin.security.master-token-file)
+Fonctionnement global
+
+Premier démarrage:
+AdminTokenInitializer initialise le token maître.
+Si token absent/invalide:
+AdminTokenService génère un token fort (32 bytes SecureRandom, Base64 URL-safe), le persiste, et le loggue une seule fois.
+Démarrages suivants:
+token relu depuis fichier, jamais reloggé.
+Login:
+POST /login compare le token sans le logguer, puis crée une session serveur (adminAuthenticated=true).
+Logout:
+POST /logout invalide la session.
+Protection:
+AdminAuthFilter protège les routes admin via session.
+Web non auth -> redirection /login
+API non auth -> 401 Unauthorized JSON
+Routes publiques
+
+GET /login
+POST /login
+POST /logout
+/error
+ressources statiques (/css/**, /js/**, /img/**, /webjars/**) restent publiques par conception (hors zones protégées)
+Routes protégées
+
+/admin
+/admin/**
+/api/admin
+/api/admin/**
+Stockage du token
+
+Emplacement par défaut: data/runtime/security/admin-master.token
+Persistant, local serveur, hors git (ignoré).
+Récupération si token perdu
+
+Arrêter l’application
+Supprimer data/runtime/security/admin-master.token
+Redémarrer
+Un nouveau token est généré et loggué une seule fois au redémarrage
+HTTPS Spring Boot (préparé, non forcé)
+
+Bloc commenté ajouté dans application.yml avec:
+server.ssl.enabled, server.ssl.key-store, server.ssl.key-store-password, server.ssl.key-store-type, et option server.port=8443.
+Démarrage actuel inchangé tant que non activé.
+Validation
+
+Tests ajoutés:
+AdminTokenServiceTest.java, AdminAuthenticationServiceTest.java, AdminAuthFilterTest.java, LoginControllerTest.java
+Exécuté: ./mvnw "-Dtest=AdminTokenServiceTest,AdminAuthenticationServiceTest,AdminAuthFilterTest,LoginControllerTest" test -> OK.
+Durcissements futurs (optionnels)
+
+Rate limiting sur POST /login
+Cookie de session strict (Secure + SameSite strict en prod HTTPS)
+Rotation administrée du token maître
+Journalisation d’audit (sans fuite de secret)
+
+
+
+Après relecture :
+Faiblesses / points discutables identifiés
+
+Ordre des filtres implicite
+Sans @Order, le couplage entre filtres pouvait devenir fragile lors de futures phases.
+
+Clés de session trop génériques
+adminAuthenticated / adminAuthenticatedAt risquaient des collisions futures dans une appli qui grossit.
+
+Niveau de log du premier token
+Le log en WARN pour un événement normal (premier bootstrap) créait un faux signal d’alerte ops.
+
+Dette mineure restante (non bloquante)
+Le package historique controler (typo) reste incohérent avec controller, mais c’est transverse et hors périmètre MVP actuel.
+
+Tests bons mais encore unitaires
+Ils couvrent bien la logique métier du MVP, mais pas encore un scénario intégré complet HTTP + chaîne de filtres.
+
+Corrections utiles proposées
+
+Rendre l’ordre des filtres explicite.
+Namespacer les clés de session admin.
+Passer le log “token généré une seule fois” en INFO.
+Ne pas lancer maintenant de refactor global de packages ni de refonte de tests intégration (hors périmètre).
+Corrections réellement appliquées
+
+Ordre explicite des filtres
+AdminAuthFilter.java (line 23) @Order(Ordered.HIGHEST_PRECEDENCE + 20)
+ApiKeyAuthenticationFilter.java (line 25) @Order(Ordered.HIGHEST_PRECEDENCE + 30)
+Clés de session namespacées
+AdminAuthenticationService.java (line 12)
+toolkit.admin.authenticated
+toolkit.admin.authenticatedAt
+Log premier bootstrap ramené en INFO
+AdminTokenService.java (line 53)
+Vérification après correction
+Commande exécutée:
+./mvnw "-Dtest=AdminTokenServiceTest,AdminAuthenticationServiceTest,AdminAuthFilterTest,LoginControllerTest" test
+Résultat: 14 tests, 0 échec.
+Résumé final propre
+
+La séparation configuration/runtime est bonne pour ce MVP: config via properties, état runtime via session + fichier token persistant.
+Le modèle est simple et cohérent: TokenService (secret), AuthenticationService (session), AuthFilter (garde d’accès), LoginController (flux web).
+Le découplage vis-à-vis orchestrator/mémoire/tooling/policy/workspace est respecté: la sécurité admin est isolée dans son module et ne tire pas ces couches.
+La dette restante est maîtrisée: typo historique de package, absence de test intégré bout-en-bout (non bloquant pour cette phase).
+Aucune fonctionnalité hors périmètre n’a été ajoutée.
