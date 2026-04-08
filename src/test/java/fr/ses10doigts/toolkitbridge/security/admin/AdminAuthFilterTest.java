@@ -32,6 +32,23 @@ class AdminAuthFilterTest {
     }
 
     @Test
+    void redirectsUnauthenticatedUiPreviewRequestToLogin() throws ServletException, IOException {
+        AdminAuthenticationService authenticationService = mock(AdminAuthenticationService.class);
+        when(authenticationService.isAuthenticated(any())).thenReturn(false);
+        AdminAuthFilter filter = new AdminAuthFilter(authenticationService, new ObjectMapper());
+
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/admin/ui-preview");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        MockFilterChain chain = new MockFilterChain();
+
+        filter.doFilter(request, response, chain);
+
+        assertThat(response.getStatus()).isEqualTo(302);
+        assertThat(response.getRedirectedUrl()).isEqualTo("/login");
+        assertThat(chain.getRequest()).isNull();
+    }
+
+    @Test
     void returnsUnauthorizedForUnauthenticatedAdminApiRequest() throws ServletException, IOException {
         AdminAuthenticationService authenticationService = mock(AdminAuthenticationService.class);
         when(authenticationService.isAuthenticated(any())).thenReturn(false);

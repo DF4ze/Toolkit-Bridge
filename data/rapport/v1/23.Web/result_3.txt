@@ -1,0 +1,108 @@
+Implémentation du lot terminée en lecture seule, en réutilisant directement TechnicalAdminFacade (aucun appel HTTP interne à /api/admin/...).
+
+Routes MVC ajoutées
+
+GET /admin/technical
+GET /admin/technical/agents
+GET /admin/technical/tasks
+GET /admin/technical/traces
+GET /admin/technical/artifacts
+GET /admin/technical/configuration
+GET /admin/technical/retention
+Controller principal: TechnicalAdminPageController.java
+
+Templates créés
+
+overview.html
+agents.html
+tasks.html
+traces.html
+artifacts.html
+configuration.html
+retention.html
+Fragment onglets techniques: technical-nav.html
+Navigation
+
+Sidebar mise à jour avec entrée “Technique” + sous-navigation contextuelle technique.
+Fichier: navigation.html
+Styles ajoutés: marcel-theme.css
+Services/facades réutilisés
+
+TechnicalAdminFacade pour toutes les données techniques.
+AdminTechnicalProperties pour la normalisation des limit.
+Aucune duplication de logique backend, aucun AJAX, aucun SPA.
+Filtres disponibles
+
+Overview: limit
+Tasks: limit, agentId, status
+Traces: limit, agentId
+Artifacts: limit, agentId, taskId
+Les valeurs filtrées sont renvoyées dans les formulaires (UX GET serveur-side classique).
+Ajustements annexes
+
+Suppression du placeholder /admin/technical dans AdminPageController.java pour éviter conflit de mapping.
+Tests
+
+Nouveau test MVC: TechnicalAdminPageControllerTest.java
+Test ajusté: AdminPageControllerTest.java
+Exécuté avec succès:
+./mvnw -q "-Dtest=AdminPageControllerTest,TechnicalAdminPageControllerTest" test
+./mvnw -q -DskipTests compile
+Limites actuelles
+
+Pas de pagination complète/tri multi-colonnes (uniquement limit + filtres simples).
+Affichage timestamp brut (ISO) sans formatage local avancé.
+Pas de vue détail ligne par ligne (task/trace/artifact) dans ce lot.
+Logique pour le lot suivant
+
+Ajouter pages détail (/tasks/{id}, /traces/{id}, /artifacts/{id}) en lecture seule.
+Ajouter formatage date/heure local + tri serveur léger.
+Ajouter liens croisés (trace -> task -> artifacts) pour accélérer le diagnostic.
+
+
+
+
+Après relecture:
+Revue critique (post-implémentation)
+
+1) Faiblesses / points discutables
+[P2] Façade technique très agrégée (risque de “god facade”)
+La couche page est propre, mais elle dépend d’une façade unique qui touche runtime, policy, tooling, traces, artifacts, config, retention.
+Réf: TechnicalAdminPageController.java:22
+
+[P3] Tests MVC utiles mais surtout orientés wiring, peu de couverture de normalisation/filtres avant correction
+Les tests validaient bien les routes/views, mais peu les bornes de limit et la normalisation des filtres.
+Réf: TechnicalAdminPageControllerTest.java:98
+
+[P3] Comparaisons de statuts en “string” dans les templates (fragiles au renommage)
+Couplage implicite au nom texte des enums dans la vue.
+Réf initiale: tasks.html:79, traces.html:61
+
+2) Corrections proposées
+Réduire les duplications mineures dans le controller (chargement/sort des agents, métadonnées filtre).
+Remplacer les comparaisons string des statuts par des comparaisons enum explicites.
+Ajouter un test qui verrouille limit borné + filtres vides normalisés.
+3) Corrections appliquées (pertinentes, sans élargir le scope)
+Controller allégé / plus lisible
+
+Factorisation du tri agent dans sortedAgents()
+Suppression d’un attribut modèle non utilisé (maxLimit)
+Réf: TechnicalAdminPageController.java:143
+Templates durcis côté statuts
+
+tasks: comparaison via TaskStatus enum, plus de strings magiques
+traces: comparaison via AgentTraceEventType.ERROR, fallback UNKNOWN
+Réf: tasks.html:78, traces.html:61
+Test utile ajouté
+
+Vérifie normalisation des filtres vides + borne limit via config (100)
+Réf: TechnicalAdminPageControllerTest.java:117
+4) Ce que je n’ai pas changé volontairement
+Pas de refacto de TechnicalAdminFacade en sous-query-services (hors périmètre du lot lecture seule UI).
+Pas d’ajout de nouvelles fonctionnalités (pagination avancée, tri serveur, détails).
+5) Résumé final propre
+Séparation configuration/runtime dans les pages: correcte côté MVC (routes dédiées, vues dédiées, pas d’édition).
+Découplage orchestrator/memory/tooling/policy/workspace: correct au niveau pages (accès via façade unique, sans logique métier locale).
+Lisibilité/nommage: globalement bons, controller fin, templates cohérents avec Marcel.
+Tests: améliorés avec un cas métier réellement utile (normalisation + bornage).
+Dette restante principale: façade technique centrale très large (à envisager en lot futur, sans urgence immédiate).

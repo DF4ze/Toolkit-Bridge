@@ -6,6 +6,7 @@ import fr.ses10doigts.toolkitbridge.service.configuration.admin.AdministrableCon
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -22,13 +23,76 @@ public class LlmAdminFacade {
     }
 
     public Optional<LlmAdminResponse> getLlm(String llmId) {
-        if (llmId == null || llmId.isBlank()) {
+        String normalizedLlmId = normalize(llmId);
+        if (normalizedLlmId == null) {
             return Optional.empty();
         }
 
-        return listLlms().stream()
-                .filter(llm -> llm.llmId().equals(llmId))
+        return configurationGateway.loadOpenAiLikeProviders().stream()
+                .filter(provider -> normalizedLlmId.equals(normalize(provider.name())))
+                .map(this::toResponse)
                 .findFirst();
+    }
+
+    public LlmAdminResponse createLlm(
+            String llmId,
+            String baseUrl,
+            String defaultModel,
+            String apiKey
+    ) {
+        String normalizedLlmId = requireNonBlank(llmId, "llmId");
+        String normalizedBaseUrl = requireNonBlank(baseUrl, "baseUrl");
+        String normalizedDefaultModel = requireNonBlank(defaultModel, "defaultModel");
+        String normalizedApiKey = normalize(apiKey);
+
+        List<OpenAiLikeProperties> providers = new ArrayList<>(configurationGateway.loadOpenAiLikeProviders());
+        boolean alreadyExists = providers.stream()
+                .anyMatch(provider -> normalizedLlmId.equals(normalize(provider.name())));
+        if (alreadyExists) {
+            throw new LlmAdminValidationException("A provider with this id already exists.");
+        }
+
+        providers.add(new OpenAiLikeProperties(
+                normalizedLlmId,
+                normalizedBaseUrl,
+                normalizedApiKey,
+                normalizedDefaultModel
+        ));
+        configurationGateway.saveOpenAiLikeProviders(providers);
+        return toResponse(providers.getLast());
+    }
+
+    public Optional<LlmAdminResponse> updateLlm(
+            String llmId,
+            String baseUrl,
+            String defaultModel,
+            String apiKey
+    ) {
+        String normalizedLlmId = requireNonBlank(llmId, "llmId");
+        String normalizedBaseUrl = requireNonBlank(baseUrl, "baseUrl");
+        String normalizedDefaultModel = requireNonBlank(defaultModel, "defaultModel");
+        String normalizedApiKey = normalize(apiKey);
+
+        List<OpenAiLikeProperties> providers = new ArrayList<>(configurationGateway.loadOpenAiLikeProviders());
+        for (int i = 0; i < providers.size(); i++) {
+            OpenAiLikeProperties existing = providers.get(i);
+            if (!normalizedLlmId.equals(normalize(existing.name()))) {
+                continue;
+            }
+
+            String resolvedApiKey = normalizedApiKey == null ? existing.apiKey() : normalizedApiKey;
+            OpenAiLikeProperties updated = new OpenAiLikeProperties(
+                    normalizedLlmId,
+                    normalizedBaseUrl,
+                    resolvedApiKey,
+                    normalizedDefaultModel
+            );
+            providers.set(i, updated);
+            configurationGateway.saveOpenAiLikeProviders(providers);
+            return Optional.of(toResponse(updated));
+        }
+
+        return Optional.empty();
     }
 
     private LlmAdminResponse toResponse(OpenAiLikeProperties provider) {
@@ -38,6 +102,21 @@ public class LlmAdminFacade {
                 provider.defaultModel(),
                 !isBlank(provider.apiKey())
         );
+    }
+
+    private String requireNonBlank(String value, String fieldName) {
+        String normalized = normalize(value);
+        if (normalized == null) {
+            throw new LlmAdminValidationException(fieldName + " must not be blank.");
+        }
+        return normalized;
+    }
+
+    private String normalize(String value) {
+        if (isBlank(value)) {
+            return null;
+        }
+        return value.trim();
     }
 
     private boolean isBlank(String value) {

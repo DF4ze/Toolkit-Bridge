@@ -1,0 +1,99 @@
+
+Implémentation du Lot 7 terminée en restant strictement alignée avec l’existant backend Telegram.
+
+Analyse de l’existant (avant implémentation)
+
+La config Telegram admin actuelle repose sur TelegramSupervisionProperties (propriétés Spring), pas sur un CRUD persistant administrable équivalent au LLM.
+La façade existante TelegramBotAdminFacade expose surtout lecture (liste/détail) et un create REST non implémenté (NOT_IMPLEMENTED).
+Donc j’ai implémenté une section lecture + détail propre, sans faux CRUD.
+Routes MVC ajoutées
+GET /admin/telegram-bots
+GET /admin/telegram-bots/{botId}
+Controller:
+
+TelegramBotAdminPageController.java
+Templates créés
+list.html
+detail.html
+Services/facades réutilisés
+TelegramBotAdminFacade
+DTO existant: TelegramBotAdminResponse
+Navigation / intégration
+Placeholder /admin/telegram-bots retiré de AdminPageController.java pour éviter conflit de mapping.
+Sous-navigation Telegram ajoutée dans navigation.html (Liste).
+Niveau réel de support obtenu
+Lecture liste: oui
+Détail: oui
+Création: non (pas cohérent backend actuel)
+Édition: non (pas cohérent backend actuel)
+Sécurité / secrets
+Aucun token Telegram affiché en clair.
+L’UI explicite que l’édition n’est pas encore disponible et que la config est pilotée par propriétés applicatives.
+Tests ajoutés / adaptés
+Nouveau MVC: TelegramBotAdminPageControllerTest.java
+Nouveau façade: TelegramBotAdminFacadeTest.java
+Ajusté: AdminPageControllerTest.java
+Validation exécutée:
+
+./mvnw -q "-Dtest=TelegramBotAdminPageControllerTest,TelegramBotAdminFacadeTest,AdminPageControllerTest,TelegramBotAdminControllerTest" test
+./mvnw -q -DskipTests compile
+Limites actuelles
+La section Telegram est volontairement read-only côté MVC.
+Le backend ne fournit pas encore de modèle persistant admin Telegram propre et branché runtime comme pour les LLM.
+Ce qu’il faudra pour aller plus loin
+Introduire une source de config Telegram administrable persistée (gateway/store) clairement contractuelle.
+Brancher proprement la consommation runtime Telegram sur cette source (ou mécanisme de reload explicite).
+Ajouter ensuite création/édition MVC + validations serveur correspondantes, sans exposer de secret.
+
+
+
+
+
+Après relecture:
+Faiblesses / points discutables (revue critique)
+
+[P2] Couplage involontaire au mécanisme global de flash messages
+Le controller utilisait infoMessage dans le modèle pour un message statique de page.
+Risque: collision avec les vrais flash infos des actions futures.
+Réf: TelegramBotAdminPageController.java
+
+[P3] Duplication mineure de setup navigation
+activeNav / activeTelegramBotNav étaient répétés sur chaque handler.
+Réf: TelegramBotAdminPageController.java:24
+
+[P3] Dette résiduelle acceptable
+Le modèle Telegram admin reste read-only car la source est toolkit.telegram.supervision (configuration runtime), pas une config administrable persistée type LLM.
+C’est un choix cohérent, mais il faudra une couche admin persistante dédiée pour passer au CRUD.
+
+Corrections utiles proposées
+
+Retirer l’usage de infoMessage dans le controller Telegram (préserver le canal flash pour les vraies actions).
+Afficher l’information de limite actuelle directement dans les templates Telegram (alert locale).
+Factoriser la navigation dans une méthode privée du controller.
+Corrections appliquées
+
+Controller nettoyé
+
+Suppression des infoMessage injectés côté controller.
+Factorisation navigation via applyNavigation(model).
+Réf: TelegramBotAdminPageController.java:40
+Templates clarifiés
+
+Message d’état read-only déplacé en alert locale dans la page liste.
+Réf: list.html:14
+Message d’origine config explicité dans la page détail.
+Réf: detail.html:24
+Validation
+
+Tests ciblés passés:
+TelegramBotAdminPageControllerTest
+TelegramBotAdminFacadeTest
+AdminPageControllerTest
+TelegramBotAdminControllerTest
+Résumé final
+
+Séparation configuration vs runtime: correcte et explicite (section Telegram en lecture seule, sans faux CRUD).
+Découplage avec orchestrator/memory/tooling/policy/workspace: intact (aucun couplage ajouté).
+Lisibilité/nommage: améliorés (controller plus sobre, messages au bon endroit).
+Tests: utiles pour routing MVC + mapping façade + comportement redirect/empty.
+Dette introduite: faible; dette restante principale = absence de couche Telegram administrable persistée (préexistante, non aggravée par ce lot).

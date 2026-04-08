@@ -1,0 +1,98 @@
+Analyse de l’existant effectuée puis implémentation réalisée en restant alignée avec le backend réel:
+
+Agents = définitions administrables (via AdministrableConfigurationGateway / AgentDefinitionService)
+Accounts agents runtime/API key = autre couche (AgentAccountService)
+Donc j’ai implémenté un CRUD MVC sur les définitions d’agents (cohérent), sans simuler un CRUD complet des comptes runtime.
+Routes MVC ajoutées
+GET /admin/agents
+GET /admin/agents/{agentId}
+GET /admin/agents/new
+POST /admin/agents
+GET /admin/agents/{agentId}/edit
+POST /admin/agents/{agentId}
+Controller: AgentAdminPageController.java
+
+Templates créés
+list.html
+detail.html
+form.html
+Services/facades réutilisés
+AgentDefinitionService
+AgentAccountAdminService
+LlmAdminFacade
+TelegramBotAdminFacade
+AdministrableConfigurationGateway
+Nouveau façade d’assemblage page/admin:
+
+AgentDefinitionAdminFacade.java
+Ajout minimal nécessaire pour persistance définitions agents:
+
+AdministrableConfigurationGateway.java (saveAgentDefinitions(...))
+Niveau réel de support obtenu
+Lecture seule: oui
+Détail: oui
+Création: oui (définition d’agent persistée dans config administrable)
+Édition: oui (définition d’agent persistée)
+Exposition des associations LLM/Bot dans l’UI
+Liste: colonnes explicites LLM provider + model et Bot Telegram
+Détail: section dédiée “Associations” avec LLM, Bot, Orchestrator, Role
+Formulaire: select pour LLM et bot Telegram (pas de saisie libre absurde sur ces refs)
+Validation serveur: rejet propre si LLM/bot inconnu
+Ajustements navigation
+Placeholder /admin/agents retiré de AdminPageController.java
+Sous-navigation Agents ajoutée dans navigation.html
+Limites actuelles
+Le CRUD concerne la définition d’agent, pas le provisioning runtime complet (API key/account).
+Pas de gestion d’activation/désactivation de compte runtime depuis cette section.
+Le champ policyName reste texte libre (aligné backend actuel).
+Pour aller plus loin
+Ajouter une couche admin claire pour provisioning/rotation API key et état account agent.
+Ajouter une validation plus stricte des policies (liste de policies exposée côté registry).
+Unifier à terme “définition + account runtime” dans un écran workflow complet si souhaité.
+Tests ajoutés/ajustés
+AgentDefinitionAdminFacadeTest.java
+AgentAdminPageControllerTest.java
+AdminPageControllerTest.java ajusté
+Validation exécutée:
+
+./mvnw -q "-Dtest=AgentDefinitionAdminFacadeTest,AgentAdminPageControllerTest,AdminPageControllerTest,AgentAdminControllerTest" test
+./mvnw -q -DskipTests compile
+
+
+
+
+
+
+
+
+après relecture :
+Revue critique (phase Agents)
+
+Faiblesses / points discutables
+[Corrigé] Risque de perte de configuration policy en update: la mise à jour reconstruisait AgentDefinitionProperties sans conserver la policy fine existante (tools/memory/delegation/workspace), ce qui mélangeait mal évolution UI et stabilité config. Voir AgentDefinitionAdminFacade.java.
+[Déjà corrigé avant] Validation enum incomplète côté façade: sans garde-fou explicite, une valeur invalide pouvait être persistée puis casser la lecture runtime. Voir AgentDefinitionAdminFacade.java.
+[Reste à surveiller] Concurrence read-modify-write: load -> modify -> save n’est pas protégé par versioning/lock applicatif; acceptable ici, mais dette potentielle si admins concurrents.
+[Reste à surveiller] Nommage métier: llmProvider est validé contre llmId; fonctionnel mais peut créer de la confusion pour les prochains lots.
+Corrections proposées
+Préserver la policy existante lors d’un update tant que l’UI n’édite pas ces champs.
+Garder la validation enum stricte avant persistance.
+Ajouter un test utile pour verrouiller la non-régression sur la conservation de policy.
+Corrections appliquées (pertinentes uniquement)
+Mise à jour de la façade pour conserver la policy existante en édition:
+AgentDefinitionAdminFacade.java
+AgentDefinitionAdminFacade.java
+Ajout d’un test ciblé qui vérifie que la policy (allowed tools, memory scopes, delegation/workspace flags) est bien conservée:
+AgentDefinitionAdminFacadeTest.java
+Hors périmètre non ajouté
+Aucune nouvelle fonctionnalité.
+Pas de refacto massif.
+Pas de changement de modèle métier global.
+Résumé final propre
+Architecture globalement saine pour ce lot: séparation config/runtime respectée (définitions en config administrable, état compte runtime lu séparément), découplage orchestrator/memory/tooling/policy/workspace globalement correct.
+Point critique traité: suppression d’un risque de régression silencieuse de policy lors des updates.
+Tests utiles en place et verts sur le scope ciblé:
+AgentDefinitionAdminFacadeTest
+AgentAdminPageControllerTest
+AdminPageControllerTest
+AgentAdminControllerTest
+Dette restante raisonnable: concurrence write-config et clarification sémantique llmProvider vs llmId pour un lot futur.

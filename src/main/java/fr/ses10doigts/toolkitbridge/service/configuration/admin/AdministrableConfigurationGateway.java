@@ -60,6 +60,18 @@ public class AdministrableConfigurationGateway {
     }
 
     @Transactional
+    public void saveAgentDefinitions(List<AgentDefinitionProperties> definitions) {
+        List<AgentDefinitionProperties> value = definitions == null ? List.of() : List.copyOf(definitions);
+        storeService.write(AdministrableConfigKey.AGENT_DEFINITIONS, value);
+    }
+
+    @Transactional
+    public void saveOpenAiLikeProviders(List<OpenAiLikeProperties> providers) {
+        List<OpenAiLikeProperties> value = providers == null ? List.of() : List.copyOf(providers);
+        storeService.write(AdministrableConfigKey.OPENAI_LIKE_PROVIDERS, value);
+    }
+
+    @Transactional
     public boolean bootstrapSeedsIfMissing() {
         boolean seededAgentDefinitions = bootstrapIfMissing(
                 AdministrableConfigKey.AGENT_DEFINITIONS,

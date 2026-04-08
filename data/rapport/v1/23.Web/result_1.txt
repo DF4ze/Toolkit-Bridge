@@ -1,0 +1,103 @@
+Lot 3 implémenté (socle UI Marcel)
+J’ai analysé l’existant puis mis en place un socle UI MVC/Thymeleaf propre, sans ajouter de complexité frontend inutile.
+
+Dépendances
+
+pom.xml déjà conforme: spring-boot-starter-web + spring-boot-starter-thymeleaf présents.
+Aucune dépendance Maven ajoutée.
+Bootstrap 5 + jQuery intégrés via CDN dans les fragments de templates.
+Structure UI mise en place
+
+templates/fragments/ créé avec:
+head.html
+admin-header.html
+scripts.html
+templates/layouts/ créé avec:
+admin-layout.html
+templates/admin/ enrichi avec:
+ui-preview.html
+index.html migré sur le nouveau layout
+static/css/ créé avec:
+marcel-theme.css
+static/js/ créé avec:
+marcel-admin.js
+Logo / Branding
+
+Logo existant conservé en emplacement cohérent: static/img/marcel-logo.png.
+Utilisé dans le header réutilisable et dans la page de preview.
+Route de preview + contrôleur MVC
+
+Nouvelle route protégée: /admin/ui-preview (donc couverte par ton filtre /admin/**).
+Contrôleur minimal ajouté:
+UiPreviewController.java
+Thème Marcel (palette + base visuelle)
+
+Variables CSS centrales définies: --marcel-yellow, --marcel-blue, --marcel-cream, plus textes/bordures/ombres/rayons.
+Classes utilitaires et composants prêts à réutiliser: cards/panels, boutons primaires/secondaires, alertes, table, helpers de couleur/texte.
+Base responsive desktop/mobile avec hiérarchie visuelle admin sobre.
+Page de démonstration
+
+ui-preview.html affiche:
+logo + nom Marcel + sous-titre
+bouton principal + bouton secondaire
+card
+alerte d’info
+tableau simple
+input/select de formulaire
+preuve jQuery léger (date locale injectée)
+Tests / validation
+
+Test ajouté:
+UiPreviewControllerTest.java
+Exécuté avec succès: UiPreviewControllerTest, LoginControllerTest, AdminAuthFilterTest
+Compilation OK: mvnw -DskipTests compile
+Préparation des lots suivants
+
+Base posée pour header/sidebar/layout sans figer le dashboard final.
+Nommage et découpage prêts pour futures pages: LLM, Bots Telegram, Agents, technique.
+Styles centralisés dans un seul thème (pas de dispersion inline dans les nouvelles pages).
+
+
+
+après relecture :
+Revue Critique (phase UI Marcel)
+Findings (avant correction, triés par impact)
+
+[Moyen] API de layout un peu surconçue: le paramètre pageScripts imposait du boilerplate vide dans chaque vue et augmentait le risque d’oubli sur les futures pages (admin-layout.html:3, index.html:3, ui-preview.html:3).
+[Moyen] Fragments Thymeleaf trop “document”: les fragments étaient initialement structurés comme pages HTML complètes, ce qui est moins lisible et moins net architecturalement pour des briques réutilisables.
+[Faible à moyen] Tests UI peu robustes: le test initial du contrôleur vérifiait seulement un retour de String; pas de vérification HTTP/mapping réel.
+[Faible] Couverture sécurité de la nouvelle route non explicite: /admin/ui-preview était protégé par convention (/admin/**), mais sans test dédié.
+Corrections pertinentes appliquées
+
+Simplification du layout: suppression de pageScripts pour garder une API minimale et stable (admin-layout.html:3, admin-layout.html:18).
+Nettoyage des fragments en vrais blocs réutilisables:
+head.html:1
+admin-header.html:1
+scripts.html:1
+Test contrôleur rendu utile (MockMvc standalone, vérifie route + vue):
+UiPreviewControllerTest.java:14
+Test sécurité explicite ajouté pour /admin/ui-preview:
+AdminAuthFilterTest.java:35
+Vérification architecture demandée
+
+Séparation configuration/runtime: OK. Aucun mélange; runtime UI reste dans templates/static, aucune config métier/système modifiée.
+Qualité du modèle implémenté: OK pour ce lot. Contrôleur MVC minimal, pas de logique métier déplacée.
+Découplage orchestrator/mémoire/tooling/policy/workspace: OK. Aucun couplage introduit; ces sous-systèmes ne sont pas touchés.
+Logique ad hoc/spécifique: faible. Pas de JS complexe, thème centralisé.
+Cohérence de nommage/lisibilité: bonne pour le périmètre UI.
+Tests utiles: améliorés (mapping MVC + protection de route).
+Dette technique introduite: limitée.
+Dette restante (non bloquante, non modifiée pour rester dans le périmètre)
+
+login.html conserve un style inline séparé du thème Marcel centralisé.
+Dépendance CDN (Bootstrap/jQuery/Google Fonts): acceptable pour ce lot, mais à réévaluer si mode offline/CSP strict est prévu.
+Validation exécutée
+
+mvnw -Dtest=UiPreviewControllerTest,AdminAuthFilterTest,LoginControllerTest test ✅
+mvnw -DskipTests compile ✅
+Résumé final
+
+Revue architecture faite.
+Faiblesses identifiées et corrigées uniquement quand pertinentes.
+Pas de fonctionnalité hors périmètre ajoutée.
+Le socle UI reste propre, découplé du cœur agentique, et prêt pour les prochains lots.

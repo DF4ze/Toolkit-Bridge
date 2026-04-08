@@ -1,0 +1,111 @@
+Analyse faite puis implémentation réalisée en restant alignée avec l’existant: les LLM sont gérés comme configuration administrable persistée, pas comme entité métier CRUD “runtime-live”.
+
+Routes MVC ajoutées
+GET /admin/llms
+GET /admin/llms/{llmId}
+GET /admin/llms/new
+POST /admin/llms
+GET /admin/llms/{llmId}/edit
+POST /admin/llms/{llmId}
+Controller: LlmAdminPageController.java
+
+Templates créés
+list.html
+detail.html
+form.html
+Services/facades réutilisés (et étendus proprement)
+Réutilisé: LlmAdminFacade, AdministrableConfigurationGateway, OpenAiLikeProperties
+Extension minimale cohérente:
+AdministrableConfigurationGateway.java: saveOpenAiLikeProviders(...)
+LlmAdminFacade.java: createLlm(...), updateLlm(...) avec validation simple et conservation de clé existante si champ vide en édition
+Support réel obtenu
+Lecture liste: oui
+Détail: oui
+Création: oui (persistée dans la config administrable)
+Édition: oui (persistée, sans exposer de secret)
+Sécurité / secrets
+Jamais d’affichage de la valeur apiKey en clair
+Affichage uniquement d’un indicateur Configured/Missing
+En édition: clé optionnelle, champ vide = conservation de la clé existante
+Intégration navigation + ajustements
+Navigation LLM exploitable avec sous-liens liste/nouveau:
+navigation.html
+Suppression du placeholder GET /admin/llms dans:
+AdminPageController.java
+Validation / robustesse
+Form model validé serveur:
+LlmAdminForm.java
+Messages succès/erreur via flash + BindingResult, sans stacktrace brute UI
+Tests ajoutés/ajustés
+Nouveau MVC: LlmAdminPageControllerTest.java
+Facade enrichie: LlmAdminFacadeTest.java
+Ajustement placeholder admin: AdminPageControllerTest.java
+Exécuté:
+
+./mvnw -q "-Dtest=LlmAdminFacadeTest,LlmAdminPageControllerTest,AdminPageControllerTest,LlmAdminControllerTest" test
+./mvnw -q -DskipTests compile
+Limites actuelles
+Les changements LLM sont bien persistés côté config administrable, mais le registry runtime peut nécessiter redémarrage pour rechargement (message explicite ajouté en UI).
+Pas de suppression LLM dans ce lot (non demandée, pour rester sobre et sûr).
+Suite logique (lot suivant)
+Ajouter suppression contrôlée + garde-fous (provider utilisé par agents).
+Ajouter contrôle de cohérence croisée (LLM référencé côté agents).
+Envisager stratégie de reload runtime explicite si souhaitée par produit.
+
+
+
+
+
+Après relecture:
+1. Faiblesses / points discutables (revue critique)
+Exception trop générique dans la couche métier LLM
+IllegalArgumentException mélangeait validation métier attendue et erreurs techniques potentielles.
+Impact: gestion d’erreur MVC moins précise.
+Réf: LlmAdminFacade.java:52
+
+getLlm basé sur le DTO de liste
+La recherche passait par listLlms() (DTO de vue), pas directement par le modèle config source.
+Impact: couplage inutile entre lookup métier et projection UI.
+Réf (avant correction): LlmAdminFacade.java:31
+
+Tests de persistance pas assez précis
+Les tests validaient juste “save appelé”, pas le contenu exact enregistré.
+Impact: risque de régression silencieuse sur la structure persistée.
+
+Dette restante (non bloquante, non corrigée ici)
+Sauvegarde “liste complète” (saveOpenAiLikeProviders) => risque de lost update en cas d’écritures concurrentes.
+Réf: AdministrableConfigurationGateway.java:63
+
+Séparation config/runtime claire mais incomplète côté exploitation
+C’est bien séparé, mais pas de mécanisme de reload runtime immédiat (message UI seulement).
+C’est cohérent avec le périmètre, à traiter plus tard.
+
+2. Corrections utiles proposées
+Introduire une exception dédiée de validation admin LLM.
+Découpler getLlm du DTO de liste.
+Durcir les tests en vérifiant le payload exact persisté.
+3. Corrections réellement appliquées
+Exception métier dédiée
+
+Ajout: LlmAdminValidationException.java
+LlmAdminFacade lance désormais cette exception pour les erreurs de validation.
+LlmAdminPageController capture explicitement cette exception.
+Réf: LlmAdminFacade.java:52, LlmAdminPageController.java:92
+Découplage modèle config / projection UI
+
+getLlm lit directement OpenAiLikeProperties, puis mappe vers LlmAdminResponse.
+Réf: LlmAdminFacade.java:31
+Tests plus utiles
+
+Vérification précise des listes persistées en create/update (pas juste “appel effectué”).
+Réf: LlmAdminFacadeTest.java:75, LlmAdminFacadeTest.java:107
+4. Hors périmètre (non ajouté volontairement)
+Pas de nouveau comportement fonctionnel (pas de suppression, pas de reload runtime auto, pas de refacto infra store).
+Pas d’extension vers orchestrator/memory/tooling/policy/workspace.
+5. Résumé final propre
+Séparation configuration/runtime: correcte pour ce lot (édition de config admin persistée, runtime non promis en hot-reload).
+Qualité du modèle: améliorée (validation explicite, exception métier dédiée, lookup découplé du DTO UI).
+Découplage inter-sous-systèmes: bon, aucun couplage ajouté avec orchestrator/memory/tooling/policy/workspace.
+Lisibilité et noms: cohérents, controller MVC fin, façade claire.
+Tests: plus robustes sur les cas critiques de persistance.
+Dette restante principale: écriture “full list” non transactionnelle fine en concurrence, à traiter dans un lot d’industrialisation config.
