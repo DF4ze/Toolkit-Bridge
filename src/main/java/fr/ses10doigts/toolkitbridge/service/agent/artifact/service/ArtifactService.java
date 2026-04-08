@@ -63,6 +63,17 @@ public class ArtifactService {
         return metadataStore.findByTaskId(taskId);
     }
 
+    public List<Artifact> findByProducerAgentId(String producerAgentId, int limit) {
+        if (producerAgentId == null || producerAgentId.isBlank()) {
+            return List.of();
+        }
+        return metadataStore.findByProducerAgentId(producerAgentId, limit);
+    }
+
+    public List<Artifact> findRecent(int limit) {
+        return metadataStore.findRecent(limit);
+    }
+
     public List<Artifact> findExpired(Instant now) {
         return metadataStore.findExpired(now == null ? Instant.now() : now);
     }

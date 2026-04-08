@@ -14,5 +14,9 @@ public interface ArtifactMetadataStore {
 
     List<Artifact> findByTaskId(String taskId);
 
+    List<Artifact> findByProducerAgentId(String producerAgentId, int limit);
+
+    List<Artifact> findRecent(int limit);
+
     List<Artifact> findExpired(Instant now);
 }

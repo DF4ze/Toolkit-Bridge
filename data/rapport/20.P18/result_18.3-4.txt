@@ -1,0 +1,128 @@
+Pré-analyse (exécutée avant codage)
+
+Fichiers sensibles identifiés: runtime (AgentRuntime*), traces (AgentTrace*), orchestrateur task, artefacts, config administrable, controllers admin existants.
+Points d’architecture sensibles: éviter une API admin géante, ne pas contourner les services métier, ne pas figer une UI avant stabilisation des contrats.
+Risques/dette: exposition brute des modèles internes, absence de suivi tâche exploitable (les Task étaient éphémères), fuite potentielle de secrets config.
+Plan (8 étapes) appliqué: couche admin dédiée, store tâches borné, endpoints techniques ciblés, DTO stables, vue synthétique backend prête UI, tests.
+Phase 18.3 implémentée (admin technique simple)
+
+Ajout d’une couche admin backend ciblée via TechnicalAdminController (/api/admin/technical/*):
+GET /overview
+GET /agents
+GET /tasks
+GET /traces
+GET /artifacts
+GET /configuration
+GET /retention
+Stabilisation du modèle d’admin via TechnicalAdminFacade + DTO dédiés (TechnicalAdminView).
+Ajout d’un registre en mémoire des tâches récentes (InMemoryAdminTaskStore) avec limite configurable.
+TaskAgentOrchestrator enrichi pour publier les transitions techniques de tâche (CREATED -> RUNNING -> DONE/FAILED) dans le store admin.
+Extension artefacts pour vues d’exploitation:
+requêtes “récents”
+requêtes par agent producteur
+requêtes par tâche
+Phase 18.4 implémentée (préparation UI future, sans front complet)
+
+Contrats d’exposition consolidés et lisibles côté backend (TechnicalAdminView.*), orientés supervision/debug.
+Vue agrégée overview prête à brancher une future UI sans refonte backend.
+Configuration admin technique explicite:
+toolkit.admin.technical.default-list-limit
+toolkit.admin.technical.max-list-limit
+toolkit.admin.technical.tasks.max-events
+Exposition config LLM sans divulguer les secrets: uniquement apiKeyConfigured (bool), pas la valeur.
+Tests
+
+Exécutés avec succès:
+TaskAgentOrchestratorTest
+InMemoryAdminTaskStoreTest
+TechnicalAdminFacadeTest
+TechnicalAdminControllerTest
+Validation compile OK: .\mvnw.cmd -q -DskipTests compile
+Fichiers créés/modifiés
+
+Créés:
+TechnicalAdminController.java
+TechnicalAdminView.java
+TechnicalAdminFacade.java
+AdminTechnicalConfiguration.java
+AdminTechnicalProperties.java
+AdminTaskSnapshot.java
+InMemoryAdminTaskStore.java
+TechnicalAdminControllerTest.java
+TechnicalAdminFacadeTest.java
+InMemoryAdminTaskStoreTest.java
+Modifiés:
+TaskAgentOrchestrator.java
+ArtifactMetadataStore.java
+ArtifactService.java
+ArtifactMetadataJpaRepository.java
+JpaArtifactMetadataStore.java
+TaskAgentOrchestratorTest.java
+application.yml
+Points ouverts pour la suite UI
+
+Pagination/cursor côté endpoints (au-delà des limit actuels).
+Filtres plus avancés (dates, types d’artefacts, catégories de traces).
+Endpoints d’édition admin (toujours via services métier) à introduire progressivement.
+Option de persistance durable de l’historique des tâches admin (aujourd’hui mémoire bornée).
+
+
+
+
+
+
+Après relecture :
+Revue critique (après relecture complète)
+
+[P1] Couplage direct orchestrator -> impl mémoire admin
+Fait initialement: TaskAgentOrchestrator dépendait de InMemoryAdminTaskStore, ce qui liait le runtime métier à une implémentation technique précise.
+Réf: TaskAgentOrchestrator.java:29
+
+[P1] Couplage direct façade admin -> sink de trace concret
+Fait initialement: TechnicalAdminFacade dépendait de InMemoryAgentTraceSink, donc de l’implémentation mémoire des traces.
+Réf: TechnicalAdminFacade.java:44
+
+[P2] Parsing ad hoc du status dans la façade
+Fait initialement: parsing manuel String -> TaskStatus (risque d’erreur runtime et logique de validation au mauvais endroit).
+Réf: TechnicalAdminFacade.java:81
+
+[P2] Nommage trace incohérent avec le modèle réel
+Fait initialement: DTO trace exposait traceId/conversationId alors que la corrélation fournit runId/messageId.
+Réf: TechnicalAdminView.java:73
+
+Corrections proposées
+
+Introduire des interfaces d’abstraction pour les lectures/écritures techniques (AdminTaskStore, AgentTraceQueryService).
+Remonter la validation du statut au binding Spring (type TaskStatus) au lieu de parser dans la façade.
+Aligner les noms DTO trace sur le modèle réel (runId, messageId).
+Renforcer les tests pour vérifier que le suivi tâche est bien déclenché par l’orchestrator.
+Corrections appliquées (pertinentes uniquement)
+
+Découplage tâche admin:
+Ajout interface AdminTaskStore.java
+Implémentation par InMemoryAdminTaskStore.java
+Injection via abstraction dans TaskAgentOrchestrator.java
+Découplage lecture traces:
+Ajout interface AgentTraceQueryService.java
+Implémentée par InMemoryAgentTraceSink.java
+Façade admin branchée sur l’interface dans TechnicalAdminFacade.java
+Suppression logique ad hoc status:
+TaskStatus typé directement au controller dans TechnicalAdminController.java
+Retrait du parsing manuel dans TechnicalAdminFacade.java
+Cohérence des noms de trace:
+DTO ajusté runId/messageId dans TechnicalAdminView.java
+Tests utiles renforcés:
+Vérification des appels de suivi tâche dans TaskAgentOrchestratorTest.java
+Dette technique restante (raisonnable, non bloquante)
+
+TechnicalAdminFacade reste volumineuse (agrégation + mapping + calcul overview). Ça reste lisible, mais à surveiller si l’admin s’étoffe.
+Les tâches admin restent en mémoire bornée (volontaire pour cette phase), donc pas d’historique durable.
+Validation
+
+Tests ciblés passés:
+TaskAgentOrchestratorTest
+InMemoryAdminTaskStoreTest
+TechnicalAdminFacadeTest
+TechnicalAdminControllerTest
+Compilation OK: .\mvnw.cmd -q -DskipTests compile
+Résumé final: la base 18.3/18.4 est maintenant plus propre architecturalement, avec un meilleur découplage runtime/admin, un contrat d’exposition plus cohérent, et des tests plus pertinents, sans ajout de fonctionnalités hors périmètre.

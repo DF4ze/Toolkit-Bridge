@@ -3,6 +3,7 @@ package fr.ses10doigts.toolkitbridge.service.agent.artifact.store;
 import fr.ses10doigts.toolkitbridge.service.agent.artifact.model.Artifact;
 import fr.ses10doigts.toolkitbridge.service.agent.artifact.model.ArtifactContentPointer;
 import fr.ses10doigts.toolkitbridge.service.agent.artifact.port.ArtifactMetadataStore;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
@@ -35,6 +36,24 @@ public class JpaArtifactMetadataStore implements ArtifactMetadataStore {
     @Override
     public List<Artifact> findByTaskId(String taskId) {
         return repository.findByTaskId(taskId).stream().map(this::toDomain).toList();
+    }
+
+    @Override
+    public List<Artifact> findByProducerAgentId(String producerAgentId, int limit) {
+        int effectiveLimit = Math.max(limit, 1);
+        return repository.findByProducerAgentIdOrderByCreatedAtDesc(producerAgentId, PageRequest.of(0, effectiveLimit))
+                .stream()
+                .map(this::toDomain)
+                .toList();
+    }
+
+    @Override
+    public List<Artifact> findRecent(int limit) {
+        int effectiveLimit = Math.max(limit, 1);
+        return repository.findAllByOrderByCreatedAtDesc(PageRequest.of(0, effectiveLimit))
+                .stream()
+                .map(this::toDomain)
+                .toList();
     }
 
     @Override

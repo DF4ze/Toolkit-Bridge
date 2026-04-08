@@ -1,6 +1,7 @@
 package fr.ses10doigts.toolkitbridge.service.agent.artifact.store;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.domain.Pageable;
 
 import java.time.Instant;
 import java.util.List;
@@ -11,6 +12,10 @@ public interface ArtifactMetadataJpaRepository extends JpaRepository<ArtifactMet
     Optional<ArtifactMetadataEntity> findByArtifactId(String artifactId);
 
     List<ArtifactMetadataEntity> findByTaskId(String taskId);
+
+    List<ArtifactMetadataEntity> findByProducerAgentIdOrderByCreatedAtDesc(String producerAgentId, Pageable pageable);
+
+    List<ArtifactMetadataEntity> findAllByOrderByCreatedAtDesc(Pageable pageable);
 
     List<ArtifactMetadataEntity> findByExpiresAtBefore(Instant now);
 }

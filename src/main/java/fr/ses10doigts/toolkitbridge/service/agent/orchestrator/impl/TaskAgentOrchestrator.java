@@ -19,12 +19,14 @@ import fr.ses10doigts.toolkitbridge.service.agent.orchestrator.task.TaskPrompt;
 import fr.ses10doigts.toolkitbridge.service.agent.orchestrator.task.TaskPromptBuilder;
 import fr.ses10doigts.toolkitbridge.service.agent.runtime.model.AgentRuntime;
 import fr.ses10doigts.toolkitbridge.service.agent.task.model.Task;
+import fr.ses10doigts.toolkitbridge.service.agent.task.model.TaskStatus;
 import fr.ses10doigts.toolkitbridge.service.agent.task.service.TaskFactory;
 import fr.ses10doigts.toolkitbridge.service.agent.trace.AgentTraceCorrelationFactory;
 import fr.ses10doigts.toolkitbridge.service.agent.trace.AgentTraceContextHolder;
 import fr.ses10doigts.toolkitbridge.service.agent.trace.AgentTraceService;
 import fr.ses10doigts.toolkitbridge.service.agent.trace.model.AgentTraceCorrelation;
 import fr.ses10doigts.toolkitbridge.service.agent.trace.model.AgentTraceEventType;
+import fr.ses10doigts.toolkitbridge.service.admin.task.AdminTaskStore;
 import fr.ses10doigts.toolkitbridge.service.llm.LlmService;
 import fr.ses10doigts.toolkitbridge.service.llm.debug.LlmDebugStore;
 import lombok.RequiredArgsConstructor;
@@ -47,6 +49,7 @@ public class TaskAgentOrchestrator implements AgentOrchestrator {
     private final MemoryRequestFactory memoryRequestFactory;
     private final OrchestrationResponseSanitizer responseSanitizer;
     private final TaskFactory taskFactory;
+    private final AdminTaskStore adminTaskStore;
     private final AgentTraceService agentTraceService;
     private final AgentTraceCorrelationFactory traceCorrelationFactory;
     private final AgentTraceContextHolder traceContextHolder;
@@ -86,6 +89,9 @@ public class TaskAgentOrchestrator implements AgentOrchestrator {
                     context.traceId(),
                     request.context()
             );
+            adminTaskStore.record(task, request.channelType(), request.channelConversationId(), null);
+            task = task.transitionTo(TaskStatus.RUNNING);
+            adminTaskStore.record(task, request.channelType(), request.channelConversationId(), null);
             traceCorrelation = traceCorrelationFactory.fromOrchestration(context, request, task);
             agentTraceService.trace(
                     AgentTraceEventType.TASK_STARTED,
@@ -153,11 +159,17 @@ public class TaskAgentOrchestrator implements AgentOrchestrator {
                         )
                 );
                 memoryFacade.onToolExecution(memoryRequest, new ToolExecutionRecord("task_orchestrator", false, "empty_response"));
+                if (task != null) {
+                    adminTaskStore.record(markFailed(task), request.channelType(), request.channelConversationId(), "empty_response");
+                }
                 return AgentResponse.error("The task orchestrator returned an empty response.");
             }
 
             memoryFacade.onAssistantMessage(memoryRequest, safeResponse);
             memoryFacade.markContextMemoriesUsed(memoryContext.injectedSemanticMemoryIds());
+            if (task != null) {
+                adminTaskStore.record(markDone(task), request.channelType(), request.channelConversationId(), null);
+            }
             agentTraceService.trace(
                     AgentTraceEventType.RESPONSE,
                     "task_orchestrator",
@@ -203,6 +215,9 @@ public class TaskAgentOrchestrator implements AgentOrchestrator {
             );
 
             memoryFacade.onToolExecution(memoryRequest, new ToolExecutionRecord("task_orchestrator", false, "provider_failure"));
+            if (task != null) {
+                adminTaskStore.record(markFailed(task), request.channelType(), request.channelConversationId(), safeMessage(e));
+            }
             return AgentResponse.error("The AI service is temporarily unavailable.");
         } catch (Exception e) {
             agentTraceService.trace(
@@ -229,10 +244,27 @@ public class TaskAgentOrchestrator implements AgentOrchestrator {
             );
 
             memoryFacade.onToolExecution(memoryRequest, new ToolExecutionRecord("task_orchestrator", false, "orchestration_error"));
+            if (task != null) {
+                adminTaskStore.record(markFailed(task), request.channelType(), request.channelConversationId(), safeMessage(e));
+            }
             return AgentResponse.error("An unexpected error occurred.");
         } finally {
             log.debug("Task orchestrator finished traceId={} durationMs={}", context.traceId(), elapsedMs(startNanos));
         }
+    }
+
+    private Task markDone(Task task) {
+        if (task == null || task.status() == TaskStatus.DONE) {
+            return task;
+        }
+        return task.transitionTo(TaskStatus.DONE);
+    }
+
+    private Task markFailed(Task task) {
+        if (task == null || task.status() == TaskStatus.FAILED) {
+            return task;
+        }
+        return task.transitionTo(TaskStatus.FAILED);
     }
 
     private long elapsedMs(long startNanos) {

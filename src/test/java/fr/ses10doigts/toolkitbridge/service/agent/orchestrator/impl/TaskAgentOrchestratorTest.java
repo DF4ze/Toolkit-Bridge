@@ -26,6 +26,7 @@ import fr.ses10doigts.toolkitbridge.service.agent.task.service.TaskFactory;
 import fr.ses10doigts.toolkitbridge.service.agent.trace.AgentTraceCorrelationFactory;
 import fr.ses10doigts.toolkitbridge.service.agent.trace.AgentTraceContextHolder;
 import fr.ses10doigts.toolkitbridge.service.agent.trace.AgentTraceService;
+import fr.ses10doigts.toolkitbridge.service.admin.task.AdminTaskStore;
 import fr.ses10doigts.toolkitbridge.service.tool.ToolCategory;
 import fr.ses10doigts.toolkitbridge.service.tool.ToolDescriptor;
 import fr.ses10doigts.toolkitbridge.service.tool.ToolKind;
@@ -51,6 +52,7 @@ class TaskAgentOrchestratorTest {
     private final TaskPromptBuilder taskPromptBuilder = mock(TaskPromptBuilder.class);
     private final AgentPermissionControlService permissionControlService = mock(AgentPermissionControlService.class);
     private final AgentTraceService agentTraceService = mock(AgentTraceService.class);
+    private final AdminTaskStore taskStore = mock(AdminTaskStore.class);
 
     private final AgentPolicy policy = new AgentPolicy() {
         @Override
@@ -73,6 +75,7 @@ class TaskAgentOrchestratorTest {
             new MemoryRequestFactory(),
             new OrchestrationResponseSanitizer(),
             new TaskFactory(),
+            taskStore,
             agentTraceService,
             new AgentTraceCorrelationFactory(),
             new AgentTraceContextHolder()
@@ -99,6 +102,7 @@ class TaskAgentOrchestratorTest {
         verify(taskPromptBuilder).build(any(), any(), any(), any(), any());
         verify(memoryFacade).onAssistantMessage(any(MemoryContextRequest.class), eq("done"));
         verify(memoryFacade).markContextMemoriesUsed(eq(java.util.List.of(7L)));
+        verify(taskStore, atLeast(3)).record(any(), any(), any(), any());
     }
 
     @Test
@@ -118,6 +122,7 @@ class TaskAgentOrchestratorTest {
 
         assertThat(response.error()).isTrue();
         verify(memoryFacade).onToolExecution(any(MemoryContextRequest.class), any(ToolExecutionRecord.class));
+        verify(taskStore, atLeast(3)).record(any(), any(), any(), any());
     }
 
     private AgentDefinition agentDefinition() {

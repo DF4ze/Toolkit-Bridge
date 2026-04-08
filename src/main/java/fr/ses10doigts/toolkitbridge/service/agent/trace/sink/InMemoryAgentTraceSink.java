@@ -1,6 +1,7 @@
 package fr.ses10doigts.toolkitbridge.service.agent.trace.sink;
 
 import fr.ses10doigts.toolkitbridge.service.agent.trace.config.AgentTraceProperties;
+import fr.ses10doigts.toolkitbridge.service.agent.trace.AgentTraceQueryService;
 import fr.ses10doigts.toolkitbridge.service.agent.trace.model.AgentTraceEvent;
 import org.springframework.stereotype.Component;
 
@@ -10,7 +11,7 @@ import java.util.Deque;
 import java.util.List;
 
 @Component
-public class InMemoryAgentTraceSink implements AgentTraceSink {
+public class InMemoryAgentTraceSink implements AgentTraceSink, AgentTraceQueryService {
 
     private final AgentTraceProperties properties;
     private final Deque<AgentTraceEvent> recentEvents = new ArrayDeque<>();
@@ -32,10 +33,12 @@ public class InMemoryAgentTraceSink implements AgentTraceSink {
         }
     }
 
+    @Override
     public synchronized List<AgentTraceEvent> recentEvents() {
         return List.copyOf(recentEvents);
     }
 
+    @Override
     public synchronized List<AgentTraceEvent> recentEventsForAgent(String agentId) {
         if (agentId == null || agentId.isBlank()) {
             return List.of();
