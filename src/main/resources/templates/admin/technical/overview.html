@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layouts/admin-layout :: layout('Marcel | Technique Overview', ~{::content})}">
+<body>
+<section th:fragment="content">
+    <div class="marcel-card card mb-3 mb-lg-4">
+        <div class="card-body p-4">
+            <span class="marcel-brand-badge mb-3">Technique</span>
+            <h1 class="h3 mb-2">Overview technique</h1>
+            <p class="mb-0 marcel-text-soft">
+                Vue d ensemble operationnelle pour superviser les agents, taches, traces et artefacts.
+            </p>
+        </div>
+    </div>
+
+    <th:block th:replace="~{fragments/technical-nav :: tabs(${activeTechnicalNav})}"></th:block>
+
+    <div class="row g-3 mb-3 mb-lg-4">
+        <div class="col-12 col-md-6 col-xxl-3">
+            <div class="marcel-summary-card marcel-summary-card--blue">
+                <span class="marcel-summary-card-title">Agents</span>
+                <span class="marcel-summary-card-value" th:text="${overview.agents}">0</span>
+                <span class="marcel-summary-card-detail" th:text="${overview.busyAgents} + ' occupes'">0 occupes</span>
+            </div>
+        </div>
+        <div class="col-12 col-md-6 col-xxl-3">
+            <div class="marcel-summary-card marcel-summary-card--gold">
+                <span class="marcel-summary-card-title">Tasks recentes</span>
+                <span class="marcel-summary-card-value" th:text="${overview.recentTasks}">0</span>
+                <span class="marcel-summary-card-detail">Limite appliquee: <span th:text="${effectiveLimit}">50</span></span>
+            </div>
+        </div>
+        <div class="col-12 col-md-6 col-xxl-3">
+            <div class="marcel-summary-card marcel-summary-card--amber">
+                <span class="marcel-summary-card-title">Traces recentes</span>
+                <span class="marcel-summary-card-value" th:text="${overview.recentTraces}">0</span>
+                <span class="marcel-summary-card-detail" th:text="${overview.recentErrors} + ' erreurs'">0 erreurs</span>
+            </div>
+        </div>
+        <div class="col-12 col-md-6 col-xxl-3">
+            <div class="marcel-summary-card marcel-summary-card--green">
+                <span class="marcel-summary-card-title">Artifacts recents</span>
+                <span class="marcel-summary-card-value" th:text="${overview.recentArtifacts}">0</span>
+                <span class="marcel-summary-card-detail">Publies recemment</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-12 col-xl-6">
+            <article class="marcel-card card h-100">
+                <div class="card-header">
+                    <h2 class="h5 mb-0">Configuration</h2>
+                </div>
+                <div class="card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-7 marcel-text-soft">Definitions d agents</dt>
+                        <dd class="col-5 text-end fw-semibold" th:text="${overview.configuration.agentDefinitionCount}">0</dd>
+                        <dt class="col-7 marcel-text-soft">Providers LLM</dt>
+                        <dd class="col-5 text-end fw-semibold" th:text="${overview.configuration.llmProviderCount}">0</dd>
+                    </dl>
+                    <a class="btn btn-sm btn-outline-secondary mt-3"
+                       href="/admin/technical/configuration"
+                       th:href="@{/admin/technical/configuration}">Voir le detail</a>
+                </div>
+            </article>
+        </div>
+
+        <div class="col-12 col-xl-6">
+            <article class="marcel-card card h-100">
+                <div class="card-header">
+                    <h2 class="h5 mb-0">Retention</h2>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-marcel align-middle mb-0">
+                            <thead>
+                            <tr>
+                                <th scope="col">Famille</th>
+                                <th scope="col">TTL</th>
+                                <th scope="col">Disposition</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr th:if="${#lists.isEmpty(overview.retention)}">
+                                <td colspan="3" class="text-center py-3 marcel-text-soft">Aucune policy de retention visible.</td>
+                            </tr>
+                            <tr th:each="item : ${overview.retention}">
+                                <td th:text="${item.family}">FAMILY</td>
+                                <td th:text="${item.ttl}">PT24H</td>
+                                <td th:text="${item.disposition}">DELETE</td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </article>
+        </div>
+    </div>
+</section>
+</body>
+</html>

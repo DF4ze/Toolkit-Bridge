@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layouts/admin-layout :: layout(${pageTitle}, ~{::content})}">
+<body>
+<section th:fragment="content">
+    <article class="marcel-card card">
+        <div class="card-body p-4">
+            <span class="marcel-brand-badge mb-3">Section en preparation</span>
+            <h1 class="h3 mb-2" th:text="${sectionTitle}">Section</h1>
+            <p class="marcel-text-soft mb-4" th:text="${sectionDescription}">
+                Cette section sera detaillee dans les prochains lots.
+            </p>
+
+            <h2 class="h6 marcel-text-blue mb-2">Ce qui est deja prevu</h2>
+            <ul class="marcel-placeholder-list mb-0">
+                <li th:each="item : ${todoItems}" th:text="${item}">Point de travail</li>
+            </ul>
+        </div>
+    </article>
+</section>
+</body>
+</html>

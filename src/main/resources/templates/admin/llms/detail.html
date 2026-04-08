@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layouts/admin-layout :: layout('Marcel | LLM Detail', ~{::content})}">
+<body>
+<section th:fragment="content">
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb mb-0">
+            <li class="breadcrumb-item"><a th:href="@{/admin/llms}">LLM</a></li>
+            <li class="breadcrumb-item active" aria-current="page" th:text="${llm.llmId}">openai</li>
+        </ol>
+    </nav>
+
+    <article class="marcel-card card mb-3">
+        <div class="card-body p-4 d-flex flex-column flex-lg-row justify-content-between gap-3 align-items-lg-center">
+            <div>
+                <span class="marcel-brand-badge mb-3">LLM Detail</span>
+                <h1 class="h3 mb-2" th:text="${llm.llmId}">openai</h1>
+                <p class="mb-0 marcel-text-soft">Configuration lecture/admin d un provider LLM.</p>
+            </div>
+            <div class="d-flex gap-2">
+                <a class="btn btn-outline-secondary" th:href="@{/admin/llms}">Retour liste</a>
+                <a class="btn btn-marcel-primary" th:href="@{/admin/llms/{llmId}/edit(llmId=${llm.llmId})}">Editer</a>
+            </div>
+        </div>
+    </article>
+
+    <div class="row g-3">
+        <div class="col-12 col-xl-7">
+            <article class="marcel-card card h-100">
+                <div class="card-header"><h2 class="h5 mb-0">Configuration</h2></div>
+                <div class="card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-4 marcel-text-soft">ID</dt>
+                        <dd class="col-sm-8" th:text="${llm.llmId}">openai</dd>
+
+                        <dt class="col-sm-4 marcel-text-soft">Base URL</dt>
+                        <dd class="col-sm-8" th:text="${llm.baseUrl}">https://api.openai.com/v1</dd>
+
+                        <dt class="col-sm-4 marcel-text-soft">Default model</dt>
+                        <dd class="col-sm-8" th:text="${llm.defaultModel}">gpt-5</dd>
+                    </dl>
+                </div>
+            </article>
+        </div>
+
+        <div class="col-12 col-xl-5">
+            <article class="marcel-card card h-100">
+                <div class="card-header"><h2 class="h5 mb-0">Securite</h2></div>
+                <div class="card-body">
+                    <p class="mb-2 marcel-text-soft">Etat de la cle API:</p>
+                    <span class="badge text-bg-success" th:if="${llm.apiKeyConfigured}">Configured</span>
+                    <span class="badge text-bg-secondary" th:if="${!llm.apiKeyConfigured}">Missing</span>
+                    <p class="small marcel-text-soft mt-3 mb-0">
+                        La valeur de la cle API n est jamais affichee dans Marcel.
+                    </p>
+                </div>
+            </article>
+        </div>
+    </div>
+</section>
+</body>
+</html>

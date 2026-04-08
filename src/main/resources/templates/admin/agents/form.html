@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layouts/admin-layout :: layout(${pageTitle}, ~{::content})}">
+<body>
+<section th:fragment="content">
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb mb-0">
+            <li class="breadcrumb-item"><a th:href="@{/admin/agents}">Agents</a></li>
+            <li class="breadcrumb-item active" aria-current="page" th:text="${editMode ? form.agentId : 'Nouveau'}">Nouveau</li>
+        </ol>
+    </nav>
+
+    <article class="marcel-card card mb-3">
+        <div class="card-body p-4">
+            <span class="marcel-brand-badge mb-3">Administration Agents</span>
+            <h1 class="h3 mb-2" th:text="${formTitle}">New Agent</h1>
+            <p class="mb-0 marcel-text-soft">Configuration de definition d agent et de ses associations LLM/Bot Telegram.</p>
+        </div>
+    </article>
+
+    <article class="marcel-card card">
+        <div class="card-body p-3 p-lg-4">
+            <form method="post"
+                  th:action="${editMode} ? @{/admin/agents/{agentId}(agentId=${form.agentId})} : @{/admin/agents}"
+                  th:object="${form}"
+                  class="row g-3">
+
+                <div class="col-12 alert alert-danger marcel-alert mb-0" th:if="${#fields.hasGlobalErrors()}">
+                    <div th:each="error : ${#fields.globalErrors()}" th:text="${error}">Validation error</div>
+                </div>
+
+                <input type="hidden" th:if="${editMode}" th:field="*{agentId}">
+
+                <div class="col-12 col-md-4">
+                    <label for="agentId" class="form-label">Agent id</label>
+                    <input id="agentId" type="text" class="form-control" th:field="*{agentId}" th:readonly="${editMode}">
+                    <div class="text-danger small mt-1" th:if="${#fields.hasErrors('agentId')}" th:errors="*{agentId}"></div>
+                </div>
+
+                <div class="col-12 col-md-8">
+                    <label for="name" class="form-label">Name</label>
+                    <input id="name" type="text" class="form-control" th:field="*{name}">
+                    <div class="text-danger small mt-1" th:if="${#fields.hasErrors('name')}" th:errors="*{name}"></div>
+                </div>
+
+                <div class="col-12 col-md-4">
+                    <label for="llmProvider" class="form-label">LLM provider</label>
+                    <select id="llmProvider" th:field="*{llmProvider}" class="form-select">
+                        <option value="">Select LLM</option>
+                        <option th:each="llm : ${llmOptions}" th:value="${llm.llmId}" th:text="${llm.llmId}">openai</option>
+                    </select>
+                    <div class="text-danger small mt-1" th:if="${#fields.hasErrors('llmProvider')}" th:errors="*{llmProvider}"></div>
+                </div>
+
+                <div class="col-12 col-md-4">
+                    <label for="model" class="form-label">Model</label>
+                    <input id="model" type="text" class="form-control" th:field="*{model}">
+                    <div class="text-danger small mt-1" th:if="${#fields.hasErrors('model')}" th:errors="*{model}"></div>
+                </div>
+
+                <div class="col-12 col-md-4">
+                    <label for="telegramBotId" class="form-label">Telegram bot</label>
+                    <select id="telegramBotId" th:field="*{telegramBotId}" class="form-select">
+                        <option value="">Select bot</option>
+                        <option th:each="bot : ${botOptions}" th:value="${bot.botId}" th:text="${bot.botId}">bot-main</option>
+                    </select>
+                    <div class="text-danger small mt-1" th:if="${#fields.hasErrors('telegramBotId')}" th:errors="*{telegramBotId}"></div>
+                </div>
+
+                <div class="col-12 col-md-4">
+                    <label for="orchestratorType" class="form-label">Orchestrator</label>
+                    <select id="orchestratorType" th:field="*{orchestratorType}" class="form-select">
+                        <option value="">Select orchestrator</option>
+                        <option th:each="item : ${orchestratorOptions}" th:value="${item.name()}" th:text="${item.name()}">CHAT</option>
+                    </select>
+                    <div class="text-danger small mt-1" th:if="${#fields.hasErrors('orchestratorType')}" th:errors="*{orchestratorType}"></div>
+                </div>
+
+                <div class="col-12 col-md-4">
+                    <label for="role" class="form-label">Role</label>
+                    <select id="role" th:field="*{role}" class="form-select">
+                        <option value="">Select role</option>
+                        <option th:each="item : ${roleOptions}" th:value="${item.name()}" th:text="${item.name()}">ASSISTANT</option>
+                    </select>
+                    <div class="text-danger small mt-1" th:if="${#fields.hasErrors('role')}" th:errors="*{role}"></div>
+                </div>
+
+                <div class="col-12 col-md-4">
+                    <label for="policyName" class="form-label">Policy name</label>
+                    <input id="policyName" type="text" class="form-control" th:field="*{policyName}">
+                    <div class="text-danger small mt-1" th:if="${#fields.hasErrors('policyName')}" th:errors="*{policyName}"></div>
+                </div>
+
+                <div class="col-12">
+                    <label for="systemPrompt" class="form-label">System prompt</label>
+                    <textarea id="systemPrompt" class="form-control" th:field="*{systemPrompt}" rows="8"></textarea>
+                    <div class="text-danger small mt-1" th:if="${#fields.hasErrors('systemPrompt')}" th:errors="*{systemPrompt}"></div>
+                </div>
+
+                <div class="col-12">
+                    <div class="form-check">
+                        <input id="toolsEnabled" class="form-check-input" type="checkbox" th:field="*{toolsEnabled}">
+                        <label class="form-check-label" for="toolsEnabled">Tools enabled</label>
+                    </div>
+                </div>
+
+                <div class="col-12 d-flex gap-2 pt-2">
+                    <button type="submit" class="btn btn-marcel-primary" th:text="${editMode ? 'Enregistrer' : 'Creer'}"></button>
+                    <a class="btn btn-outline-secondary" th:href="${cancelHref}">Annuler</a>
+                </div>
+            </form>
+        </div>
+    </article>
+</section>
+</body>
+</html>

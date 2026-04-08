@@ -1,0 +1,177 @@
+<th:block xmlns:th="http://www.thymeleaf.org">
+    <th:block th:fragment="links(activeNav)">
+        <nav class="marcel-admin-nav" aria-label="Admin navigation">
+            <ul class="nav flex-column gap-1">
+                <li class="nav-item">
+                    <a class="nav-link marcel-admin-nav-link"
+                       href="/admin"
+                       th:href="@{/admin}"
+                       th:classappend="${activeNav == 'dashboard'} ? 'active' : ''">
+                        Dashboard
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link marcel-admin-nav-link"
+                       href="/admin/llms"
+                       th:href="@{/admin/llms}"
+                       th:classappend="${activeNav == 'llms'} ? 'active' : ''">
+                        LLM
+                    </a>
+                </li>
+                <th:block th:if="${activeNav == 'llms'}">
+                    <li class="nav-item marcel-admin-subnav-item">
+                        <a class="nav-link marcel-admin-subnav-link"
+                           href="/admin/llms"
+                           th:href="@{/admin/llms}"
+                           th:classappend="${activeLlmNav == 'list'} ? 'active' : ''">
+                            Liste
+                        </a>
+                    </li>
+                    <li class="nav-item marcel-admin-subnav-item">
+                        <a class="nav-link marcel-admin-subnav-link"
+                           href="/admin/llms/new"
+                           th:href="@{/admin/llms/new}"
+                           th:classappend="${activeLlmNav == 'new'} ? 'active' : ''">
+                            Nouveau
+                        </a>
+                    </li>
+                </th:block>
+                <li class="nav-item">
+                    <a class="nav-link marcel-admin-nav-link"
+                       href="/admin/telegram-bots"
+                       th:href="@{/admin/telegram-bots}"
+                       th:classappend="${activeNav == 'telegram-bots'} ? 'active' : ''">
+                        Bots Telegram
+                    </a>
+                </li>
+                <th:block th:if="${activeNav == 'telegram-bots'}">
+                    <li class="nav-item marcel-admin-subnav-item">
+                        <a class="nav-link marcel-admin-subnav-link"
+                           href="/admin/telegram-bots"
+                           th:href="@{/admin/telegram-bots}"
+                           th:classappend="${activeTelegramBotNav == 'list'} ? 'active' : ''">
+                            Liste
+                        </a>
+                    </li>
+                </th:block>
+                <li class="nav-item">
+                    <a class="nav-link marcel-admin-nav-link"
+                       href="/admin/agents"
+                       th:href="@{/admin/agents}"
+                       th:classappend="${activeNav == 'agents'} ? 'active' : ''">
+                        Agents
+                    </a>
+                </li>
+                <th:block th:if="${activeNav == 'agents'}">
+                    <li class="nav-item marcel-admin-subnav-item">
+                        <a class="nav-link marcel-admin-subnav-link"
+                           href="/admin/agents"
+                           th:href="@{/admin/agents}"
+                           th:classappend="${activeAgentNav == 'list'} ? 'active' : ''">
+                            Liste
+                        </a>
+                    </li>
+                    <li class="nav-item marcel-admin-subnav-item">
+                        <a class="nav-link marcel-admin-subnav-link"
+                           href="/admin/agents/new"
+                           th:href="@{/admin/agents/new}"
+                           th:classappend="${activeAgentNav == 'new'} ? 'active' : ''">
+                            Nouvel agent
+                        </a>
+                    </li>
+                </th:block>
+                <li class="nav-item">
+                    <a class="nav-link marcel-admin-nav-link"
+                       href="/admin/technical"
+                       th:href="@{/admin/technical}"
+                       th:classappend="${activeNav == 'technical'} ? 'active' : ''">
+                        Technique
+                    </a>
+                </li>
+                <th:block th:if="${activeNav == 'technical'}">
+                    <li class="nav-item marcel-admin-subnav-item">
+                        <a class="nav-link marcel-admin-subnav-link"
+                           href="/admin/technical"
+                           th:href="@{/admin/technical}"
+                           th:classappend="${activeTechnicalNav == 'overview'} ? 'active' : ''">
+                            Overview
+                        </a>
+                    </li>
+                    <li class="nav-item marcel-admin-subnav-item">
+                        <a class="nav-link marcel-admin-subnav-link"
+                           href="/admin/technical/agents"
+                           th:href="@{/admin/technical/agents}"
+                           th:classappend="${activeTechnicalNav == 'agents'} ? 'active' : ''">
+                            Agents
+                        </a>
+                    </li>
+                    <li class="nav-item marcel-admin-subnav-item">
+                        <a class="nav-link marcel-admin-subnav-link"
+                           href="/admin/technical/tasks"
+                           th:href="@{/admin/technical/tasks}"
+                           th:classappend="${activeTechnicalNav == 'tasks'} ? 'active' : ''">
+                            Tasks
+                        </a>
+                    </li>
+                    <li class="nav-item marcel-admin-subnav-item">
+                        <a class="nav-link marcel-admin-subnav-link"
+                           href="/admin/technical/traces"
+                           th:href="@{/admin/technical/traces}"
+                           th:classappend="${activeTechnicalNav == 'traces'} ? 'active' : ''">
+                            Traces
+                        </a>
+                    </li>
+                    <li class="nav-item marcel-admin-subnav-item">
+                        <a class="nav-link marcel-admin-subnav-link"
+                           href="/admin/technical/artifacts"
+                           th:href="@{/admin/technical/artifacts}"
+                           th:classappend="${activeTechnicalNav == 'artifacts'} ? 'active' : ''">
+                            Artifacts
+                        </a>
+                    </li>
+                    <li class="nav-item marcel-admin-subnav-item">
+                        <a class="nav-link marcel-admin-subnav-link"
+                           href="/admin/technical/configuration"
+                           th:href="@{/admin/technical/configuration}"
+                           th:classappend="${activeTechnicalNav == 'configuration'} ? 'active' : ''">
+                            Configuration
+                        </a>
+                    </li>
+                    <li class="nav-item marcel-admin-subnav-item">
+                        <a class="nav-link marcel-admin-subnav-link"
+                           href="/admin/technical/retention"
+                           th:href="@{/admin/technical/retention}"
+                           th:classappend="${activeTechnicalNav == 'retention'} ? 'active' : ''">
+                            Retention
+                        </a>
+                    </li>
+                </th:block>
+            </ul>
+        </nav>
+    </th:block>
+
+    <th:block th:fragment="sidebar(activeNav)">
+        <div class="marcel-sidebar h-100">
+            <p class="marcel-sidebar-title">Navigation</p>
+            <th:block th:replace="~{fragments/navigation :: links(${activeNav})}"></th:block>
+            <div class="marcel-sidebar-note">
+                Base admin Marcel prete pour les prochains lots metier.
+            </div>
+        </div>
+    </th:block>
+
+    <th:block th:fragment="mobile(activeNav)">
+        <div class="offcanvas offcanvas-start marcel-mobile-nav d-lg-none"
+             tabindex="-1"
+             id="marcelMobileNav"
+             aria-labelledby="marcelMobileNavLabel">
+            <div class="offcanvas-header">
+                <h5 class="offcanvas-title marcel-text-blue" id="marcelMobileNavLabel">Marcel</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+            </div>
+            <div class="offcanvas-body">
+                <th:block th:replace="~{fragments/navigation :: links(${activeNav})}"></th:block>
+            </div>
+        </div>
+    </th:block>
+</th:block>

@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en"
+      th:fragment="layout(pageTitle, content)">
+<head>
+    <th:block th:replace="~{fragments/head :: marcelHead(${pageTitle})}"></th:block>
+</head>
+<body class="marcel-page marcel-admin-page">
+<div class="marcel-shell marcel-admin-shell">
+    <header th:replace="~{fragments/header :: adminHeader}"></header>
+
+    <div class="container-fluid marcel-admin-main px-3 px-lg-4 py-3 py-lg-4">
+        <div class="row g-3 g-lg-4">
+            <aside class="col-lg-3 col-xl-2 d-none d-lg-block">
+                <th:block th:replace="~{fragments/navigation :: sidebar(${activeNav != null ? activeNav : 'dashboard'})}"></th:block>
+            </aside>
+
+            <main class="col-12 col-lg-9 col-xl-10">
+                <th:block th:replace="~{fragments/flash-messages :: flashMessages}"></th:block>
+                <th:block th:replace="${content}">
+                    <p>Marcel content goes here.</p>
+                </th:block>
+            </main>
+        </div>
+    </div>
+
+    <footer th:replace="~{fragments/footer :: adminFooter}"></footer>
+</div>
+
+<th:block th:replace="~{fragments/navigation :: mobile(${activeNav != null ? activeNav : 'dashboard'})}"></th:block>
+<th:block th:replace="~{fragments/scripts :: marcelScripts}"></th:block>
+</body>
+</html>

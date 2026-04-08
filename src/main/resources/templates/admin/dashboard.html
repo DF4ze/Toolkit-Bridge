@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layouts/admin-layout :: layout('Marcel | Dashboard', ~{::content})}">
+<body>
+<section th:fragment="content" class="marcel-dashboard">
+    <div class="marcel-card card mb-3 mb-lg-4">
+        <div class="card-body p-4">
+            <span class="marcel-brand-badge mb-3">Dashboard principal</span>
+            <h1 class="h3 mb-2">Bienvenue sur l administration Marcel</h1>
+            <p class="mb-0 marcel-text-soft">
+                Ce tableau de bord pose la base de navigation pour les futurs modules metier.
+            </p>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-3 mb-lg-4">
+        <div class="col-12 col-md-6 col-xxl-3" th:each="card : ${summaryCards}">
+            <a class="marcel-summary-card text-decoration-none"
+               th:href="${card.href}"
+               th:classappend="${card.toneClass}">
+                <span class="marcel-summary-card-title" th:text="${card.title}">Titre</span>
+                <span class="marcel-summary-card-value" th:text="${card.value}">0</span>
+                <span class="marcel-summary-card-detail" th:text="${card.detail}">Detail</span>
+            </a>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-12 col-xl-7">
+            <article class="marcel-card card h-100">
+                <div class="card-header">
+                    <h2 class="h5 mb-0">Raccourcis</h2>
+                </div>
+                <div class="card-body">
+                    <div class="list-group marcel-shortcuts">
+                        <a class="list-group-item list-group-item-action marcel-shortcut-item"
+                           th:href="${shortcut.href}"
+                           th:each="shortcut : ${shortcutLinks}">
+                            <span class="d-block fw-semibold marcel-text-blue" th:text="${shortcut.title}">Section</span>
+                            <span class="d-block marcel-text-soft" th:text="${shortcut.description}">Description</span>
+                        </a>
+                    </div>
+                </div>
+            </article>
+        </div>
+
+        <div class="col-12 col-xl-5">
+            <article class="marcel-card card h-100">
+                <div class="card-header">
+                    <h2 class="h5 mb-0">Etat systeme</h2>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush marcel-status-list">
+                        <li class="list-group-item px-0 d-flex justify-content-between align-items-center"
+                            th:each="item : ${systemItems}">
+                            <span class="marcel-text-soft" th:text="${item.label}">Label</span>
+                            <span class="fw-semibold marcel-text-blue" th:text="${item.value}">Valeur</span>
+                        </li>
+                    </ul>
+                    <a class="btn btn-marcel-primary w-100 mt-3"
+                       href="/admin/ui-preview"
+                       th:href="@{/admin/ui-preview}">
+                        Ouvrir UI Preview
+                    </a>
+                </div>
+            </article>
+        </div>
+    </div>
+</section>
+</body>
+</html>

@@ -1,0 +1,35 @@
+<th:block xmlns:th="http://www.thymeleaf.org" th:fragment="adminHeader">
+    <nav class="navbar marcel-topbar">
+        <div class="container-fluid px-3 px-lg-4">
+            <div class="d-flex align-items-center gap-2 gap-sm-3">
+                <button class="navbar-toggler marcel-navbar-toggler d-lg-none"
+                        type="button"
+                        data-bs-toggle="offcanvas"
+                        data-bs-target="#marcelMobileNav"
+                        aria-controls="marcelMobileNav"
+                        aria-label="Open admin navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+
+                <a class="navbar-brand d-flex align-items-center gap-3 m-0" href="/admin" th:href="@{/admin}">
+                    <img class="marcel-navbar-logo" src="/img/marcel-logo.png" th:src="@{/img/marcel-logo.png}" alt="Marcel logo">
+                    <span class="d-flex flex-column">
+                        <span class="marcel-brand-title">Marcel</span>
+                        <span class="marcel-brand-subtitle">Administration</span>
+                    </span>
+                </a>
+            </div>
+
+            <div class="d-flex align-items-center gap-2">
+                <a class="btn btn-sm btn-marcel-header-link d-none d-sm-inline-flex"
+                   href="/admin/ui-preview"
+                   th:href="@{/admin/ui-preview}">
+                    UI Preview
+                </a>
+                <form action="/logout" method="post" th:action="@{/logout}" class="m-0">
+                    <button type="submit" class="btn btn-sm btn-marcel-secondary">Logout</button>
+                </form>
+            </div>
+        </div>
+    </nav>
+</th:block>

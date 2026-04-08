@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layouts/admin-layout :: layout('Marcel | Technical Agents', ~{::content})}">
+<body>
+<section th:fragment="content">
+    <div class="marcel-card card mb-3 mb-lg-4">
+        <div class="card-body p-4">
+            <span class="marcel-brand-badge mb-3">Technique</span>
+            <h1 class="h3 mb-2">Agents techniques</h1>
+            <p class="mb-0 marcel-text-soft">Liste des agents connus avec etat runtime et politique appliquee.</p>
+        </div>
+    </div>
+
+    <th:block th:replace="~{fragments/technical-nav :: tabs(${activeTechnicalNav})}"></th:block>
+
+    <article class="marcel-card card">
+        <div class="card-body p-3 p-lg-4">
+            <div class="table-responsive">
+                <table class="table table-hover table-marcel align-middle mb-0">
+                    <thead>
+                    <tr>
+                        <th scope="col">Agent</th>
+                        <th scope="col">Role</th>
+                        <th scope="col">Provider/Model</th>
+                        <th scope="col">Runtime</th>
+                        <th scope="col">Policy</th>
+                        <th scope="col">Tools</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:if="${#lists.isEmpty(agents)}">
+                        <td colspan="6" class="text-center py-4 marcel-text-soft">Aucun agent technique disponible.</td>
+                    </tr>
+                    <tr th:each="agent : ${agents}">
+                        <td>
+                            <div class="fw-semibold" th:text="${agent.agentId}">agent-1</div>
+                            <div class="small marcel-text-soft" th:text="${agent.name}">Agent Name</div>
+                        </td>
+                        <td>
+                            <div th:text="${agent.role}">ROLE</div>
+                            <div class="small marcel-text-soft" th:text="${agent.orchestrator}">ORCHESTRATOR</div>
+                        </td>
+                        <td>
+                            <div th:text="${agent.provider}">provider</div>
+                            <div class="small marcel-text-soft" th:text="${agent.model}">model</div>
+                        </td>
+                        <td>
+                            <span class="badge text-bg-secondary" th:if="${agent.runtime == null}">INACTIF</span>
+                            <span class="badge text-bg-success" th:if="${agent.runtime != null and !agent.runtime.busy}">
+                                <span th:text="${agent.runtime.availability}">READY</span>
+                            </span>
+                            <span class="badge text-bg-warning" th:if="${agent.runtime != null and agent.runtime.busy}">
+                                <span th:text="${agent.runtime.availability}">BUSY</span>
+                            </span>
+                            <div class="small marcel-text-soft" th:if="${agent.runtime != null}" th:text="${agent.runtime.currentTask}">task</div>
+                        </td>
+                        <td>
+                            <div th:text="${agent.policy != null ? agent.policy.name : agent.policyName}">policy</div>
+                            <div class="small marcel-text-soft"
+                                 th:text="${agent.policy != null and agent.policy.delegationAllowed ? 'Delegation: on' : 'Delegation: off'}">Delegation</div>
+                        </td>
+                        <td>
+                            <span class="badge rounded-pill text-bg-light me-1 mb-1"
+                                  th:each="tool : ${agent.exposedTools}"
+                                  th:text="${tool}">tool</span>
+                            <span class="marcel-text-soft small" th:if="${#lists.isEmpty(agent.exposedTools)}">Aucun</span>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </article>
+</section>
+</body>
+</html>

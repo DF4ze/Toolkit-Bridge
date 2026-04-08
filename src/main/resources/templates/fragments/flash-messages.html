@@ -1,0 +1,14 @@
+<th:block xmlns:th="http://www.thymeleaf.org" th:fragment="flashMessages">
+    <div class="alert alert-success marcel-alert mb-3" role="alert" th:if="${successMessage != null}" th:text="${successMessage}">
+        Success
+    </div>
+    <div class="alert alert-warning marcel-alert mb-3" role="alert" th:if="${warningMessage != null}" th:text="${warningMessage}">
+        Warning
+    </div>
+    <div class="alert alert-danger marcel-alert mb-3" role="alert" th:if="${error != null}" th:text="${error}">
+        Error
+    </div>
+    <div class="alert alert-info marcel-alert mb-3" role="alert" th:if="${infoMessage != null}" th:text="${infoMessage}">
+        Info
+    </div>
+</th:block>

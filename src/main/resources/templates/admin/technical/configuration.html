@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layouts/admin-layout :: layout('Marcel | Technical Configuration', ~{::content})}">
+<body>
+<section th:fragment="content">
+    <div class="marcel-card card mb-3 mb-lg-4">
+        <div class="card-body p-4">
+            <span class="marcel-brand-badge mb-3">Technique</span>
+            <h1 class="h3 mb-2">Configuration technique</h1>
+            <p class="mb-0 marcel-text-soft">Vue lecture seule des principaux elements de configuration exposes.</p>
+        </div>
+    </div>
+
+    <th:block th:replace="~{fragments/technical-nav :: tabs(${activeTechnicalNav})}"></th:block>
+
+    <div class="row g-3 mb-3">
+        <div class="col-12 col-md-6">
+            <div class="marcel-summary-card marcel-summary-card--blue">
+                <span class="marcel-summary-card-title">Definitions d agents</span>
+                <span class="marcel-summary-card-value" th:text="${configuration.agentDefinitionCount}">0</span>
+                <span class="marcel-summary-card-detail">Disponibles dans la plateforme</span>
+            </div>
+        </div>
+        <div class="col-12 col-md-6">
+            <div class="marcel-summary-card marcel-summary-card--gold">
+                <span class="marcel-summary-card-title">Providers LLM</span>
+                <span class="marcel-summary-card-value" th:text="${configuration.llmProviderCount}">0</span>
+                <span class="marcel-summary-card-detail">Configures au niveau admin</span>
+            </div>
+        </div>
+    </div>
+
+    <article class="marcel-card card">
+        <div class="card-body p-3 p-lg-4">
+            <div class="table-responsive">
+                <table class="table table-hover table-marcel align-middle mb-0">
+                    <thead>
+                    <tr>
+                        <th scope="col">Provider</th>
+                        <th scope="col">Base URL</th>
+                        <th scope="col">Default model</th>
+                        <th scope="col">API key</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:if="${#lists.isEmpty(configuration.llmProviders)}">
+                        <td colspan="4" class="text-center py-4 marcel-text-soft">Aucun provider LLM configure.</td>
+                    </tr>
+                    <tr th:each="provider : ${configuration.llmProviders}">
+                        <td th:text="${provider.name}">provider</td>
+                        <td th:text="${provider.baseUrl}">https://example.com</td>
+                        <td th:text="${provider.defaultModel}">model</td>
+                        <td>
+                            <span class="badge text-bg-success" th:if="${provider.apiKeyConfigured}">Configuree</span>
+                            <span class="badge text-bg-secondary" th:if="${!provider.apiKeyConfigured}">Absente</span>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </article>
+</section>
+</body>
+</html>

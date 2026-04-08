@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layouts/admin-layout :: layout('Marcel | Telegram Bot Detail', ~{::content})}">
+<body>
+<section th:fragment="content">
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb mb-0">
+            <li class="breadcrumb-item"><a th:href="@{/admin/telegram-bots}">Bots Telegram</a></li>
+            <li class="breadcrumb-item active" aria-current="page" th:text="${bot.botId}">telegram-main</li>
+        </ol>
+    </nav>
+
+    <article class="marcel-card card mb-3">
+        <div class="card-body p-4 d-flex flex-column flex-lg-row justify-content-between gap-3 align-items-lg-center">
+            <div>
+                <span class="marcel-brand-badge mb-3">Bot Telegram</span>
+                <h1 class="h3 mb-2" th:text="${bot.botId}">telegram-main</h1>
+                <p class="mb-0 marcel-text-soft">Configuration technique de supervision Telegram.</p>
+            </div>
+            <a class="btn btn-outline-secondary" th:href="@{/admin/telegram-bots}">Retour liste</a>
+        </div>
+    </article>
+
+    <div class="alert alert-info marcel-alert mb-3" role="alert">
+        Cette vue lit la configuration issue de <code>toolkit.telegram.supervision</code>.
+    </div>
+
+    <div class="row g-3">
+        <div class="col-12 col-xl-7">
+            <article class="marcel-card card h-100">
+                <div class="card-header"><h2 class="h5 mb-0">Configuration</h2></div>
+                <div class="card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-5 marcel-text-soft">Bot ID</dt>
+                        <dd class="col-sm-7" th:text="${bot.botId}">telegram-main</dd>
+
+                        <dt class="col-sm-5 marcel-text-soft">Supervision</dt>
+                        <dd class="col-sm-7" th:text="${bot.supervisionEnabled ? 'Enabled' : 'Disabled'}">Enabled</dd>
+
+                        <dt class="col-sm-5 marcel-text-soft">Chat ID</dt>
+                        <dd class="col-sm-7" th:text="${bot.supervisionChatId}">123456789</dd>
+
+                        <dt class="col-sm-5 marcel-text-soft">Mode</dt>
+                        <dd class="col-sm-7" th:text="${bot.readOnly ? 'Read only' : 'Interactive'}">Read only</dd>
+
+                        <dt class="col-sm-5 marcel-text-soft">Intervention humaine</dt>
+                        <dd class="col-sm-7" th:text="${bot.humanInterventionEnabled ? 'Enabled' : 'Disabled'}">Enabled</dd>
+                    </dl>
+                </div>
+            </article>
+        </div>
+
+        <div class="col-12 col-xl-5">
+            <article class="marcel-card card h-100">
+                <div class="card-header"><h2 class="h5 mb-0">Edition</h2></div>
+                <div class="card-body">
+                    <p class="marcel-text-soft mb-2">La configuration des bots Telegram est actuellement pilotee par les proprietes applicatives.</p>
+                    <p class="small marcel-text-soft mb-0">Aucun secret Telegram n est affiche dans Marcel.</p>
+                    <button class="btn btn-outline-secondary mt-3" type="button" disabled>Edition bientot disponible</button>
+                </div>
+            </article>
+        </div>
+    </div>
+</section>
+</body>
+</html>

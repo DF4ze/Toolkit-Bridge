@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layouts/admin-layout :: layout('Marcel | Technical Traces', ~{::content})}">
+<body>
+<section th:fragment="content">
+    <div class="marcel-card card mb-3 mb-lg-4">
+        <div class="card-body p-4">
+            <span class="marcel-brand-badge mb-3">Technique</span>
+            <h1 class="h3 mb-2">Traces recentes</h1>
+            <p class="mb-0 marcel-text-soft">Evenements techniques recents pour faciliter le debug et la supervision.</p>
+        </div>
+    </div>
+
+    <th:block th:replace="~{fragments/technical-nav :: tabs(${activeTechnicalNav})}"></th:block>
+
+    <article class="marcel-card card mb-3">
+        <div class="card-body p-3 p-lg-4">
+            <form method="get" action="/admin/technical/traces" th:action="@{/admin/technical/traces}" class="row g-3 align-items-end">
+                <div class="col-12 col-md-4">
+                    <label for="limit" class="form-label">Limit</label>
+                    <input id="limit" name="limit" type="number" min="1" class="form-control" th:value="${effectiveLimit}">
+                </div>
+                <div class="col-12 col-md-6">
+                    <label for="agentId" class="form-label">Agent</label>
+                    <select id="agentId" name="agentId" class="form-select">
+                        <option value="">Tous les agents</option>
+                        <option th:each="agent : ${agentOptions}"
+                                th:value="${agent.agentId}"
+                                th:text="${agent.agentId}"
+                                th:selected="${selectedAgentId == agent.agentId}">agent-1</option>
+                    </select>
+                </div>
+                <div class="col-12 col-md-2 d-grid">
+                    <button class="btn btn-marcel-primary" type="submit">Filtrer</button>
+                </div>
+            </form>
+        </div>
+    </article>
+
+    <article class="marcel-card card">
+        <div class="card-body p-3 p-lg-4">
+            <div class="table-responsive">
+                <table class="table table-hover table-marcel align-middle mb-0">
+                    <thead>
+                    <tr>
+                        <th scope="col">Date</th>
+                        <th scope="col">Type</th>
+                        <th scope="col">Agent</th>
+                        <th scope="col">Task</th>
+                        <th scope="col">Source</th>
+                        <th scope="col">Attributs</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:if="${#lists.isEmpty(traces)}">
+                        <td colspan="6" class="text-center py-4 marcel-text-soft">Aucune trace recente pour ces filtres.</td>
+                    </tr>
+                    <tr th:each="trace : ${traces}">
+                        <td th:text="${trace.occurredAt}">2026-01-01T00:00:00Z</td>
+                        <td>
+                            <span class="badge text-bg-danger" th:if="${trace.type == T(fr.ses10doigts.toolkitbridge.service.agent.trace.model.AgentTraceEventType).ERROR}" th:text="${trace.type}">ERROR</span>
+                            <span class="badge text-bg-secondary" th:if="${trace.type != T(fr.ses10doigts.toolkitbridge.service.agent.trace.model.AgentTraceEventType).ERROR}" th:text="${trace.type != null ? trace.type : 'UNKNOWN'}">TYPE</span>
+                        </td>
+                        <td th:text="${trace.agentId}">agent-1</td>
+                        <td th:text="${trace.taskId}">task-1</td>
+                        <td>
+                            <div th:text="${trace.source}">source</div>
+                            <div class="small marcel-text-soft" th:text="${trace.runId}">run</div>
+                        </td>
+                        <td class="small">
+                            <span th:text="${trace.attributes != null ? trace.attributes : '{}'}">{}</span>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </article>
+</section>
+</body>
+</html>

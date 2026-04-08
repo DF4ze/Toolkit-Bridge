@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layouts/admin-layout :: layout('Marcel | LLM', ~{::content})}">
+<body>
+<section th:fragment="content">
+    <div class="marcel-card card mb-3 mb-lg-4">
+        <div class="card-body p-4 d-flex flex-column flex-md-row justify-content-between gap-3 align-items-md-center">
+            <div>
+                <span class="marcel-brand-badge mb-3">Administration LLM</span>
+                <h1 class="h3 mb-2">LLM configures</h1>
+                <p class="mb-0 marcel-text-soft">Configuration exploitable des providers OpenAI-like.</p>
+            </div>
+            <a class="btn btn-marcel-primary" href="/admin/llms/new" th:href="@{/admin/llms/new}">Nouveau LLM</a>
+        </div>
+    </div>
+
+    <article class="marcel-card card">
+        <div class="card-body p-3 p-lg-4">
+            <div class="table-responsive">
+                <table class="table table-hover table-marcel align-middle mb-0">
+                    <thead>
+                    <tr>
+                        <th scope="col">ID</th>
+                        <th scope="col">Base URL</th>
+                        <th scope="col">Default model</th>
+                        <th scope="col">API key</th>
+                        <th scope="col" class="text-end">Actions</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:if="${#lists.isEmpty(llms)}">
+                        <td colspan="5" class="text-center py-4 marcel-text-soft">Aucun LLM configure.</td>
+                    </tr>
+                    <tr th:each="llm : ${llms}">
+                        <td class="fw-semibold" th:text="${llm.llmId}">openai</td>
+                        <td th:text="${llm.baseUrl}">https://api.openai.com/v1</td>
+                        <td th:text="${llm.defaultModel}">gpt-5</td>
+                        <td>
+                            <span class="badge text-bg-success" th:if="${llm.apiKeyConfigured}">Configured</span>
+                            <span class="badge text-bg-secondary" th:if="${!llm.apiKeyConfigured}">Missing</span>
+                        </td>
+                        <td class="text-end">
+                            <a class="btn btn-sm btn-outline-secondary"
+                               th:href="@{/admin/llms/{llmId}(llmId=${llm.llmId})}">Detail</a>
+                            <a class="btn btn-sm btn-marcel-primary"
+                               th:href="@{/admin/llms/{llmId}/edit(llmId=${llm.llmId})}">Edit</a>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </article>
+</section>
+</body>
+</html>

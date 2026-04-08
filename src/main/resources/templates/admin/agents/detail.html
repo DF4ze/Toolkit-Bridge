@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layouts/admin-layout :: layout('Marcel | Agent Detail', ~{::content})}">
+<body>
+<section th:fragment="content">
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb mb-0">
+            <li class="breadcrumb-item"><a th:href="@{/admin/agents}">Agents</a></li>
+            <li class="breadcrumb-item active" aria-current="page" th:text="${agent.agentId}">assistant-main</li>
+        </ol>
+    </nav>
+
+    <article class="marcel-card card mb-3">
+        <div class="card-body p-4 d-flex flex-column flex-lg-row justify-content-between gap-3 align-items-lg-center">
+            <div>
+                <span class="marcel-brand-badge mb-3">Agent</span>
+                <h1 class="h3 mb-2" th:text="${agent.agentId}">assistant-main</h1>
+                <p class="mb-0 marcel-text-soft" th:text="${agent.name}">Assistant principal</p>
+            </div>
+            <div class="d-flex gap-2">
+                <a class="btn btn-outline-secondary" th:href="@{/admin/agents}">Retour liste</a>
+                <a class="btn btn-marcel-primary" th:href="@{/admin/agents/{agentId}/edit(agentId=${agent.agentId})}">Editer</a>
+            </div>
+        </div>
+    </article>
+
+    <div class="row g-3">
+        <div class="col-12 col-xl-7">
+            <article class="marcel-card card h-100">
+                <div class="card-header"><h2 class="h5 mb-0">Associations</h2></div>
+                <div class="card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-5 marcel-text-soft">LLM provider</dt>
+                        <dd class="col-sm-7" th:text="${agent.llmProvider}">openai</dd>
+
+                        <dt class="col-sm-5 marcel-text-soft">LLM model</dt>
+                        <dd class="col-sm-7" th:text="${agent.model}">gpt-5</dd>
+
+                        <dt class="col-sm-5 marcel-text-soft">Bot Telegram</dt>
+                        <dd class="col-sm-7" th:text="${agent.telegramBotId}">bot-main</dd>
+
+                        <dt class="col-sm-5 marcel-text-soft">Orchestrator</dt>
+                        <dd class="col-sm-7" th:text="${agent.orchestratorType}">CHAT</dd>
+
+                        <dt class="col-sm-5 marcel-text-soft">Role</dt>
+                        <dd class="col-sm-7" th:text="${agent.role}">ASSISTANT</dd>
+                    </dl>
+                </div>
+            </article>
+        </div>
+
+        <div class="col-12 col-xl-5">
+            <article class="marcel-card card h-100">
+                <div class="card-header"><h2 class="h5 mb-0">Configuration</h2></div>
+                <div class="card-body">
+                    <p class="mb-2"><span class="marcel-text-soft">Policy:</span> <span th:text="${agent.policyName}">default</span></p>
+                    <p class="mb-2"><span class="marcel-text-soft">Tools enabled:</span> <span th:text="${agent.toolsEnabled ? 'Yes' : 'No'}">Yes</span></p>
+                    <p class="mb-2 marcel-text-soft">Provisioning account:</p>
+                    <span class="badge text-bg-secondary" th:if="${agent.accountEnabled == null}">Not provisioned</span>
+                    <span class="badge text-bg-success" th:if="${agent.accountEnabled != null and agent.accountEnabled}">Enabled</span>
+                    <span class="badge text-bg-danger" th:if="${agent.accountEnabled != null and !agent.accountEnabled}">Disabled</span>
+                </div>
+            </article>
+        </div>
+    </div>
+
+    <article class="marcel-card card mt-3">
+        <div class="card-header"><h2 class="h5 mb-0">System Prompt</h2></div>
+        <div class="card-body">
+            <pre class="mb-0 small" th:text="${agent.systemPrompt}">Prompt...</pre>
+        </div>
+    </article>
+</section>
+</body>
+</html>

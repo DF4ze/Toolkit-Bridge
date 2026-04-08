@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layouts/admin-layout :: layout('Marcel | UI Preview', ~{::content})}">
+<body>
+<section th:fragment="content">
+    <div class="row g-4">
+        <div class="col-12">
+            <article class="marcel-card card">
+                <div class="card-body p-4">
+                    <div class="d-flex flex-wrap align-items-center gap-3 mb-3">
+                        <img src="/img/marcel-logo.png" th:src="@{/img/marcel-logo.png}" alt="Marcel logo"
+                             class="rounded-circle" width="56" height="56">
+                        <div>
+                            <h1 class="h2 mb-1">Marcel</h1>
+                            <p class="mb-0 marcel-text-soft">Apercu du socle UI de la console d'administration</p>
+                        </div>
+                    </div>
+                    <p class="mb-0">
+                        Date locale chargee via jQuery leger:
+                        <strong class="js-marcel-today">...</strong>
+                    </p>
+                </div>
+            </article>
+        </div>
+
+        <div class="col-12 col-lg-6">
+            <article class="marcel-card card h-100">
+                <div class="card-header">
+                    <h2 class="h5 mb-0">Boutons et alerte</h2>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex flex-wrap gap-2 mb-3">
+                        <button type="button" class="btn btn-marcel-primary">Action principale</button>
+                        <button type="button" class="btn btn-marcel-secondary">Action secondaire</button>
+                    </div>
+                    <div class="alert alert-marcel mb-0" role="alert">
+                        Cette vue valide le theme Marcel et les composants Bootstrap.
+                    </div>
+                </div>
+            </article>
+        </div>
+
+        <div class="col-12 col-lg-6">
+            <article class="marcel-card card h-100">
+                <div class="card-header">
+                    <h2 class="h5 mb-0">Formulaire simple</h2>
+                </div>
+                <div class="card-body">
+                    <form>
+                        <div class="mb-3">
+                            <label for="previewName" class="form-label">Nom de section</label>
+                            <input id="previewName" type="text" class="form-control" placeholder="Ex: Dashboard">
+                        </div>
+                        <div class="mb-0">
+                            <label for="previewScope" class="form-label">Perimetre</label>
+                            <select id="previewScope" class="form-select">
+                                <option selected>Administration generale</option>
+                                <option>LLM</option>
+                                <option>Bots Telegram</option>
+                                <option>Agents</option>
+                            </select>
+                        </div>
+                    </form>
+                </div>
+            </article>
+        </div>
+
+        <div class="col-12">
+            <article class="marcel-card card">
+                <div class="card-header">
+                    <h2 class="h5 mb-0">Tableau de demonstration</h2>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-marcel mb-0">
+                            <thead>
+                            <tr>
+                                <th scope="col" class="ps-3">Module</th>
+                                <th scope="col">Statut</th>
+                                <th scope="col">Objectif lot suivant</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr>
+                                <td class="ps-3">Layout Admin</td>
+                                <td><span class="badge text-bg-success">Base prete</span></td>
+                                <td>Header + sidebar reutilisables</td>
+                            </tr>
+                            <tr>
+                                <td class="ps-3">Pages fonctionnelles</td>
+                                <td><span class="badge text-bg-warning">A construire</span></td>
+                                <td>LLM, Bots Telegram, Agents</td>
+                            </tr>
+                            <tr>
+                                <td class="ps-3">Pages techniques</td>
+                                <td><span class="badge text-bg-warning">A construire</span></td>
+                                <td>Supervision, traces, debug</td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </article>
+        </div>
+    </div>
+</section>
+</body>
+</html>
