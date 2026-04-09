@@ -1,0 +1,157 @@
+spring:
+  application:
+    name: Toolkit-Bridge
+  datasource:
+    url: jdbc:sqlite:./data/toolkit-bridge.db
+    driver-class-name: org.sqlite.JDBC
+  jpa:
+    database-platform: org.hibernate.community.dialect.SQLiteDialect
+    show-sql: false
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+  sql:
+    init:
+      mode: never
+
+server:
+  port: 8080
+  # HTTPS example (disabled by default):
+  # ssl:
+  #   enabled: true
+  #   key-store: classpath:certs/marcel-keystore.p12
+  #   key-store-password: changeit
+  #   key-store-type: PKCS12
+  # To expose HTTPS directly from Spring Boot, you can also set:
+  # port: 8443
+
+logging:
+  level:
+    root: INFO
+    org.springframework: INFO
+    fr.ses10doigts.toolkitbridge: DEBUG
+
+app:
+  workspace:
+    agents-root: workspace/agents
+    shared-root: workspace/shared
+
+telegram:
+  enabled: true
+  polling-logging:
+    # ERROR (default): keep telegram library ERROR log
+    # WARN: demote repeated 409 conflict log to WARN
+    # OFF: hide this specific 409 conflict log line
+    conflict-409-log-mode: WARN
+  default-bot-id: Cortex
+  bots:
+    - id: Minus
+      token: YourTelegramBotToken1
+      polling-enabled: true
+      auto-register-commands: true
+      configure-menu-button: true
+      security:
+        allowed-user-ids:
+          - 1595302518
+
+    - id: Cortex
+      token: YourTelegramBotToken2
+      polling-enabled: true
+      auto-register-commands: true
+      configure-menu-button: true
+      security:
+        allowed-user-ids:
+          - 1595302518
+
+toolkit:
+  admin:
+    security:
+      master-token-file: data/runtime/security/admin-master.token
+    technical:
+      default-list-limit: 50
+      max-list-limit: 200
+      tasks:
+        max-events: 500
+  artifacts:
+    enabled: true
+    content-folder: artifacts
+    retention:
+      default-ttl: 24h
+      by-type:
+        report: 168h
+        patch: 168h
+        script: 168h
+        plan: 336h
+        summary: 72h
+        file: 720h
+        memory_candidate: 720h
+  memory:
+    conversation:
+      enabled: true
+      max-recent-messages: 20
+      max-recent-characters: 12000
+      min-messages-to-keep: 8
+      expire-after-minutes: 720
+      auto-summarize: true
+      max-summary-characters: 2000
+    context:
+      max-rules: 10
+      max-memories: 10
+      max-characters: 15000
+      max-episodes: 5
+    retrieval:
+      max-rules: 10
+      max-semantic-memories: 10
+      max-episodes: 5
+      max-project-episode-fetch: 5
+      conversation-slice-max-characters: 4000
+    integration:
+      enable-semantic-extraction: true
+      enable-rule-promotion: true
+      enable-episodic-injection: true
+      mark-used-enabled: true
+      max-rules: 10
+      max-semantic-memories: 10
+      max-episodes: 5
+      max-conversation-messages: 20
+      max-context-characters: 15000
+  llm:
+    openai-like:
+      providers:
+        - name: lmstudio
+          base-url: http://LM-STUDIO.URL/v1
+          api-key: "Eventual-API-Key"
+          default-model: qwen3.5-9b
+        - name: ollama
+          base-url: http://OLLAMA-URL:11434/v1
+          api-key: ""
+          default-model: qwen3.5:9b
+        - name: openai
+          base-url: https://api.openai.com/v1
+          api-key: "YourOpenAIKey"
+          default-model: gpt-4.1-mini
+
+  agents:
+    definitions:
+      - id: Cortex
+        name: Cortex
+        telegram-bot-id: Cortex
+        orchestrator-type: CHAT
+        llm-provider: openai
+        model: gpt-4.1-mini
+        system-prompt: |
+          Tu es un assistant de développement Java Spring.
+          Tu aides à concevoir, coder, tester et refactorer proprement.
+
+      - id: Minus
+        name: Minus
+        telegram-bot-id: Minus
+        orchestrator-type: CHAT
+        llm-provider: ollama
+        model: qwen3.5:9b
+        tools-enabled: true
+        system-prompt: |
+          Tu es un assistant orienté exploitation et automatisation système.
+          Tu privilégies la sécurité, la prudence et la traçabilité.
