@@ -1,0 +1,61 @@
+Code modifié
+
+J’ai séparé les responsabilités runtime DB-only et seed/bootstrap:
+AdministrableConfigurationGateway.java
+ne contient plus que la lecture/écriture DB.
+suppression des méthodes seed/bootstrap et des dépendances YAML.
+AdministrableConfigurationSeedService.java
+nouveau service dédié au seed YAML au démarrage (logique déplacée telle quelle).
+AdministrableConfigurationBootstrap.java
+recâblé pour appeler AdministrableConfigurationSeedService au lieu du gateway.
+Nettoyage runtime LLM DB-first:
+OpenAiLikeConfiguration.java
+retrait de @EnableConfigurationProperties(OpenAiLikeProvidersProperties.class).
+suppression du check null redondant sur la liste providers.
+Surface destructive retirée:
+AgentAccountRepository.java
+suppression de deleteByAgentIdentNotIn(...).
+Simplification défensive:
+AgentAccountInitializer.java
+retrait du check definitions == null (liste non nulle garantie par le gateway).
+Tests ajustés/ajoutés
+
+Ajustés:
+AdministrableConfigurationGatewayTest.java
+recentré sur le contrat runtime DB-only (retour vide si absent DB).
+AdministrableConfigurationBootstrapTest.java
+vérifie l’appel au nouveau SeedService.
+AgentAccountInitializerTest.java
+adapté après suppression de la méthode destructive repository.
+Ajouté:
+AdministrableConfigurationSeedServiceTest.java
+verrouille la logique de seed “uniquement si clé absente”, hors runtime gateway.
+Validation
+
+Exécuté:
+.\mvnw "-Dtest=AdministrableConfigurationGatewayTest,AdministrableConfigurationSeedServiceTest,AdministrableConfigurationBootstrapTest,OpenAiLikeConfigurationTest,AgentAccountInitializerTest,AgentDefinitionServiceTest" test
+Résultat: BUILD SUCCESS, 9 tests OK.
+Résumé
+
+La séparation d’architecture est maintenant plus nette:
+Gateway = runtime/admin DB-only.
+SeedService = seed YAML de bootstrap.
+Aucun fallback runtime YAML réintroduit.
+Pas de nouvelle fonctionnalité ajoutée.
+Pas de changement de périmètre (pas de Phase 2, pas de migration mémoire, pas de reload).
+Points d’attention
+
+Le bootstrap existant continue de seed depuis YAML au démarrage (comportement inchangé), mais il est maintenant isolé hors gateway runtime.
+AgentsProperties reste présent dans le projet (normal, utile au seed actuel), mais n’est plus une dépendance du gateway runtime.
+Liste des fichiers modifiés
+
+AdministrableConfigurationGateway.java
+AdministrableConfigurationSeedService.java
+AdministrableConfigurationBootstrap.java
+OpenAiLikeConfiguration.java
+AgentAccountRepository.java
+AgentAccountInitializer.java
+AdministrableConfigurationGatewayTest.java
+AdministrableConfigurationSeedServiceTest.java
+AdministrableConfigurationBootstrapTest.java
+AgentAccountInitializerTest.java

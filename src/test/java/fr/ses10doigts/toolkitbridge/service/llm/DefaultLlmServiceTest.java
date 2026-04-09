@@ -16,6 +16,7 @@ import fr.ses10doigts.toolkitbridge.service.agent.trace.model.AgentTraceCorrelat
 import fr.ses10doigts.toolkitbridge.service.agent.trace.model.AgentTraceEventType;
 import fr.ses10doigts.toolkitbridge.service.llm.provider.LlmProvider;
 import fr.ses10doigts.toolkitbridge.service.llm.provider.LlmProviderRegistry;
+import fr.ses10doigts.toolkitbridge.service.llm.runtime.LlmProviderRegistryRuntime;
 import fr.ses10doigts.toolkitbridge.service.tool.ToolExecutionService;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -32,6 +33,7 @@ class DefaultLlmServiceTest {
 
     @Test
     void emitsStructuredToolCallTraceWhenToolExecutionSucceeds() throws Exception {
+        LlmProviderRegistryRuntime registryRuntime = mock(LlmProviderRegistryRuntime.class);
         LlmProviderRegistry providerRegistry = mock(LlmProviderRegistry.class);
         ToolExecutionService toolExecutionService = mock(ToolExecutionService.class);
         AgentTraceService traceService = mock(AgentTraceService.class);
@@ -40,7 +42,7 @@ class DefaultLlmServiceTest {
         AgentTraceContextHolder contextHolder = new AgentTraceContextHolder();
         contextHolder.setCurrentCorrelation(new AgentTraceCorrelation("run-1", "task-1", "agent-1", "message-1"));
         DefaultLlmService service = new DefaultLlmService(
-                providerRegistry,
+                registryRuntime,
                 toolExecutionService,
                 new ObjectMapper(),
                 traceService,
@@ -51,6 +53,7 @@ class DefaultLlmServiceTest {
         ChatMessage toolMessage = new ChatMessage(MessageRole.ASSISTANT, "", List.of(toolCall));
         ChatMessage finalMessage = new ChatMessage(MessageRole.ASSISTANT, "done", null);
 
+        when(registryRuntime.snapshot()).thenReturn(providerRegistry);
         when(providerRegistry.getRequired("provider")).thenReturn(provider);
         when(provider.chat(any(ChatRequest.class)))
                 .thenReturn(new ChatResponse("model", toolMessage))
@@ -81,19 +84,21 @@ class DefaultLlmServiceTest {
 
     @Test
     void returnsAssistantContentWhenProviderDoesNotRequestTools() {
+        LlmProviderRegistryRuntime registryRuntime = mock(LlmProviderRegistryRuntime.class);
         LlmProviderRegistry providerRegistry = mock(LlmProviderRegistry.class);
         ToolExecutionService toolExecutionService = mock(ToolExecutionService.class);
         AgentTraceService traceService = mock(AgentTraceService.class);
         LlmProvider provider = mock(LlmProvider.class);
 
         DefaultLlmService service = new DefaultLlmService(
-                providerRegistry,
+                registryRuntime,
                 toolExecutionService,
                 new ObjectMapper(),
                 traceService,
                 new AgentTraceContextHolder()
         );
 
+        when(registryRuntime.snapshot()).thenReturn(providerRegistry);
         when(providerRegistry.getRequired("provider")).thenReturn(provider);
         when(provider.chat(any(ChatRequest.class)))
                 .thenReturn(new ChatResponse("model", new Message(MessageRole.ASSISTANT, "plain response")));
@@ -112,6 +117,7 @@ class DefaultLlmServiceTest {
 
     @Test
     void emitsToolCallEventWithSuccessFalseWhenToolExecutionFails() throws Exception {
+        LlmProviderRegistryRuntime registryRuntime = mock(LlmProviderRegistryRuntime.class);
         LlmProviderRegistry providerRegistry = mock(LlmProviderRegistry.class);
         ToolExecutionService toolExecutionService = mock(ToolExecutionService.class);
         AgentTraceService traceService = mock(AgentTraceService.class);
@@ -120,7 +126,7 @@ class DefaultLlmServiceTest {
         contextHolder.setCurrentCorrelation(new AgentTraceCorrelation("run-1", "task-1", "agent-1", "message-1"));
 
         DefaultLlmService service = new DefaultLlmService(
-                providerRegistry,
+                registryRuntime,
                 toolExecutionService,
                 new ObjectMapper(),
                 traceService,
@@ -131,6 +137,7 @@ class DefaultLlmServiceTest {
         ChatMessage toolMessage = new ChatMessage(MessageRole.ASSISTANT, "", List.of(toolCall));
         ChatMessage finalMessage = new ChatMessage(MessageRole.ASSISTANT, "done", null);
 
+        when(registryRuntime.snapshot()).thenReturn(providerRegistry);
         when(providerRegistry.getRequired("provider")).thenReturn(provider);
         when(provider.chat(any(ChatRequest.class)))
                 .thenReturn(new ChatResponse("model", toolMessage))

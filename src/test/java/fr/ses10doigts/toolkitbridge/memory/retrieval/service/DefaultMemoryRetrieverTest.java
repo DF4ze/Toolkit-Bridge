@@ -1,6 +1,7 @@
 package fr.ses10doigts.toolkitbridge.memory.retrieval.service;
 
-import fr.ses10doigts.toolkitbridge.memory.retrieval.config.MemoryRetrievalProperties;
+import fr.ses10doigts.toolkitbridge.memory.config.runtime.MemoryRuntimeConfiguration;
+import fr.ses10doigts.toolkitbridge.memory.config.runtime.MemoryRuntimeConfigurationResolver;
 import fr.ses10doigts.toolkitbridge.memory.retrieval.model.MemoryQuery;
 import fr.ses10doigts.toolkitbridge.memory.semantic.model.MemoryEntry;
 import fr.ses10doigts.toolkitbridge.memory.semantic.model.MemoryScope;
@@ -28,7 +29,7 @@ class DefaultMemoryRetrieverTest {
     @Test
     void filtersByScopeTypeAndVisibilityWithoutScoring() {
         MemoryEntryRepository repository = mock(MemoryEntryRepository.class);
-        DefaultMemoryRetriever retriever = new DefaultMemoryRetriever(repository, properties(10), new MemoryScopePolicy());
+        DefaultMemoryRetriever retriever = new DefaultMemoryRetriever(repository, resolver(10), new MemoryScopePolicy());
 
         MemoryEntry match = entry(MemoryScope.AGENT, MemoryType.FACT, MemoryStatus.ACTIVE);
         MemoryEntry wrongScope = entry(MemoryScope.PROJECT, MemoryType.FACT, MemoryStatus.ACTIVE);
@@ -56,7 +57,7 @@ class DefaultMemoryRetrieverTest {
     @Test
     void usesConfiguredCandidatePoolBound() {
         MemoryEntryRepository repository = mock(MemoryEntryRepository.class);
-        DefaultMemoryRetriever retriever = new DefaultMemoryRetriever(repository, properties(2), new MemoryScopePolicy());
+        DefaultMemoryRetriever retriever = new DefaultMemoryRetriever(repository, resolver(2), new MemoryScopePolicy());
 
         when(repository.searchCandidates(eq("agent-1"), eq(MemoryStatus.ACTIVE), eq("alpha"), any(Pageable.class)))
                 .thenReturn(List.of());
@@ -84,7 +85,7 @@ class DefaultMemoryRetrieverTest {
     @Test
     void rejectsNullQuery() {
         MemoryEntryRepository repository = mock(MemoryEntryRepository.class);
-        DefaultMemoryRetriever retriever = new DefaultMemoryRetriever(repository, properties(10), new MemoryScopePolicy());
+        DefaultMemoryRetriever retriever = new DefaultMemoryRetriever(repository, resolver(10), new MemoryScopePolicy());
 
         assertThatThrownBy(() -> retriever.retrieve(null))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -94,7 +95,7 @@ class DefaultMemoryRetrieverTest {
     @Test
     void filtersProjectScopeAccordingToProjectId() {
         MemoryEntryRepository repository = mock(MemoryEntryRepository.class);
-        DefaultMemoryRetriever retriever = new DefaultMemoryRetriever(repository, properties(10), new MemoryScopePolicy());
+        DefaultMemoryRetriever retriever = new DefaultMemoryRetriever(repository, resolver(10), new MemoryScopePolicy());
 
         MemoryEntry projectEntry = entry(MemoryScope.PROJECT, MemoryType.FACT, MemoryStatus.ACTIVE, "project-1");
         MemoryEntry agentEntry = entry(MemoryScope.AGENT, MemoryType.FACT, MemoryStatus.ACTIVE);
@@ -130,7 +131,7 @@ class DefaultMemoryRetrieverTest {
     @Test
     void filtersUserScopeAccordingToUserId() {
         MemoryEntryRepository repository = mock(MemoryEntryRepository.class);
-        DefaultMemoryRetriever retriever = new DefaultMemoryRetriever(repository, properties(10), new MemoryScopePolicy());
+        DefaultMemoryRetriever retriever = new DefaultMemoryRetriever(repository, resolver(10), new MemoryScopePolicy());
 
         MemoryEntry userMatch = entry(MemoryScope.USER, MemoryType.FACT, MemoryStatus.ACTIVE, "user-1");
         MemoryEntry userOther = entry(MemoryScope.USER, MemoryType.FACT, MemoryStatus.ACTIVE, "user-2");
@@ -152,10 +153,21 @@ class DefaultMemoryRetrieverTest {
         assertThat(result).containsExactly(userMatch);
     }
 
-    private MemoryRetrievalProperties properties(int maxCandidatePoolSize) {
-        MemoryRetrievalProperties properties = new MemoryRetrievalProperties();
-        properties.setMaxCandidatePoolSize(maxCandidatePoolSize);
-        return properties;
+    private MemoryRuntimeConfigurationResolver resolver(int maxCandidatePoolSize) {
+        MemoryRuntimeConfigurationResolver resolver = mock(MemoryRuntimeConfigurationResolver.class);
+        when(resolver.snapshot()).thenReturn(new MemoryRuntimeConfiguration(
+                new MemoryRuntimeConfiguration.Context(10, 10, 15000, 5),
+                new MemoryRuntimeConfiguration.Retrieval(10, 10, maxCandidatePoolSize, 5, 5, 4000),
+                new MemoryRuntimeConfiguration.Integration(true, true, true, true),
+                new MemoryRuntimeConfiguration.Scoring(1.0, 0.5, 1.0),
+                new MemoryRuntimeConfiguration.GlobalContext(
+                        true,
+                        MemoryRuntimeConfiguration.GlobalContextLoadMode.ON_DEMAND,
+                        java.time.Duration.ofSeconds(30),
+                        List.of()
+                )
+        ));
+        return resolver;
     }
 
     private MemoryEntry entry(MemoryScope scope, MemoryType type, MemoryStatus status) {

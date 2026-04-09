@@ -8,14 +8,14 @@ import static org.mockito.Mockito.*;
 class AdministrableConfigurationBootstrapTest {
 
     @Test
-    void shouldInvokeGatewayBootstrap() {
-        AdministrableConfigurationGateway gateway = mock(AdministrableConfigurationGateway.class);
-        when(gateway.bootstrapSeedsIfMissing()).thenReturn(true);
+    void shouldInvokeSeedBootstrap() {
+        AdministrableConfigurationSeedService seedService = mock(AdministrableConfigurationSeedService.class);
+        when(seedService.bootstrapSeedsIfMissing()).thenReturn(true);
 
-        AdministrableConfigurationBootstrap bootstrap = new AdministrableConfigurationBootstrap(gateway);
+        AdministrableConfigurationBootstrap bootstrap = new AdministrableConfigurationBootstrap(seedService);
         bootstrap.run(new DefaultApplicationArguments(new String[0]));
 
-        verify(gateway, times(1)).bootstrapSeedsIfMissing();
+        verify(seedService, times(1)).bootstrapSeedsIfMissing();
     }
 }
 

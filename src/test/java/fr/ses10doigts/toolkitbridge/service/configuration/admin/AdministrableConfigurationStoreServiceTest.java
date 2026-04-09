@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -53,6 +54,26 @@ class AdministrableConfigurationStoreServiceTest {
         service.write(AdministrableConfigKey.OPENAI_LIKE_PROVIDERS, List.of(new RecordView("openai")));
 
         verify(repository).save(any(AdministrableConfigurationEntity.class));
+    }
+
+    @Test
+    void shouldPropagateOptimisticLockException() {
+        AdministrableConfigurationRepository repository = mock(AdministrableConfigurationRepository.class);
+        when(repository.findByConfigKey(AdministrableConfigKey.OPENAI_LIKE_PROVIDERS.storageKey()))
+                .thenReturn(Optional.of(new AdministrableConfigurationEntity()));
+        when(repository.save(any(AdministrableConfigurationEntity.class)))
+                .thenThrow(new org.springframework.orm.ObjectOptimisticLockingFailureException(
+                        AdministrableConfigurationEntity.class,
+                        1L
+                ));
+
+        AdministrableConfigurationStoreService service = new AdministrableConfigurationStoreService(
+                repository,
+                new ObjectMapper()
+        );
+
+        assertThatThrownBy(() -> service.write(AdministrableConfigKey.OPENAI_LIKE_PROVIDERS, List.of(new RecordView("openai"))))
+                .isInstanceOf(org.springframework.orm.ObjectOptimisticLockingFailureException.class);
     }
 
     private record RecordView(String id) {

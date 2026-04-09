@@ -1,7 +1,8 @@
 package fr.ses10doigts.toolkitbridge.memory.context.global.service;
 
 import fr.ses10doigts.toolkitbridge.config.workspace.WorkspaceProperties;
-import fr.ses10doigts.toolkitbridge.memory.context.global.config.GlobalContextProperties;
+import fr.ses10doigts.toolkitbridge.memory.config.runtime.MemoryRuntimeConfiguration;
+import fr.ses10doigts.toolkitbridge.memory.config.runtime.MemoryRuntimeConfigurationResolver;
 import fr.ses10doigts.toolkitbridge.memory.context.global.model.SharedGlobalContextSnapshot;
 import fr.ses10doigts.toolkitbridge.service.workspace.WorkspaceLayout;
 import org.junit.jupiter.api.BeforeEach;
@@ -15,6 +16,8 @@ import java.time.Duration;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class MarkdownSharedGlobalContextProviderTest {
 
@@ -40,10 +43,10 @@ class MarkdownSharedGlobalContextProviderTest {
         Files.writeString(globalContextRoot.resolve("profile.md"), "# Profile\nAlice");
         Files.writeString(globalContextRoot.resolve("rules.md"), "# Rules\nBe concise");
 
-        GlobalContextProperties properties = new GlobalContextProperties();
-        properties.setFiles(List.of("rules.md", "profile.md"));
-
-        MarkdownSharedGlobalContextProvider provider = new MarkdownSharedGlobalContextProvider(properties, workspaceLayout);
+        MarkdownSharedGlobalContextProvider provider = new MarkdownSharedGlobalContextProvider(
+                resolver(true, MemoryRuntimeConfiguration.GlobalContextLoadMode.ON_DEMAND, Duration.ofSeconds(30), List.of("rules.md", "profile.md")),
+                workspaceLayout
+        );
 
         SharedGlobalContextSnapshot snapshot = provider.getSharedGlobalContext();
 
@@ -58,10 +61,10 @@ class MarkdownSharedGlobalContextProviderTest {
         Path file = globalContextRoot.resolve("profile.md");
         Files.writeString(file, "version-1");
 
-        GlobalContextProperties properties = new GlobalContextProperties();
-        properties.setLoadMode(GlobalContextProperties.LoadMode.ON_DEMAND);
-
-        MarkdownSharedGlobalContextProvider provider = new MarkdownSharedGlobalContextProvider(properties, workspaceLayout);
+        MarkdownSharedGlobalContextProvider provider = new MarkdownSharedGlobalContextProvider(
+                resolver(true, MemoryRuntimeConfiguration.GlobalContextLoadMode.ON_DEMAND, Duration.ofSeconds(30), List.of()),
+                workspaceLayout
+        );
 
         assertThat(provider.getSharedGlobalContext().content()).contains("version-1");
 
@@ -75,11 +78,10 @@ class MarkdownSharedGlobalContextProviderTest {
         Path file = globalContextRoot.resolve("profile.md");
         Files.writeString(file, "cached-v1");
 
-        GlobalContextProperties properties = new GlobalContextProperties();
-        properties.setLoadMode(GlobalContextProperties.LoadMode.CACHED);
-        properties.setCacheRefreshInterval(Duration.ofHours(1));
-
-        MarkdownSharedGlobalContextProvider provider = new MarkdownSharedGlobalContextProvider(properties, workspaceLayout);
+        MarkdownSharedGlobalContextProvider provider = new MarkdownSharedGlobalContextProvider(
+                resolver(true, MemoryRuntimeConfiguration.GlobalContextLoadMode.CACHED, Duration.ofHours(1), List.of()),
+                workspaceLayout
+        );
 
         assertThat(provider.getSharedGlobalContext().content()).contains("cached-v1");
 
@@ -93,16 +95,49 @@ class MarkdownSharedGlobalContextProviderTest {
         Path file = globalContextRoot.resolve("profile.md");
         Files.writeString(file, "cached-v1");
 
-        GlobalContextProperties properties = new GlobalContextProperties();
-        properties.setLoadMode(GlobalContextProperties.LoadMode.CACHED);
-        properties.setCacheRefreshInterval(Duration.ofMillis(5));
-
-        MarkdownSharedGlobalContextProvider provider = new MarkdownSharedGlobalContextProvider(properties, workspaceLayout);
+        MarkdownSharedGlobalContextProvider provider = new MarkdownSharedGlobalContextProvider(
+                resolver(true, MemoryRuntimeConfiguration.GlobalContextLoadMode.CACHED, Duration.ofMillis(5), List.of()),
+                workspaceLayout
+        );
         assertThat(provider.getSharedGlobalContext().content()).contains("cached-v1");
 
         Files.writeString(file, "cached-v2");
         Thread.sleep(20L);
 
         assertThat(provider.getSharedGlobalContext().content()).contains("cached-v2");
+    }
+
+    @Test
+    void shouldRefreshCachedValueImmediatelyAfterExplicitInvalidation() throws Exception {
+        Path file = globalContextRoot.resolve("profile.md");
+        Files.writeString(file, "cached-v1");
+
+        MarkdownSharedGlobalContextProvider provider = new MarkdownSharedGlobalContextProvider(
+                resolver(true, MemoryRuntimeConfiguration.GlobalContextLoadMode.CACHED, Duration.ofHours(1), List.of()),
+                workspaceLayout
+        );
+        assertThat(provider.getSharedGlobalContext().content()).contains("cached-v1");
+
+        Files.writeString(file, "cached-v2");
+        provider.invalidateCache();
+
+        assertThat(provider.getSharedGlobalContext().content()).contains("cached-v2");
+    }
+
+    private MemoryRuntimeConfigurationResolver resolver(
+            boolean enabled,
+            MemoryRuntimeConfiguration.GlobalContextLoadMode loadMode,
+            Duration refreshInterval,
+            List<String> files
+    ) {
+        MemoryRuntimeConfigurationResolver resolver = mock(MemoryRuntimeConfigurationResolver.class);
+        when(resolver.snapshot()).thenReturn(new MemoryRuntimeConfiguration(
+                new MemoryRuntimeConfiguration.Context(10, 10, 15000, 5),
+                new MemoryRuntimeConfiguration.Retrieval(10, 10, 25, 5, 5, 4000),
+                new MemoryRuntimeConfiguration.Integration(true, true, true, true),
+                new MemoryRuntimeConfiguration.Scoring(1.0, 0.5, 1.0),
+                new MemoryRuntimeConfiguration.GlobalContext(enabled, loadMode, refreshInterval, files)
+        ));
+        return resolver;
     }
 }

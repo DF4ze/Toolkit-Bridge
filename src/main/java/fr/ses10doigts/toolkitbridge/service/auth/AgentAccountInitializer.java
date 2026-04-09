@@ -28,7 +28,7 @@ public class AgentAccountInitializer implements ApplicationRunner {
     @Override
     public void run(@NonNull ApplicationArguments args) {
         List<AgentDefinitionProperties> definitions = configurationGateway.loadAgentDefinitions();
-        if (definitions == null || definitions.isEmpty()) {
+        if (definitions.isEmpty()) {
             log.info("No agent definitions configured, skipping account initialization");
             return;
         }
@@ -54,9 +54,6 @@ public class AgentAccountInitializer implements ApplicationRunner {
             }
         }
 
-        long removed = agentAccountRepository.deleteByAgentIdentNotIn(declaredAgents);
-        if (removed > 0) {
-            log.warn("Removed {} agent account(s) not declared in configuration", removed);
-        }
+        log.info("Agent account initialization completed without automatic deletion");
     }
 }

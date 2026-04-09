@@ -1,6 +1,6 @@
 package fr.ses10doigts.toolkitbridge.memory.scoring.service;
 
-import fr.ses10doigts.toolkitbridge.memory.scoring.config.MemoryScoringProperties;
+import fr.ses10doigts.toolkitbridge.memory.config.runtime.MemoryRuntimeConfigurationResolver;
 import fr.ses10doigts.toolkitbridge.memory.scoring.model.ScorableMemory;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -15,7 +15,7 @@ import java.util.List;
 @AllArgsConstructor
 public class DefaultMemoryScoringService implements MemoryScoringService {
 
-    private final MemoryScoringProperties properties;
+    private final MemoryRuntimeConfigurationResolver runtimeConfigurationResolver;
     private final Clock clock;
 
     @Override
@@ -24,9 +24,10 @@ public class DefaultMemoryScoringService implements MemoryScoringService {
             throw new IllegalArgumentException("memory must not be null");
         }
 
-        double importance = memory.getImportance() * properties.getImportanceWeight();
-        double frequency = memory.getUsageCount() * properties.getUsageWeight();
-        double recency = computeRecency(resolveReferenceTime(memory)) * properties.getRecencyWeight();
+        var scoring = runtimeConfigurationResolver.snapshot().scoring();
+        double importance = memory.getImportance() * scoring.importanceWeight();
+        double frequency = memory.getUsageCount() * scoring.usageWeight();
+        double recency = computeRecency(resolveReferenceTime(memory)) * scoring.recencyWeight();
 
         return importance + frequency + recency;
     }

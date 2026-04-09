@@ -1,0 +1,110 @@
+Implémentation Phase 2 réalisée dans le périmètre demandé, sans fallback runtime YAML, sans Agents, sans Telegram, sans reload.
+
+**Code modifié**
+- Évolution des clés administrables:
+  - [AdministrableConfigKey.java](D:/Documents/Spring/Toolkit-Bridge/src/main/java/fr/ses10doigts/toolkitbridge/service/configuration/admin/AdministrableConfigKey.java)
+  - Ajout: `ARTIFACTS_CONFIGURATION`, `RETENTION_CONFIGURATION`, `MEMORY_CONFIGURATION`
+- Bootstrap non destructif explicite:
+  - [AdministrableConfigurationSeedService.java](D:/Documents/Spring/Toolkit-Bridge/src/main/java/fr/ses10doigts/toolkitbridge/service/configuration/admin/AdministrableConfigurationSeedService.java)
+  - LLM: merge par identité `name`, complétion uniquement des champs vides/absents, jamais d’écrasement.
+  - Secrets (`apiKey`): même règle de merge, jamais loggés en valeur.
+  - Techniques/mémoire: seed via payloads typés, merge non destructif champ par champ.
+  - Exclusion explicite des Agents (aucune lecture/écriture `AGENT_DEFINITIONS`).
+- Activation des properties YAML nécessaires au seed (pas au runtime métier):
+  - [AdministrableConfigurationSeedPropertiesConfiguration.java](D:/Documents/Spring/Toolkit-Bridge/src/main/java/fr/ses10doigts/toolkitbridge/service/configuration/admin/AdministrableConfigurationSeedPropertiesConfiguration.java)
+- Payloads typés (pas de `Map<String,Object>` libre au niveau racine):
+  - [ArtifactsConfigurationPayload.java](D:/Documents/Spring/Toolkit-Bridge/src/main/java/fr/ses10doigts/toolkitbridge/service/configuration/admin/payload/ArtifactsConfigurationPayload.java)
+  - [RetentionConfigurationPayload.java](D:/Documents/Spring/Toolkit-Bridge/src/main/java/fr/ses10doigts/toolkitbridge/service/configuration/admin/payload/RetentionConfigurationPayload.java)
+  - [MemoryConfigurationPayload.java](D:/Documents/Spring/Toolkit-Bridge/src/main/java/fr/ses10doigts/toolkitbridge/service/configuration/admin/payload/MemoryConfigurationPayload.java)
+
+**Tests ajoutés / ajustés**
+- Nouveau test bootstrap Phase 2:
+  - [AdministrableConfigurationSeedServiceTest.java](D:/Documents/Spring/Toolkit-Bridge/src/test/java/fr/ses10doigts/toolkitbridge/service/configuration/admin/AdministrableConfigurationSeedServiceTest.java)
+  - Vérifie:
+    - merge LLM non destructif par `name`
+    - exclusion Agents
+    - création des clés techniques/mémoire manquantes
+- Test bootstrap runner conservé:
+  - [AdministrableConfigurationBootstrapTest.java](D:/Documents/Spring/Toolkit-Bridge/src/test/java/fr/ses10doigts/toolkitbridge/service/configuration/admin/AdministrableConfigurationBootstrapTest.java)
+
+**Validation exécutée**
+- `.\mvnw "-Dtest=AdministrableConfigurationSeedServiceTest,AdministrableConfigurationBootstrapTest,AdministrableConfigurationGatewayTest,OpenAiLikeConfigurationTest" test`
+- `.\mvnw "-Dtest=AdministrableConfigurationSeedServiceTest,AdministrableConfigurationBootstrapTest" test`
+- Résultat: `BUILD SUCCESS` sur les exécutions ciblées.
+
+**Résumé**
+- Le bootstrap est désormais explicite, non destructif, et structuré par domaine.
+- LLM providers: merge fin par objet/champ, sans overwrite.
+- Paramètres techniques et mémoire: seed initial DB via payloads stables et merge non destructif.
+- Runtime métier inchangé: toujours DB-only, aucune migration mémoire runtime introduite.
+
+**Points d’attention**
+- Cette phase prépare la suite mais n’applique pas encore `memory.configuration` au runtime (conforme à la consigne).
+- Les logs bootstrap restent orientés exploitation (created/completed/skipped) sans exposer de secrets.
+
+**Liste claire des fichiers modifiés (Phase 2)**
+- [AdministrableConfigKey.java](D:/Documents/Spring/Toolkit-Bridge/src/main/java/fr/ses10doigts/toolkitbridge/service/configuration/admin/AdministrableConfigKey.java)
+- [AdministrableConfigurationSeedService.java](D:/Documents/Spring/Toolkit-Bridge/src/main/java/fr/ses10doigts/toolkitbridge/service/configuration/admin/AdministrableConfigurationSeedService.java)
+- [AdministrableConfigurationSeedPropertiesConfiguration.java](D:/Documents/Spring/Toolkit-Bridge/src/main/java/fr/ses10doigts/toolkitbridge/service/configuration/admin/AdministrableConfigurationSeedPropertiesConfiguration.java)
+- [ArtifactsConfigurationPayload.java](D:/Documents/Spring/Toolkit-Bridge/src/main/java/fr/ses10doigts/toolkitbridge/service/configuration/admin/payload/ArtifactsConfigurationPayload.java)
+- [RetentionConfigurationPayload.java](D:/Documents/Spring/Toolkit-Bridge/src/main/java/fr/ses10doigts/toolkitbridge/service/configuration/admin/payload/RetentionConfigurationPayload.java)
+- [MemoryConfigurationPayload.java](D:/Documents/Spring/Toolkit-Bridge/src/main/java/fr/ses10doigts/toolkitbridge/service/configuration/admin/payload/MemoryConfigurationPayload.java)
+- [AdministrableConfigurationSeedServiceTest.java](D:/Documents/Spring/Toolkit-Bridge/src/test/java/fr/ses10doigts/toolkitbridge/service/configuration/admin/AdministrableConfigurationSeedServiceTest.java)
+
+
+
+
+Après relecture:
+**Findings (revue critique, ordonnés par sévérité)**
+
+1. **[P2] Risque de doublons de clés normalisées dans le merge non destructif**
+- Avant correction, un existant `Report` pouvait coexister avec un seed `report` (idem familles/domaines retention), ce qui fragilise la stabilité des payloads.
+- Références:
+  - [AdministrableConfigurationSeedService.java:377](D:/Documents/Spring/Toolkit-Bridge/src/main/java/fr/ses10doigts/toolkitbridge/service/configuration/admin/AdministrableConfigurationSeedService.java:377)
+  - [AdministrableConfigurationSeedService.java:393](D:/Documents/Spring/Toolkit-Bridge/src/main/java/fr/ses10doigts/toolkitbridge/service/configuration/admin/AdministrableConfigurationSeedService.java:393)
+  - [AdministrableConfigurationSeedService.java:528](D:/Documents/Spring/Toolkit-Bridge/src/main/java/fr/ses10doigts/toolkitbridge/service/configuration/admin/AdministrableConfigurationSeedService.java:528)
+
+2. **[P3] Indexation provider fragile si `name` vide côté DB**
+- Avant correction, une entrée provider invalide pouvait être indexée sur clé vide.
+- Référence:
+  - [AdministrableConfigurationSeedService.java:101](D:/Documents/Spring/Toolkit-Bridge/src/main/java/fr/ses10doigts/toolkitbridge/service/configuration/admin/AdministrableConfigurationSeedService.java:101)
+
+3. **[P3] Dette de lisibilité: Seed service volumineux**
+- Le service reste dense (beaucoup de merge rules). C’est acceptable fonctionnellement, mais à garder en tête pour un futur découpage par domaine.
+- Référence:
+  - [AdministrableConfigurationSeedService.java:31](D:/Documents/Spring/Toolkit-Bridge/src/main/java/fr/ses10doigts/toolkitbridge/service/configuration/admin/AdministrableConfigurationSeedService.java:31)
+
+---
+
+**Corrections pertinentes proposées puis appliquées**
+
+- Normalisation explicite des clés existantes avant merge:
+  - artifacts retention `byType`
+  - retention `families` et `domains`
+- Durcissement de l’index provider: indexation uniquement si `name` non vide.
+- Test ajouté pour verrouiller la normalisation de clés existantes et l’absence de doublons de casse.
+
+---
+
+**Corrections effectivement appliquées (sans élargir le périmètre)**
+
+- Code:
+  - [AdministrableConfigurationSeedService.java](D:/Documents/Spring/Toolkit-Bridge/src/main/java/fr/ses10doigts/toolkitbridge/service/configuration/admin/AdministrableConfigurationSeedService.java)
+    - ajout de normalisation de maps existantes (`normalizeDurationMapKeys`, `normalizeFamilyMapKeys`, `normalizeDomainMapKeys`)
+    - index provider conditionné à `name` non blank
+- Test:
+  - [AdministrableConfigurationSeedServiceTest.java](D:/Documents/Spring/Toolkit-Bridge/src/test/java/fr/ses10doigts/toolkitbridge/service/configuration/admin/AdministrableConfigurationSeedServiceTest.java)
+    - nouveau test `bootstrapShouldNormalizeExistingArtifactsRetentionKeys`
+
+Validation:
+- `.\mvnw "-Dtest=AdministrableConfigurationSeedServiceTest" test` -> **BUILD SUCCESS**
+
+---
+
+**Résumé final**
+
+- La séparation config/runtime reste correcte: runtime DB-only inchangé, bootstrap uniquement au démarrage.
+- Le modèle de bootstrap est plus robuste après correction: merge non destructif + normalisation des clés existantes.
+- Aucun couplage supplémentaire avec orchestrator/mémoire/tooling/policy/workspace n’a été introduit.
+- Pas de feature hors périmètre ajoutée.
+- Dette restante principale: service de seed encore volumineux, mais sans impact fonctionnel immédiat.

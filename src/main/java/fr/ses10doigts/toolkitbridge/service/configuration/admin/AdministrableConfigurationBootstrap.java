@@ -10,15 +10,15 @@ import org.springframework.stereotype.Component;
 
 @Slf4j
 @Component
-@Order(0)
+@Order(StartupOrder.CONFIGURATION_BOOTSTRAP)
 @RequiredArgsConstructor
 public class AdministrableConfigurationBootstrap implements ApplicationRunner {
 
-    private final AdministrableConfigurationGateway gateway;
+    private final AdministrableConfigurationSeedService seedService;
 
     @Override
     public void run(@NonNull ApplicationArguments args) {
-        boolean seeded = gateway.bootstrapSeedsIfMissing();
+        boolean seeded = seedService.bootstrapSeedsIfMissing();
         if (seeded) {
             log.info("Administrable configuration bootstrap completed from YAML seed");
             return;

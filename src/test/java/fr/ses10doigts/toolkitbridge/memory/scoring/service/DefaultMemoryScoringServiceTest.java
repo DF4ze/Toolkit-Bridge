@@ -1,6 +1,7 @@
 package fr.ses10doigts.toolkitbridge.memory.scoring.service;
 
-import fr.ses10doigts.toolkitbridge.memory.scoring.config.MemoryScoringProperties;
+import fr.ses10doigts.toolkitbridge.memory.config.runtime.MemoryRuntimeConfiguration;
+import fr.ses10doigts.toolkitbridge.memory.config.runtime.MemoryRuntimeConfigurationResolver;
 import fr.ses10doigts.toolkitbridge.memory.scoring.model.ScorableMemory;
 import org.junit.jupiter.api.Test;
 
@@ -11,6 +12,8 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class DefaultMemoryScoringServiceTest {
 
@@ -89,12 +92,21 @@ class DefaultMemoryScoringServiceTest {
     }
 
     private DefaultMemoryScoringService createService(double importanceWeight, double usageWeight, double recencyWeight) {
-        MemoryScoringProperties properties = new MemoryScoringProperties();
-        properties.setImportanceWeight(importanceWeight);
-        properties.setUsageWeight(usageWeight);
-        properties.setRecencyWeight(recencyWeight);
+        MemoryRuntimeConfigurationResolver resolver = mock(MemoryRuntimeConfigurationResolver.class);
+        when(resolver.snapshot()).thenReturn(new MemoryRuntimeConfiguration(
+                new MemoryRuntimeConfiguration.Context(10, 10, 15000, 5),
+                new MemoryRuntimeConfiguration.Retrieval(10, 10, 25, 5, 5, 4000),
+                new MemoryRuntimeConfiguration.Integration(true, true, true, true),
+                new MemoryRuntimeConfiguration.Scoring(importanceWeight, usageWeight, recencyWeight),
+                new MemoryRuntimeConfiguration.GlobalContext(
+                        true,
+                        MemoryRuntimeConfiguration.GlobalContextLoadMode.ON_DEMAND,
+                        java.time.Duration.ofSeconds(30),
+                        List.of()
+                )
+        ));
         Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
-        return new DefaultMemoryScoringService(properties, clock);
+        return new DefaultMemoryScoringService(resolver, clock);
     }
 
     private record TestMemory(

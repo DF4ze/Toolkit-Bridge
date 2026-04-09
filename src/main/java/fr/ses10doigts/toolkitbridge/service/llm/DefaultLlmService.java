@@ -10,9 +10,9 @@ import fr.ses10doigts.toolkitbridge.model.dto.llm.tooling.ToolCall;
 import fr.ses10doigts.toolkitbridge.model.dto.llm.tooling.ToolDefinition;
 import fr.ses10doigts.toolkitbridge.service.agent.trace.AgentTraceContextHolder;
 import fr.ses10doigts.toolkitbridge.service.llm.provider.LlmProvider;
-import fr.ses10doigts.toolkitbridge.service.llm.provider.LlmProviderRegistry;
 import fr.ses10doigts.toolkitbridge.service.agent.trace.AgentTraceService;
 import fr.ses10doigts.toolkitbridge.service.agent.trace.model.AgentTraceEventType;
+import fr.ses10doigts.toolkitbridge.service.llm.runtime.LlmProviderRegistryRuntime;
 import fr.ses10doigts.toolkitbridge.model.dto.tool.ToolExecutionResult;
 import fr.ses10doigts.toolkitbridge.service.tool.ToolExecutionService;
 import lombok.RequiredArgsConstructor;
@@ -34,7 +34,7 @@ public class DefaultLlmService implements LlmService {
     private static final int MAX_TOOL_ROUNDS = 20;
     private static final int MAX_TOOL_CALLS_PER_ROUND = 8;
 
-    private final LlmProviderRegistry llmProviderRegistry;
+    private final LlmProviderRegistryRuntime llmProviderRegistryRuntime;
     private final ToolExecutionService toolExecutionService;
     private final ObjectMapper objectMapper;
     private final AgentTraceService agentTraceService;
@@ -48,7 +48,7 @@ public class DefaultLlmService implements LlmService {
                        String userMessage,
                        List<ToolDefinition> toolDefinitions) {
         long startNanos = System.nanoTime();
-        LlmProvider provider = llmProviderRegistry.getRequired(providerName);
+        LlmProvider provider = llmProviderRegistryRuntime.snapshot().getRequired(providerName);
         List<ToolDefinition> effectiveToolDefinitions = toolDefinitions == null ? List.of() : List.copyOf(toolDefinitions);
         boolean toolsEnabled = !effectiveToolDefinitions.isEmpty();
 

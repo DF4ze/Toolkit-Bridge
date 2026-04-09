@@ -3,12 +3,13 @@ package fr.ses10doigts.toolkitbridge.memory.retrieval.facade;
 import fr.ses10doigts.toolkitbridge.memory.context.model.ContextRequest;
 import fr.ses10doigts.toolkitbridge.memory.conversation.model.ConversationMemoryKey;
 import fr.ses10doigts.toolkitbridge.memory.conversation.port.ConversationMemoryService;
+import fr.ses10doigts.toolkitbridge.memory.config.runtime.MemoryRuntimeConfiguration;
+import fr.ses10doigts.toolkitbridge.memory.config.runtime.MemoryRuntimeConfigurationResolver;
 import fr.ses10doigts.toolkitbridge.memory.episodic.model.EpisodeEvent;
 import fr.ses10doigts.toolkitbridge.memory.episodic.model.EpisodeEventType;
 import fr.ses10doigts.toolkitbridge.memory.episodic.model.EpisodeScope;
 import fr.ses10doigts.toolkitbridge.memory.episodic.model.EpisodeStatus;
 import fr.ses10doigts.toolkitbridge.memory.episodic.service.EpisodicMemoryService;
-import fr.ses10doigts.toolkitbridge.memory.retrieval.config.MemoryRetrievalProperties;
 import fr.ses10doigts.toolkitbridge.memory.retrieval.model.MemoryQuery;
 import fr.ses10doigts.toolkitbridge.memory.retrieval.model.RetrievedMemories;
 import fr.ses10doigts.toolkitbridge.memory.retrieval.port.MemoryRetriever;
@@ -46,12 +47,7 @@ class DefaultMemoryRetrievalFacadeTest {
         MemoryScoringService scoringService = mock(MemoryScoringService.class);
         EpisodicMemoryService episodicMemoryService = mock(EpisodicMemoryService.class);
         ConversationMemoryService conversationMemoryService = mock(ConversationMemoryService.class);
-        MemoryRetrievalProperties properties = new MemoryRetrievalProperties();
-        properties.setMaxRules(2);
-        properties.setMaxSemanticMemories(2);
-        properties.setMaxCandidatePoolSize(4);
-        properties.setMaxEpisodes(1);
-        properties.setConversationSliceMaxCharacters(25);
+        MemoryRuntimeConfigurationResolver resolver = resolver(2, 2, 4, 1, 5, 25);
 
         DefaultMemoryRetrievalFacade facade = new DefaultMemoryRetrievalFacade(
                 ruleService,
@@ -59,7 +55,7 @@ class DefaultMemoryRetrievalFacadeTest {
                 scoringService,
                 episodicMemoryService,
                 conversationMemoryService,
-                properties,
+                resolver,
                 new MemoryScopePolicy()
         );
 
@@ -105,8 +101,7 @@ class DefaultMemoryRetrievalFacadeTest {
         MemoryScoringService scoringService = mock(MemoryScoringService.class);
         EpisodicMemoryService episodicMemoryService = mock(EpisodicMemoryService.class);
         ConversationMemoryService conversationMemoryService = mock(ConversationMemoryService.class);
-        MemoryRetrievalProperties properties = new MemoryRetrievalProperties();
-        properties.setConversationSliceMaxCharacters(4);
+        MemoryRuntimeConfigurationResolver resolver = resolver(10, 10, 25, 5, 5, 4);
 
         DefaultMemoryRetrievalFacade facade = new DefaultMemoryRetrievalFacade(
                 ruleService,
@@ -114,7 +109,7 @@ class DefaultMemoryRetrievalFacadeTest {
                 scoringService,
                 episodicMemoryService,
                 conversationMemoryService,
-                properties,
+                resolver,
                 new MemoryScopePolicy()
         );
 
@@ -137,8 +132,7 @@ class DefaultMemoryRetrievalFacadeTest {
         MemoryScoringService scoringService = mock(MemoryScoringService.class);
         EpisodicMemoryService episodicMemoryService = mock(EpisodicMemoryService.class);
         ConversationMemoryService conversationMemoryService = mock(ConversationMemoryService.class);
-        MemoryRetrievalProperties properties = new MemoryRetrievalProperties();
-        properties.setMaxEpisodes(3);
+        MemoryRuntimeConfigurationResolver resolver = resolver(10, 10, 25, 3, 5, 4000);
 
         DefaultMemoryRetrievalFacade facade = new DefaultMemoryRetrievalFacade(
                 ruleService,
@@ -146,7 +140,7 @@ class DefaultMemoryRetrievalFacadeTest {
                 scoringService,
                 episodicMemoryService,
                 conversationMemoryService,
-                properties,
+                resolver,
                 new MemoryScopePolicy()
         );
 
@@ -183,8 +177,7 @@ class DefaultMemoryRetrievalFacadeTest {
         MemoryScoringService scoringService = mock(MemoryScoringService.class);
         EpisodicMemoryService episodicMemoryService = mock(EpisodicMemoryService.class);
         ConversationMemoryService conversationMemoryService = mock(ConversationMemoryService.class);
-        MemoryRetrievalProperties properties = new MemoryRetrievalProperties();
-        properties.setMaxEpisodes(2);
+        MemoryRuntimeConfigurationResolver resolver = resolver(10, 10, 25, 2, 5, 4000);
 
         DefaultMemoryRetrievalFacade facade = new DefaultMemoryRetrievalFacade(
                 ruleService,
@@ -192,7 +185,7 @@ class DefaultMemoryRetrievalFacadeTest {
                 scoringService,
                 episodicMemoryService,
                 conversationMemoryService,
-                properties,
+                resolver,
                 new MemoryScopePolicy()
         );
 
@@ -219,10 +212,7 @@ class DefaultMemoryRetrievalFacadeTest {
         MemoryScoringService scoringService = mock(MemoryScoringService.class);
         EpisodicMemoryService episodicMemoryService = mock(EpisodicMemoryService.class);
         ConversationMemoryService conversationMemoryService = mock(ConversationMemoryService.class);
-        MemoryRetrievalProperties properties = new MemoryRetrievalProperties();
-        properties.setMaxSemanticMemories(10);
-        properties.setMaxCandidatePoolSize(6);
-        properties.setMaxEpisodes(8);
+        MemoryRuntimeConfigurationResolver resolver = resolver(10, 10, 6, 8, 5, 4000);
 
         DefaultMemoryRetrievalFacade facade = new DefaultMemoryRetrievalFacade(
                 ruleService,
@@ -230,7 +220,7 @@ class DefaultMemoryRetrievalFacadeTest {
                 scoringService,
                 episodicMemoryService,
                 conversationMemoryService,
-                properties,
+                resolver,
                 new MemoryScopePolicy()
         );
 
@@ -287,5 +277,36 @@ class DefaultMemoryRetrievalFacadeTest {
         event.setAction(action);
         event.setDetails(action + "-details");
         return event;
+    }
+
+    private MemoryRuntimeConfigurationResolver resolver(
+            int maxRules,
+            int maxSemanticMemories,
+            int maxCandidatePoolSize,
+            int maxEpisodes,
+            int maxProjectEpisodeFetch,
+            int conversationSliceMaxCharacters
+    ) {
+        MemoryRuntimeConfigurationResolver resolver = mock(MemoryRuntimeConfigurationResolver.class);
+        when(resolver.snapshot()).thenReturn(new MemoryRuntimeConfiguration(
+                new MemoryRuntimeConfiguration.Context(10, 10, 15000, 5),
+                new MemoryRuntimeConfiguration.Retrieval(
+                        maxRules,
+                        maxSemanticMemories,
+                        maxCandidatePoolSize,
+                        maxEpisodes,
+                        maxProjectEpisodeFetch,
+                        conversationSliceMaxCharacters
+                ),
+                new MemoryRuntimeConfiguration.Integration(true, true, true, true),
+                new MemoryRuntimeConfiguration.Scoring(1.0, 0.5, 1.0),
+                new MemoryRuntimeConfiguration.GlobalContext(
+                        true,
+                        MemoryRuntimeConfiguration.GlobalContextLoadMode.ON_DEMAND,
+                        java.time.Duration.ofSeconds(30),
+                        List.of()
+                )
+        ));
+        return resolver;
     }
 }

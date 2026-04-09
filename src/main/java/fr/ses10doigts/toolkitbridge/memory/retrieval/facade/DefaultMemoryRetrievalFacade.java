@@ -7,7 +7,7 @@ import fr.ses10doigts.toolkitbridge.memory.episodic.model.EpisodeEvent;
 import fr.ses10doigts.toolkitbridge.memory.episodic.model.EpisodeScope;
 import fr.ses10doigts.toolkitbridge.memory.episodic.model.EpisodeStatus;
 import fr.ses10doigts.toolkitbridge.memory.episodic.service.EpisodicMemoryService;
-import fr.ses10doigts.toolkitbridge.memory.retrieval.config.MemoryRetrievalProperties;
+import fr.ses10doigts.toolkitbridge.memory.config.runtime.MemoryRuntimeConfigurationResolver;
 import fr.ses10doigts.toolkitbridge.memory.retrieval.model.MemoryQuery;
 import fr.ses10doigts.toolkitbridge.memory.retrieval.model.RetrievedMemories;
 import fr.ses10doigts.toolkitbridge.memory.retrieval.port.MemoryRetriever;
@@ -45,7 +45,7 @@ public class DefaultMemoryRetrievalFacade implements MemoryRetrievalFacade {
     private final MemoryScoringService scoringService;
     private final EpisodicMemoryService episodicMemoryService;
     private final ConversationMemoryService conversationMemoryService;
-    private final MemoryRetrievalProperties properties;
+    private final MemoryRuntimeConfigurationResolver runtimeConfigurationResolver;
     private final MemoryScopePolicy scopePolicy;
 
     @Override
@@ -54,13 +54,14 @@ public class DefaultMemoryRetrievalFacade implements MemoryRetrievalFacade {
             throw new IllegalArgumentException("contextRequest must not be null");
         }
 
+        var retrieval = runtimeConfigurationResolver.snapshot().retrieval();
         List<RuleEntry> rules = ruleService.getApplicableRules(contextRequest.agentId(), contextRequest.projectId())
                 .stream()
-                .limit(properties.getMaxRules())
+                .limit(retrieval.maxRules())
                 .toList();
 
-        int semanticLimit = resolveLimit(contextRequest.maxSemanticMemories(), properties.getMaxSemanticMemories());
-        int candidateLimit = resolveCandidateLimit(semanticLimit);
+        int semanticLimit = resolveLimit(contextRequest.maxSemanticMemories(), retrieval.maxSemanticMemories());
+        int candidateLimit = resolveCandidateLimit(semanticLimit, retrieval);
 
         List<MemoryEntry> semanticMemories = scoringService.rank(memoryRetriever.retrieve(new MemoryQuery(
                 contextRequest.agentId(),
@@ -81,7 +82,7 @@ public class DefaultMemoryRetrievalFacade implements MemoryRetrievalFacade {
                 new ConversationMemoryKey(contextRequest.agentId(), contextRequest.conversationId())
         );
 
-        conversationSlice = trimConversationSlice(conversationSlice, properties.getConversationSliceMaxCharacters());
+        conversationSlice = trimConversationSlice(conversationSlice, retrieval.conversationSliceMaxCharacters());
 
         return new RetrievedMemories(rules, semanticMemories, episodicMemories, conversationSlice);
     }
@@ -103,7 +104,8 @@ public class DefaultMemoryRetrievalFacade implements MemoryRetrievalFacade {
     }
 
     private List<EpisodeEvent> collectEpisodeEvents(ContextRequest contextRequest) {
-        int limit = resolveLimit(contextRequest.maxEpisodes(), properties.getMaxEpisodes());
+        var retrieval = runtimeConfigurationResolver.snapshot().retrieval();
+        int limit = resolveLimit(contextRequest.maxEpisodes(), retrieval.maxEpisodes());
         LinkedHashSet<EpisodeEvent> events = new LinkedHashSet<>();
 
         addEvents(events, episodicMemoryService.findRecent(contextRequest.agentId(), limit), contextRequest);
@@ -112,7 +114,7 @@ public class DefaultMemoryRetrievalFacade implements MemoryRetrievalFacade {
             addEvents(events, episodicMemoryService.findRecentByScope(
                     contextRequest.agentId(),
                     EpisodeScope.PROJECT,
-                    Math.max(1, properties.getMaxProjectEpisodeFetch())
+                    Math.max(1, retrieval.maxProjectEpisodeFetch())
             ), contextRequest);
         }
 
@@ -127,8 +129,8 @@ public class DefaultMemoryRetrievalFacade implements MemoryRetrievalFacade {
         return Math.max(1, Math.min(override, safeFallback));
     }
 
-    private int resolveCandidateLimit(int semanticLimit) {
-        return Math.max(semanticLimit, Math.max(1, properties.getMaxCandidatePoolSize()));
+    private int resolveCandidateLimit(int semanticLimit, fr.ses10doigts.toolkitbridge.memory.config.runtime.MemoryRuntimeConfiguration.Retrieval retrieval) {
+        return Math.max(semanticLimit, Math.max(1, retrieval.maxCandidatePoolSize()));
     }
 
     private void addEvents(LinkedHashSet<EpisodeEvent> accumulator,

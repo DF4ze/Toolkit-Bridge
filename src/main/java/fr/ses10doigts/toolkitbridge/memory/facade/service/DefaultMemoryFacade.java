@@ -13,7 +13,7 @@ import fr.ses10doigts.toolkitbridge.memory.facade.MemoryFacade;
 import fr.ses10doigts.toolkitbridge.memory.facade.model.MemoryContext;
 import fr.ses10doigts.toolkitbridge.memory.facade.model.MemoryContextRequest;
 import fr.ses10doigts.toolkitbridge.memory.facade.model.ToolExecutionRecord;
-import fr.ses10doigts.toolkitbridge.memory.integration.config.MemoryIntegrationProperties;
+import fr.ses10doigts.toolkitbridge.memory.config.runtime.MemoryRuntimeConfigurationResolver;
 import fr.ses10doigts.toolkitbridge.memory.integration.service.ImplicitMemoryWritePipeline;
 import fr.ses10doigts.toolkitbridge.memory.retrieval.model.RetrievedMemories;
 import fr.ses10doigts.toolkitbridge.memory.retrieval.facade.MemoryRetrievalFacade;
@@ -38,7 +38,7 @@ public class DefaultMemoryFacade implements MemoryFacade {
     private final SemanticMemoryService semanticMemoryService;
     private final ImplicitMemoryWritePipeline implicitMemoryWritePipeline;
     private final EpisodicEventFactory episodicEventFactory;
-    private final MemoryIntegrationProperties properties;
+    private final MemoryRuntimeConfigurationResolver runtimeConfigurationResolver;
 
     @Override
     public MemoryContext buildContext(MemoryContextRequest request) {
@@ -89,7 +89,8 @@ public class DefaultMemoryFacade implements MemoryFacade {
 
     @Override
     public void markContextMemoriesUsed(List<Long> semanticMemoryIds) {
-        if (!properties.isMarkUsedEnabled() || semanticMemoryIds == null || semanticMemoryIds.isEmpty()) {
+        var integration = runtimeConfigurationResolver.snapshot().integration();
+        if (!integration.markUsedEnabled() || semanticMemoryIds == null || semanticMemoryIds.isEmpty()) {
             return;
         }
         for (Long id : semanticMemoryIds) {
@@ -122,10 +123,11 @@ public class DefaultMemoryFacade implements MemoryFacade {
     }
 
     private void writeImplicitMemories(MemoryContextRequest request, String text, String source) {
-        if (properties.isEnableSemanticExtraction()) {
+        var integration = runtimeConfigurationResolver.snapshot().integration();
+        if (integration.enableSemanticExtraction()) {
             implicitMemoryWritePipeline.persistSemanticExtractions(request, text, source);
         }
-        if (properties.isEnableRulePromotion()) {
+        if (integration.enableRulePromotion()) {
             implicitMemoryWritePipeline.promoteRules(request, text, source);
         }
     }

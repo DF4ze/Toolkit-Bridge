@@ -1,0 +1,90 @@
+Implémentation Phase 1 réalisée, strictement dans le périmètre demandé.
+
+Code modifié
+
+Fallback runtime YAML supprimé dans le gateway:
+AdministrableConfigurationGateway.java
+loadAgentDefinitions() et loadOpenAiLikeProviders() sont désormais DB-only avec retour List.of() si absent.
+Démarrage tolérant à DB vide côté LLM:
+OpenAiLikeConfiguration.java
+si zéro provider en DB: plus d’exception bloquante, création d’un LlmProviderRegistry vide + log warning.
+Suppression du comportement destructif:
+AgentAccountInitializer.java
+suppression de l’appel deleteByAgentIdentNotIn(...).
+Levée du blocage startup DB vide côté agents YAML:
+AgentsProperties.java
+suppression de @NotEmpty.
+Tests ajustés / ajoutés
+
+Ajustés:
+AdministrableConfigurationGatewayTest.java
+test fallback remplacé par vérification empty quand DB absente.
+ajout test empty pour providers OpenAI-like absents en DB.
+Ajoutés:
+OpenAiLikeConfigurationTest.java
+vérifie que zéro provider DB ne bloque pas et produit un registry vide.
+AgentAccountInitializerTest.java
+vérifie qu’aucune suppression automatique n’est appelée.
+Validation exécutée
+
+Commande:
+.\mvnw "-Dtest=AdministrableConfigurationGatewayTest,OpenAiLikeConfigurationTest,AgentAccountInitializerTest,AgentDefinitionServiceTest" test
+Résultat:
+BUILD SUCCESS
+Tests run: 8, Failures: 0, Errors: 0
+Points d’attention
+
+Le runtime ne dépend plus du YAML pour lire agents/providers, mais le bootstrap existant n’a pas été modifié (conformément à ta contrainte).
+Avec registry LLM vide, l’app démarre; les appels LLM échoueront plus tard seulement si un agent tente d’utiliser un provider non configuré (comportement attendu pour cette phase).
+Aucune modification de structure DB, aucun @Version, aucune migration mémoire DB, aucun reload implicite/hot reload.
+Liste des fichiers modifiés
+
+AdministrableConfigurationGateway.java
+OpenAiLikeConfiguration.java
+AgentAccountInitializer.java
+AgentsProperties.java
+AdministrableConfigurationGatewayTest.java
+OpenAiLikeConfigurationTest.java
+AgentAccountInitializerTest.java
+
+
+Après relecture :
+Faiblesses / points discutables (triés par sévérité)
+[P2] Couplage runtime/bootstrap encore fusionné dans le même composant
+Référence: AdministrableConfigurationGateway.java:23, AdministrableConfigurationGateway.java:50, AdministrableConfigurationGateway.java:75
+Le composant utilisé en runtime continue d’embarquer les dépendances YAML (AgentsProperties, OpenAiLikeProvidersProperties) et la logique seed/bootstrap. Ce n’est pas faux fonctionnellement, mais architecturalement la frontière “runtime DB-only” reste fragile.
+[P2] Dépendance YAML encore visible dans la config runtime LLM
+Référence: OpenAiLikeConfiguration.java:20
+@EnableConfigurationProperties(OpenAiLikeProvidersProperties.class) maintient un signal de dépendance YAML dans une config runtime qui se veut DB-only.
+[P3] Vérifications null redondantes et bruit de lisibilité
+Référence: OpenAiLikeConfiguration.java:36, AgentAccountInitializer.java:31
+Après tes changements, load...() renvoie déjà une liste non nulle. Les checks == null alourdissent le code sans gain.
+[P3] Tests utiles mais pas encore assez “anti-régression architecture”
+Référence: AdministrableConfigurationGatewayTest.java:43, OpenAiLikeConfigurationTest.java:18, AgentAccountInitializerTest.java:16
+Ils couvrent les points clés de phase 1, mais ne verrouillent pas explicitement: “aucun accès seed YAML dans les méthodes de lecture runtime”.
+[P3] Dette résiduelle de surface API
+Référence: AgentAccountRepository.java:18
+deleteByAgentIdentNotIn(...) reste exposée alors qu’interdite dans la trajectoire actuelle. Pas bloquant, mais c’est une porte ouverte pour une régression future.
+Corrections utiles proposées (sans élargir le périmètre)
+Séparer explicitement les responsabilités:
+Garder AdministrableConfigurationGateway en lecture/écriture DB pure.
+Déplacer seed/bootstrap dans un composant dédié (plus tard, phase bootstrap), pour supprimer le couplage YAML au runtime.
+Nettoyer la config LLM runtime:
+Retirer la dépendance OpenAiLikeProvidersProperties de la config runtime dès que le bootstrap n’en dépend plus directement.
+Simplifier la lisibilité:
+Supprimer les checks null devenus inutiles sur les listes venant du gateway.
+Renforcer les tests de contrat architecture:
+Ajouter des tests qui vérifient explicitement que les méthodes runtime loadAgentDefinitions() / loadOpenAiLikeProviders() ne consultent jamais les seeds YAML.
+Réduire le risque de régression destructive:
+Déprécier puis retirer deleteByAgentIdentNotIn(...) quand possible (au minimum documenter son interdiction d’usage).
+Conformité globale de ta Phase 1
+Séparation config/runtime: améliorée, mais pas encore totalement nette (fusion gateway/bootstrap).
+Qualité du modèle implémenté: bonne pour l’objectif “DB-only runtime + tolérance au vide”.
+Découplage orchestrator/mémoire/tooling/policy/workspace: inchangé par la phase, pas de couplage transversal ajouté.
+Logique ad hoc: pas de rustine majeure détectée.
+Cohérence des noms/lisibilité: globalement bonne, quelques simplifications possibles.
+Tests: utiles et pertinents, mais encore perfectibles pour verrouiller l’intention d’architecture.
+Dette introduite: faible, surtout dette de séparation finale gateway/bootstrap.
+Résumé final
+L’implémentation Phase 1 est correcte et alignée avec ton périmètre: fallback runtime YAML retiré, runtime DB-only tolérant au vide, suppression destructive désactivée, démarrage DB vide débloqué, tests verts.
+Le principal point discutable reste architectural: la classe gateway conserve encore des responsabilités de seed/bootstrap et des dépendances YAML. Ce n’est pas un bug immédiat, mais c’est le risque principal à traiter pour sécuriser les phases suivantes.

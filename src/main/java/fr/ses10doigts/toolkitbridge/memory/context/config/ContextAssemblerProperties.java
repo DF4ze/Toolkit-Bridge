@@ -1,5 +1,6 @@
 package fr.ses10doigts.toolkitbridge.memory.context.config;
 
+import fr.ses10doigts.toolkitbridge.memory.config.runtime.MemoryConfigurationDefaults;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
@@ -10,20 +11,20 @@ public class ContextAssemblerProperties {
     /**
      * Maximum number of rules injected in the context.
      */
-    private int maxRules = 10;
+    private int maxRules = MemoryConfigurationDefaults.CONTEXT_MAX_RULES;
 
     /**
      * Maximum number of semantic memories injected in the context.
      */
-    private int maxMemories = 10;
+    private int maxMemories = MemoryConfigurationDefaults.CONTEXT_MAX_MEMORIES;
 
     /**
      * Maximum number of characters in the final context.
      */
-    private int maxCharacters = 15000;
+    private int maxCharacters = MemoryConfigurationDefaults.CONTEXT_MAX_CHARACTERS;
 
     /**
      * Maximum number of episode summaries in the context.
      */
-    private int maxEpisodes = 5;
+    private int maxEpisodes = MemoryConfigurationDefaults.CONTEXT_MAX_EPISODES;
 }

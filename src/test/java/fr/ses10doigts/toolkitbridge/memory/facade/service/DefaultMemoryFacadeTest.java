@@ -11,7 +11,8 @@ import fr.ses10doigts.toolkitbridge.memory.episodic.service.EpisodicMemoryServic
 import fr.ses10doigts.toolkitbridge.memory.facade.model.MemoryContext;
 import fr.ses10doigts.toolkitbridge.memory.facade.model.MemoryContextRequest;
 import fr.ses10doigts.toolkitbridge.memory.facade.model.ToolExecutionRecord;
-import fr.ses10doigts.toolkitbridge.memory.integration.config.MemoryIntegrationProperties;
+import fr.ses10doigts.toolkitbridge.memory.config.runtime.MemoryRuntimeConfiguration;
+import fr.ses10doigts.toolkitbridge.memory.config.runtime.MemoryRuntimeConfigurationResolver;
 import fr.ses10doigts.toolkitbridge.memory.integration.service.ImplicitMemoryWritePipeline;
 import fr.ses10doigts.toolkitbridge.memory.retrieval.facade.MemoryRetrievalFacade;
 import fr.ses10doigts.toolkitbridge.memory.retrieval.model.RetrievedMemories;
@@ -39,7 +40,7 @@ class DefaultMemoryFacadeTest {
                 mock(SemanticMemoryService.class),
                 mock(ImplicitMemoryWritePipeline.class),
                 mock(EpisodicEventFactory.class),
-                new MemoryIntegrationProperties()
+                resolver(true, true, true, true)
         );
 
         RetrievedMemories memories = new RetrievedMemories(List.of(), List.of(), List.of(), "conv");
@@ -67,7 +68,7 @@ class DefaultMemoryFacadeTest {
                 mock(SemanticMemoryService.class),
                 mock(ImplicitMemoryWritePipeline.class),
                 mock(EpisodicEventFactory.class),
-                new MemoryIntegrationProperties()
+                resolver(true, true, true, true)
         );
 
         when(retrievalFacade.retrieve(any(ContextRequest.class)))
@@ -95,7 +96,6 @@ class DefaultMemoryFacadeTest {
         SemanticMemoryService semanticMemoryService = mock(SemanticMemoryService.class);
         ImplicitMemoryWritePipeline implicitMemoryWritePipeline = mock(ImplicitMemoryWritePipeline.class);
         EpisodicEventFactory eventFactory = mock(EpisodicEventFactory.class);
-        MemoryIntegrationProperties properties = new MemoryIntegrationProperties();
         when(eventFactory.userMessageReceived(any())).thenReturn(new EpisodeEvent());
         when(eventFactory.assistantResponseGenerated(any(), any())).thenReturn(new EpisodeEvent());
 
@@ -107,7 +107,7 @@ class DefaultMemoryFacadeTest {
                 semanticMemoryService,
                 implicitMemoryWritePipeline,
                 eventFactory,
-                properties
+                resolver(true, true, true, true)
         );
 
         facade.onUserMessage(request("hello"));
@@ -137,7 +137,7 @@ class DefaultMemoryFacadeTest {
                 semanticMemoryService,
                 mock(ImplicitMemoryWritePipeline.class),
                 mock(EpisodicEventFactory.class),
-                new MemoryIntegrationProperties()
+                resolver(true, true, true, true)
         );
 
         facade.markContextMemoriesUsed(java.util.Arrays.asList(1L, null, 2L));
@@ -156,8 +156,6 @@ class DefaultMemoryFacadeTest {
         SemanticMemoryService semanticMemoryService = mock(SemanticMemoryService.class);
         ImplicitMemoryWritePipeline implicitMemoryWritePipeline = mock(ImplicitMemoryWritePipeline.class);
         EpisodicEventFactory eventFactory = mock(EpisodicEventFactory.class);
-        MemoryIntegrationProperties properties = new MemoryIntegrationProperties();
-
         when(eventFactory.toolExecutionEvent(any(), any())).thenReturn(new EpisodeEvent());
 
         DefaultMemoryFacade facade = facade(
@@ -168,7 +166,7 @@ class DefaultMemoryFacadeTest {
                 semanticMemoryService,
                 implicitMemoryWritePipeline,
                 eventFactory,
-                properties
+                resolver(true, true, true, true)
         );
 
         facade.onToolExecution(request("hello"), new ToolExecutionRecord("read_file", true, "ok"));
@@ -182,10 +180,6 @@ class DefaultMemoryFacadeTest {
     void disabledImplicitWritersDoNotCallPipeline() {
         ImplicitMemoryWritePipeline implicitMemoryWritePipeline = mock(ImplicitMemoryWritePipeline.class);
         EpisodicEventFactory eventFactory = mock(EpisodicEventFactory.class);
-        MemoryIntegrationProperties properties = new MemoryIntegrationProperties();
-        properties.setEnableSemanticExtraction(false);
-        properties.setEnableRulePromotion(false);
-
         when(eventFactory.userMessageReceived(any())).thenReturn(new EpisodeEvent());
 
         DefaultMemoryFacade facade = facade(
@@ -196,7 +190,7 @@ class DefaultMemoryFacadeTest {
                 mock(SemanticMemoryService.class),
                 implicitMemoryWritePipeline,
                 eventFactory,
-                properties
+                resolver(false, false, true, true)
         );
 
         facade.onUserMessage(request("hello"));
@@ -216,7 +210,7 @@ class DefaultMemoryFacadeTest {
             SemanticMemoryService semanticMemoryService,
             ImplicitMemoryWritePipeline implicitMemoryWritePipeline,
             EpisodicEventFactory eventFactory,
-            MemoryIntegrationProperties properties
+            MemoryRuntimeConfigurationResolver resolver
     ) {
         return new DefaultMemoryFacade(
                 retrievalFacade,
@@ -226,7 +220,24 @@ class DefaultMemoryFacadeTest {
                 semanticMemoryService,
                 implicitMemoryWritePipeline,
                 eventFactory,
-                properties
+                resolver
         );
+    }
+
+    private MemoryRuntimeConfigurationResolver resolver(boolean semantic, boolean rulePromotion, boolean episodic, boolean markUsed) {
+        MemoryRuntimeConfigurationResolver resolver = mock(MemoryRuntimeConfigurationResolver.class);
+        when(resolver.snapshot()).thenReturn(new MemoryRuntimeConfiguration(
+                new MemoryRuntimeConfiguration.Context(10, 10, 15000, 5),
+                new MemoryRuntimeConfiguration.Retrieval(10, 10, 25, 5, 5, 4000),
+                new MemoryRuntimeConfiguration.Integration(semantic, rulePromotion, episodic, markUsed),
+                new MemoryRuntimeConfiguration.Scoring(1.0, 0.5, 1.0),
+                new MemoryRuntimeConfiguration.GlobalContext(
+                        true,
+                        MemoryRuntimeConfiguration.GlobalContextLoadMode.ON_DEMAND,
+                        java.time.Duration.ofSeconds(30),
+                        List.of()
+                )
+        ));
+        return resolver;
     }
 }

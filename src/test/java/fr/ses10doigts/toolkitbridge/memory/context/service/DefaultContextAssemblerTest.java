@@ -1,6 +1,7 @@
 package fr.ses10doigts.toolkitbridge.memory.context.service;
 
-import fr.ses10doigts.toolkitbridge.memory.context.config.ContextAssemblerProperties;
+import fr.ses10doigts.toolkitbridge.memory.config.runtime.MemoryRuntimeConfiguration;
+import fr.ses10doigts.toolkitbridge.memory.config.runtime.MemoryRuntimeConfigurationResolver;
 import fr.ses10doigts.toolkitbridge.memory.context.global.model.SharedGlobalContextSnapshot;
 import fr.ses10doigts.toolkitbridge.memory.context.global.port.SharedGlobalContextProvider;
 import fr.ses10doigts.toolkitbridge.memory.context.model.AssembledContext;
@@ -20,6 +21,8 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class DefaultContextAssemblerTest {
 
@@ -28,14 +31,12 @@ class DefaultContextAssemblerTest {
 
     @Test
     void buildsContextInExpectedOrder() {
-        ContextAssemblerProperties properties = new ContextAssemblerProperties();
-
         RuleEntry rule = rule("Always be safe", RulePriority.HIGH);
         MemoryEntry memory = memory("Remember X");
         RetrievedMemories.EpisodeSummary episode = episode("agent-exchange", EpisodeStatus.SUCCESS);
 
         DefaultContextAssembler assembler = new DefaultContextAssembler(
-                properties,
+                resolver(10, 10, 15000, 5),
                 EMPTY_GLOBAL_CONTEXT
         );
 
@@ -69,15 +70,11 @@ class DefaultContextAssemblerTest {
 
     @Test
     void respectsRulesAndMemoriesLimits() {
-        ContextAssemblerProperties properties = new ContextAssemblerProperties();
-        properties.setMaxRules(1);
-        properties.setMaxMemories(1);
-
         List<RuleEntry> rules = List.of(rule("R1", RulePriority.LOW), rule("R2", RulePriority.HIGH));
         List<MemoryEntry> memories = List.of(memory("M1"), memory("M2"));
 
         DefaultContextAssembler assembler = new DefaultContextAssembler(
-                properties,
+                resolver(1, 1, 15000, 5),
                 EMPTY_GLOBAL_CONTEXT
         );
 
@@ -99,11 +96,8 @@ class DefaultContextAssemblerTest {
                 "Conversation content"
         );
 
-        ContextAssemblerProperties large = new ContextAssemblerProperties();
-        large.setMaxCharacters(1000);
-
         DefaultContextAssembler fullAssembler = new DefaultContextAssembler(
-                large,
+                resolver(10, 10, 1000, 5),
                 EMPTY_GLOBAL_CONTEXT
         );
 
@@ -112,11 +106,8 @@ class DefaultContextAssemblerTest {
                 data
         ).text();
 
-        ContextAssemblerProperties small = new ContextAssemblerProperties();
-        small.setMaxCharacters(50);
-
         DefaultContextAssembler trimmedAssembler = new DefaultContextAssembler(
-                small,
+                resolver(10, 10, 50, 5),
                 EMPTY_GLOBAL_CONTEXT
         );
 
@@ -133,10 +124,8 @@ class DefaultContextAssemblerTest {
 
     @Test
     void rejectsNullRequest() {
-        ContextAssemblerProperties properties = new ContextAssemblerProperties();
-
         DefaultContextAssembler assembler = new DefaultContextAssembler(
-                properties,
+                resolver(10, 10, 15000, 5),
                 EMPTY_GLOBAL_CONTEXT
         );
 
@@ -152,8 +141,6 @@ class DefaultContextAssemblerTest {
 
     @Test
     void removesDuplicateFactsFromSameBatch() {
-        ContextAssemblerProperties properties = new ContextAssemblerProperties();
-
         MemoryEntry sameA = memory("Same");
         sameA.setId(10L);
         MemoryEntry sameB = memory("Same");
@@ -161,7 +148,7 @@ class DefaultContextAssemblerTest {
         MemoryEntry other = memory("Other");
         other.setId(12L);
 
-        DefaultContextAssembler assembler = new DefaultContextAssembler(properties, EMPTY_GLOBAL_CONTEXT);
+        DefaultContextAssembler assembler = new DefaultContextAssembler(resolver(10, 10, 15000, 5), EMPTY_GLOBAL_CONTEXT);
 
         AssembledContext assembled = assembler.buildContext(
                 new ContextRequest("agent-1", "conv-1", null, "hello"),
@@ -177,10 +164,6 @@ class DefaultContextAssemblerTest {
 
     @Test
     void appliesRequestOverridesForMemoriesAndEpisodes() {
-        ContextAssemblerProperties properties = new ContextAssemblerProperties();
-        properties.setMaxMemories(5);
-        properties.setMaxEpisodes(5);
-
         MemoryEntry m1 = memory("M1");
         m1.setId(1L);
         MemoryEntry m2 = memory("M2");
@@ -189,7 +172,7 @@ class DefaultContextAssemblerTest {
         RetrievedMemories.EpisodeSummary e1 = episode("E1", EpisodeStatus.SUCCESS);
         RetrievedMemories.EpisodeSummary e2 = episode("E2", EpisodeStatus.SUCCESS);
 
-        DefaultContextAssembler assembler = new DefaultContextAssembler(properties, EMPTY_GLOBAL_CONTEXT);
+        DefaultContextAssembler assembler = new DefaultContextAssembler(resolver(10, 5, 15000, 5), EMPTY_GLOBAL_CONTEXT);
         AssembledContext assembled = assembler.buildContext(
                 new ContextRequest("agent-1", "conv-1", null, "hello", 1, 1),
                 retrieved(List.of(), List.of(m1, m2), List.of(e1, e2), "")
@@ -203,16 +186,10 @@ class DefaultContextAssemblerTest {
 
     @Test
     void keepsUserInputEvenWhenPromptNeedsTrimming() {
-        ContextAssemblerProperties properties = new ContextAssemblerProperties();
-        properties.setMaxCharacters(90);
-        properties.setMaxRules(10);
-        properties.setMaxMemories(10);
-        properties.setMaxEpisodes(10);
-
         RuleEntry rule = rule("This is a very long mandatory rule that should be present first", RulePriority.HIGH);
         MemoryEntry memory = memory("This is a long fact that may be truncated if required");
 
-        DefaultContextAssembler assembler = new DefaultContextAssembler(properties, EMPTY_GLOBAL_CONTEXT);
+        DefaultContextAssembler assembler = new DefaultContextAssembler(resolver(10, 10, 90, 10), EMPTY_GLOBAL_CONTEXT);
         String context = assembler.buildContext(
                 new ContextRequest("agent-1", "conv-1", null, "Critical user input"),
                 retrieved(List.of(rule), List.of(memory), List.of(), "Long conversation that should be dropped first")
@@ -225,11 +202,10 @@ class DefaultContextAssemblerTest {
 
     @Test
     void injectsSharedGlobalContextBeforeFacts() {
-        ContextAssemblerProperties properties = new ContextAssemblerProperties();
         SharedGlobalContextProvider globalContextProvider =
                 () -> new SharedGlobalContextSnapshot("### profile.md\nName: Alice", List.of("profile.md"), Instant.parse("2025-01-01T00:00:00Z"));
 
-        DefaultContextAssembler assembler = new DefaultContextAssembler(properties, globalContextProvider);
+        DefaultContextAssembler assembler = new DefaultContextAssembler(resolver(10, 10, 15000, 5), globalContextProvider);
 
         String context = assembler.buildContext(
                 new ContextRequest("agent-1", "conv-1", null, "hello"),
@@ -287,5 +263,22 @@ class DefaultContextAssemblerTest {
             count++;
             index += token.length();
         }
+    }
+
+    private MemoryRuntimeConfigurationResolver resolver(int maxRules, int maxMemories, int maxCharacters, int maxEpisodes) {
+        MemoryRuntimeConfigurationResolver resolver = mock(MemoryRuntimeConfigurationResolver.class);
+        when(resolver.snapshot()).thenReturn(new MemoryRuntimeConfiguration(
+                new MemoryRuntimeConfiguration.Context(maxRules, maxMemories, maxCharacters, maxEpisodes),
+                new MemoryRuntimeConfiguration.Retrieval(10, 10, 25, 5, 5, 4000),
+                new MemoryRuntimeConfiguration.Integration(true, true, true, true),
+                new MemoryRuntimeConfiguration.Scoring(1.0, 0.5, 1.0),
+                new MemoryRuntimeConfiguration.GlobalContext(
+                        true,
+                        MemoryRuntimeConfiguration.GlobalContextLoadMode.ON_DEMAND,
+                        java.time.Duration.ofSeconds(30),
+                        List.of()
+                )
+        ));
+        return resolver;
     }
 }

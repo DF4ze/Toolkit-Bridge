@@ -1,6 +1,7 @@
 package fr.ses10doigts.toolkitbridge.memory.context.service;
 
-import fr.ses10doigts.toolkitbridge.memory.context.config.ContextAssemblerProperties;
+import fr.ses10doigts.toolkitbridge.memory.config.runtime.MemoryRuntimeConfiguration;
+import fr.ses10doigts.toolkitbridge.memory.config.runtime.MemoryRuntimeConfigurationResolver;
 import fr.ses10doigts.toolkitbridge.memory.context.global.model.SharedGlobalContextSnapshot;
 import fr.ses10doigts.toolkitbridge.memory.context.global.port.SharedGlobalContextProvider;
 import fr.ses10doigts.toolkitbridge.memory.context.model.AssembledContext;
@@ -24,16 +25,15 @@ import java.util.Set;
 @Service
 public class DefaultContextAssembler implements ContextAssembler {
 
-    private final ContextAssemblerProperties properties;
+    private final MemoryRuntimeConfigurationResolver runtimeConfigurationResolver;
     private final SharedGlobalContextProvider sharedGlobalContextProvider;
 
     public DefaultContextAssembler(
-            ContextAssemblerProperties properties,
+            MemoryRuntimeConfigurationResolver runtimeConfigurationResolver,
             SharedGlobalContextProvider sharedGlobalContextProvider
     ) {
-        this.properties = properties;
+        this.runtimeConfigurationResolver = runtimeConfigurationResolver;
         this.sharedGlobalContextProvider = sharedGlobalContextProvider;
-        validateProperties(properties);
     }
 
     @Override
@@ -45,6 +45,8 @@ public class DefaultContextAssembler implements ContextAssembler {
             throw new IllegalStateException("retrievedMemories must not be null");
         }
 
+        MemoryRuntimeConfiguration.Context properties = runtimeConfigurationResolver.snapshot().context();
+
         LinkedHashSet<Long> usedSemanticMemoryIds = new LinkedHashSet<>();
         StringBuilder rulesSection = new StringBuilder();
         StringBuilder sharedGlobalContextSection = new StringBuilder();
@@ -52,15 +54,15 @@ public class DefaultContextAssembler implements ContextAssembler {
         StringBuilder episodesSection = new StringBuilder();
         StringBuilder conversationSection = new StringBuilder();
 
-        appendRules(rulesSection, limit(retrievedMemories.rules(), properties.getMaxRules()));
+        appendRules(rulesSection, limit(retrievedMemories.rules(), properties.maxRules()));
         appendSharedGlobalContext(sharedGlobalContextSection, sharedGlobalContextProvider.getSharedGlobalContext());
-        appendFacts(factsSection, request, retrievedMemories, usedSemanticMemoryIds);
+        appendFacts(factsSection, request, retrievedMemories, usedSemanticMemoryIds, properties.maxMemories());
 
         appendEpisodes(
                 episodesSection,
                 limit(
                         retrievedMemories.episodicMemories(),
-                        resolveLimit(request.maxEpisodes(), properties.getMaxEpisodes())
+                        resolveLimit(request.maxEpisodes(), properties.maxEpisodes())
                 )
         );
 
@@ -77,7 +79,8 @@ public class DefaultContextAssembler implements ContextAssembler {
                 factsSection.toString(),
                 episodesSection.toString(),
                 conversationSection.toString(),
-                userInputSection
+                userInputSection,
+                properties.maxCharacters()
         );
 
         return new AssembledContext(context, List.copyOf(usedSemanticMemoryIds));
@@ -106,10 +109,11 @@ public class DefaultContextAssembler implements ContextAssembler {
     private void appendFacts(StringBuilder context,
                              ContextRequest request,
                              RetrievedMemories retrievedMemories,
-                             Set<Long> usedSemanticMemoryIds) {
+                             Set<Long> usedSemanticMemoryIds,
+                             int maxMemories) {
         List<MemoryEntry> limitedMemories = limit(
                 retrievedMemories.semanticMemories(),
-                resolveLimit(request.maxSemanticMemories(), properties.getMaxMemories())
+                resolveLimit(request.maxSemanticMemories(), maxMemories)
         );
 
         Map<MemoryScope, List<String>> factsByScope = new EnumMap<>(MemoryScope.class);
@@ -188,8 +192,7 @@ public class DefaultContextAssembler implements ContextAssembler {
         return instant == null ? "unknown" : instant.toString();
     }
 
-    private String trimToMaxCharacters(String section) {
-        int maxCharacters = properties.getMaxCharacters();
+    private String trimToMaxCharacters(String section, int maxCharacters) {
         if (section.length() <= maxCharacters) {
             return section;
         }
@@ -211,8 +214,8 @@ public class DefaultContextAssembler implements ContextAssembler {
                                         String factsSection,
                                         String episodesSection,
                                         String conversationSection,
-                                        String userInputSection) {
-        int maxCharacters = properties.getMaxCharacters();
+                                        String userInputSection,
+                                        int maxCharacters) {
         String requiredUserSection = trimToLength(userInputSection, maxCharacters);
         StringBuilder result = new StringBuilder();
 
@@ -233,7 +236,7 @@ public class DefaultContextAssembler implements ContextAssembler {
 
         int remainingForUser = maxCharacters - result.length();
         result.append(trimToLength(requiredUserSection, remainingForUser));
-        return trimToMaxCharacters(result.toString());
+        return trimToMaxCharacters(result.toString(), maxCharacters);
     }
 
     private <T> List<T> limit(List<T> values, int limit) {
@@ -253,18 +256,4 @@ public class DefaultContextAssembler implements ContextAssembler {
         return Math.min(override, fallback);
     }
 
-    private void validateProperties(ContextAssemblerProperties props) {
-        if (props.getMaxRules() <= 0) {
-            throw new IllegalStateException("maxRules must be > 0");
-        }
-        if (props.getMaxMemories() <= 0) {
-            throw new IllegalStateException("maxMemories must be > 0");
-        }
-        if (props.getMaxCharacters() <= 0) {
-            throw new IllegalStateException("maxCharacters must be > 0");
-        }
-        if (props.getMaxEpisodes() <= 0) {
-            throw new IllegalStateException("maxEpisodes must be > 0");
-        }
-    }
 }

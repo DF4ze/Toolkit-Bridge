@@ -1,6 +1,7 @@
 package fr.ses10doigts.toolkitbridge.memory.context.global.service;
 
-import fr.ses10doigts.toolkitbridge.memory.context.global.config.GlobalContextProperties;
+import fr.ses10doigts.toolkitbridge.memory.config.runtime.MemoryRuntimeConfiguration;
+import fr.ses10doigts.toolkitbridge.memory.config.runtime.MemoryRuntimeConfigurationResolver;
 import fr.ses10doigts.toolkitbridge.memory.context.global.model.SharedGlobalContextSnapshot;
 import fr.ses10doigts.toolkitbridge.memory.context.global.port.SharedGlobalContextProvider;
 import fr.ses10doigts.toolkitbridge.service.workspace.WorkspaceLayout;
@@ -22,50 +23,55 @@ import java.util.stream.Stream;
 @Slf4j
 public class MarkdownSharedGlobalContextProvider implements SharedGlobalContextProvider {
 
-    private final GlobalContextProperties properties;
+    private final MemoryRuntimeConfigurationResolver runtimeConfigurationResolver;
     private final WorkspaceLayout workspaceLayout;
 
     private volatile SharedGlobalContextSnapshot cachedSnapshot;
 
     public MarkdownSharedGlobalContextProvider(
-            GlobalContextProperties properties,
+            MemoryRuntimeConfigurationResolver runtimeConfigurationResolver,
             WorkspaceLayout workspaceLayout
     ) {
-        this.properties = properties;
+        this.runtimeConfigurationResolver = runtimeConfigurationResolver;
         this.workspaceLayout = workspaceLayout;
-        validateProperties(properties);
     }
 
     @Override
     public SharedGlobalContextSnapshot getSharedGlobalContext() {
-        if (!properties.isEnabled()) {
+        MemoryRuntimeConfiguration.GlobalContext configuration = runtimeConfigurationResolver.snapshot().globalContext();
+        if (!configuration.enabled()) {
             return new SharedGlobalContextSnapshot("", List.of(), Instant.now());
         }
 
-        if (properties.getLoadMode() == GlobalContextProperties.LoadMode.ON_DEMAND) {
-            return loadSnapshot();
+        if (configuration.loadMode() == MemoryRuntimeConfiguration.GlobalContextLoadMode.ON_DEMAND) {
+            return loadSnapshot(configuration);
         }
 
         SharedGlobalContextSnapshot localSnapshot = cachedSnapshot;
-        if (localSnapshot != null && !isExpired(localSnapshot)) {
+        if (localSnapshot != null && !isExpired(localSnapshot, configuration)) {
             return localSnapshot;
         }
 
         synchronized (this) {
             localSnapshot = cachedSnapshot;
-            if (localSnapshot != null && !isExpired(localSnapshot)) {
+            if (localSnapshot != null && !isExpired(localSnapshot, configuration)) {
                 return localSnapshot;
             }
-            SharedGlobalContextSnapshot refreshed = loadSnapshot();
+            SharedGlobalContextSnapshot refreshed = loadSnapshot(configuration);
             cachedSnapshot = refreshed;
             return refreshed;
         }
     }
 
-    private SharedGlobalContextSnapshot loadSnapshot() {
+    @Override
+    public void invalidateCache() {
+        cachedSnapshot = null;
+    }
+
+    private SharedGlobalContextSnapshot loadSnapshot(MemoryRuntimeConfiguration.GlobalContext configuration) {
         try {
             Path root = workspaceLayout.globalContextRoot();
-            List<Path> sourceFiles = resolveSourceFiles(root);
+            List<Path> sourceFiles = resolveSourceFiles(root, configuration);
             String content = renderContent(sourceFiles);
             List<String> relativeSources = sourceFiles.stream()
                     .map(this::safeRelativize)
@@ -77,9 +83,9 @@ public class MarkdownSharedGlobalContextProvider implements SharedGlobalContextP
         }
     }
 
-    private List<Path> resolveSourceFiles(Path root) throws IOException {
-        if (!properties.getFiles().isEmpty()) {
-            return properties.getFiles().stream()
+    private List<Path> resolveSourceFiles(Path root, MemoryRuntimeConfiguration.GlobalContext configuration) throws IOException {
+        if (!configuration.files().isEmpty()) {
+            return configuration.files().stream()
                     .map(this::resolveConfiguredFile)
                     .filter(Files::isRegularFile)
                     .toList();
@@ -134,8 +140,8 @@ public class MarkdownSharedGlobalContextProvider implements SharedGlobalContextP
         return builder.toString();
     }
 
-    private boolean isExpired(SharedGlobalContextSnapshot snapshot) {
-        return snapshot.loadedAt().plus(properties.getCacheRefreshInterval()).isBefore(Instant.now());
+    private boolean isExpired(SharedGlobalContextSnapshot snapshot, MemoryRuntimeConfiguration.GlobalContext configuration) {
+        return snapshot.loadedAt().plus(configuration.cacheRefreshInterval()).isBefore(Instant.now());
     }
 
     private boolean isMarkdownFile(Path path) {
@@ -151,9 +157,4 @@ public class MarkdownSharedGlobalContextProvider implements SharedGlobalContextP
         }
     }
 
-    private void validateProperties(GlobalContextProperties properties) {
-        if (properties.getCacheRefreshInterval().isNegative() || properties.getCacheRefreshInterval().isZero()) {
-            throw new IllegalStateException("cacheRefreshInterval must be > 0");
-        }
-    }
 }

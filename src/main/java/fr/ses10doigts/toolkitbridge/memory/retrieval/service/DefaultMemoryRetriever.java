@@ -1,6 +1,6 @@
 package fr.ses10doigts.toolkitbridge.memory.retrieval.service;
 
-import fr.ses10doigts.toolkitbridge.memory.retrieval.config.MemoryRetrievalProperties;
+import fr.ses10doigts.toolkitbridge.memory.config.runtime.MemoryRuntimeConfigurationResolver;
 import fr.ses10doigts.toolkitbridge.memory.retrieval.model.MemoryQuery;
 import fr.ses10doigts.toolkitbridge.memory.retrieval.port.MemoryRetriever;
 import fr.ses10doigts.toolkitbridge.memory.semantic.model.MemoryEntry;
@@ -25,7 +25,7 @@ public class DefaultMemoryRetriever implements MemoryRetriever {
     );
 
     private final MemoryEntryRepository repository;
-    private final MemoryRetrievalProperties properties;
+    private final MemoryRuntimeConfigurationResolver runtimeConfigurationResolver;
     private final MemoryScopePolicy scopePolicy;
 
     @Override
@@ -51,7 +51,7 @@ public class DefaultMemoryRetriever implements MemoryRetriever {
     }
 
     private int resolveCandidateFetchLimit(MemoryQuery query) {
-        int configuredLimit = Math.max(1, properties.getMaxCandidatePoolSize());
+        int configuredLimit = Math.max(1, runtimeConfigurationResolver.snapshot().retrieval().maxCandidatePoolSize());
         return Math.min(query.candidateLimit(), configuredLimit);
     }
 }

@@ -1,15 +1,14 @@
 package fr.ses10doigts.toolkitbridge.service.configuration.admin;
 
-import fr.ses10doigts.toolkitbridge.config.agent.AgentsProperties;
 import fr.ses10doigts.toolkitbridge.config.llm.OpenAiLikeProperties;
-import fr.ses10doigts.toolkitbridge.config.llm.OpenAiLikeProvidersProperties;
 import fr.ses10doigts.toolkitbridge.model.dto.agent.definition.AgentDefinitionProperties;
+import fr.ses10doigts.toolkitbridge.service.configuration.admin.payload.MemoryConfigurationPayload;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.core.type.TypeReference;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class AdministrableConfigurationGateway {
@@ -18,45 +17,28 @@ public class AdministrableConfigurationGateway {
     };
     private static final TypeReference<List<OpenAiLikeProperties>> OPENAI_LIKE_PROVIDERS_TYPE = new TypeReference<>() {
     };
+    private static final TypeReference<MemoryConfigurationPayload> MEMORY_CONFIGURATION_TYPE = new TypeReference<>() {
+    };
 
     private final AdministrableConfigurationStoreService storeService;
-    private final AgentsProperties agentsProperties;
-    private final OpenAiLikeProvidersProperties openAiLikeProvidersProperties;
-
     public AdministrableConfigurationGateway(
-            AdministrableConfigurationStoreService storeService,
-            AgentsProperties agentsProperties,
-            OpenAiLikeProvidersProperties openAiLikeProvidersProperties
+            AdministrableConfigurationStoreService storeService
     ) {
         this.storeService = storeService;
-        this.agentsProperties = agentsProperties;
-        this.openAiLikeProvidersProperties = openAiLikeProvidersProperties;
     }
 
     @Transactional(readOnly = true)
     public List<AgentDefinitionProperties> loadAgentDefinitions() {
         return storeService.read(AdministrableConfigKey.AGENT_DEFINITIONS, AGENT_DEFINITIONS_TYPE)
                 .map(List::copyOf)
-                .orElseGet(this::loadAgentDefinitionsSeed);
+                .orElse(List.of());
     }
 
     @Transactional(readOnly = true)
     public List<OpenAiLikeProperties> loadOpenAiLikeProviders() {
         return storeService.read(AdministrableConfigKey.OPENAI_LIKE_PROVIDERS, OPENAI_LIKE_PROVIDERS_TYPE)
                 .map(List::copyOf)
-                .orElseGet(this::loadOpenAiLikeProvidersSeed);
-    }
-
-    @Transactional(readOnly = true)
-    public List<AgentDefinitionProperties> loadAgentDefinitionsSeed() {
-        List<AgentDefinitionProperties> definitions = agentsProperties.getDefinitions();
-        return definitions == null ? List.of() : new ArrayList<>(definitions);
-    }
-
-    @Transactional(readOnly = true)
-    public List<OpenAiLikeProperties> loadOpenAiLikeProvidersSeed() {
-        List<OpenAiLikeProperties> providers = openAiLikeProvidersProperties.getProviders();
-        return providers == null ? List.of() : new ArrayList<>(providers);
+                .orElse(List.of());
     }
 
     @Transactional
@@ -71,26 +53,19 @@ public class AdministrableConfigurationGateway {
         storeService.write(AdministrableConfigKey.OPENAI_LIKE_PROVIDERS, value);
     }
 
-    @Transactional
-    public boolean bootstrapSeedsIfMissing() {
-        boolean seededAgentDefinitions = bootstrapIfMissing(
-                AdministrableConfigKey.AGENT_DEFINITIONS,
-                loadAgentDefinitionsSeed(),
-                AGENT_DEFINITIONS_TYPE
-        );
-        boolean seededOpenAiProviders = bootstrapIfMissing(
-                AdministrableConfigKey.OPENAI_LIKE_PROVIDERS,
-                loadOpenAiLikeProvidersSeed(),
-                OPENAI_LIKE_PROVIDERS_TYPE
-        );
-        return seededAgentDefinitions || seededOpenAiProviders;
+    @Transactional(readOnly = true)
+    public Optional<MemoryConfigurationPayload> loadMemoryConfiguration() {
+        return storeService.read(AdministrableConfigKey.MEMORY_CONFIGURATION, MEMORY_CONFIGURATION_TYPE);
     }
 
-    private <T> boolean bootstrapIfMissing(AdministrableConfigKey key, T seedValue, TypeReference<T> type) {
-        if (storeService.read(key, type).isPresent()) {
-            return false;
+    @Transactional
+    public void saveMemoryConfiguration(MemoryConfigurationPayload payload) {
+        if (payload == null) {
+            throw new IllegalArgumentException("memory configuration payload must not be null");
         }
-        storeService.write(key, seedValue);
-        return true;
+        storeService.write(
+                AdministrableConfigKey.MEMORY_CONFIGURATION,
+                payload
+        );
     }
 }
