@@ -1,90 +1,95 @@
 package fr.ses10doigts.toolkitbridge.service.agent.supervision.human;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Primary;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.ConcurrentHashMap;
 
+@Service
+@Primary
 @Slf4j
-public class InMemoryHumanInterventionService implements HumanInterventionService {
+public class PersistentHumanInterventionService implements HumanInterventionService {
 
-    private final Map<String, HumanInterventionRequest> requests = new ConcurrentHashMap<>();
+    private final HumanInterventionRepository repository;
+    private final HumanInterventionEntityMapper mapper;
     private final List<HumanInterventionNotifier> notifiers;
 
-    public InMemoryHumanInterventionService(List<HumanInterventionNotifier> notifiers) {
+    public PersistentHumanInterventionService(HumanInterventionRepository repository,
+                                              HumanInterventionEntityMapper mapper,
+                                              List<HumanInterventionNotifier> notifiers) {
+        this.repository = repository;
+        this.mapper = mapper;
         this.notifiers = notifiers == null ? List.of() : List.copyOf(notifiers);
     }
 
     @Override
+    @Transactional
     public HumanInterventionRequest open(HumanInterventionDraft draft) {
         if (draft == null) {
             throw new IllegalArgumentException("draft must not be null");
         }
 
-        HumanInterventionRequest request = new HumanInterventionRequest(
+        HumanInterventionEntity entity = mapper.toEntityForOpen(
                 UUID.randomUUID().toString(),
                 Instant.now(),
-                draft.traceId(),
-                draft.agentId(),
-                draft.sensitiveAction(),
-                draft.kind(),
-                HumanInterventionStatus.PENDING,
-                draft.summary(),
-                draft.detail(),
-                draft.metadata()
+                draft
         );
-        requests.put(request.requestId(), request);
+        HumanInterventionEntity saved = repository.save(entity);
+        HumanInterventionRequest request = mapper.toDomainRequest(saved);
         notifyRequestOpened(request);
         return request;
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Optional<HumanInterventionRequest> findById(String requestId) {
         if (requestId == null || requestId.isBlank()) {
             return Optional.empty();
         }
-        return Optional.ofNullable(requests.get(requestId.trim()));
+        return repository.findByRequestId(requestId.trim()).map(mapper::toDomainRequest);
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<HumanInterventionRequest> findPending() {
-        List<HumanInterventionRequest> pending = new ArrayList<>();
-        for (HumanInterventionRequest request : requests.values()) {
-            if (request.status() == HumanInterventionStatus.PENDING) {
-                pending.add(request);
-            }
-        }
-        pending.sort(Comparator.comparing(HumanInterventionRequest::createdAt));
-        return List.copyOf(pending);
+        return repository.findByStatusOrderByCreatedAtAsc(HumanInterventionStatus.PENDING)
+                .stream()
+                .map(mapper::toDomainRequest)
+                .toList();
     }
 
     @Override
+    @Transactional
     public Optional<HumanInterventionRequest> recordDecision(HumanInterventionDecision decision) {
         if (decision == null) {
             throw new IllegalArgumentException("decision must not be null");
         }
 
-        AtomicReference<HumanInterventionRequest> updatedReference = new AtomicReference<>();
-        requests.computeIfPresent(decision.requestId(), (requestId, request) -> {
-            if (request.status() != HumanInterventionStatus.PENDING) {
-                return request;
-            }
-            HumanInterventionRequest updated = request.withStatus(decision.status());
-            updatedReference.set(updated);
-            return updated;
-        });
+        int updated = repository.updateDecisionIfPending(
+                decision.requestId(),
+                HumanInterventionStatus.PENDING,
+                decision.status(),
+                decision.decidedAt(),
+                decision.actorId(),
+                decision.channel(),
+                decision.comment(),
+                mapper.toDecisionMetadataJson(decision)
+        );
 
-        return Optional.ofNullable(updatedReference.get())
-                .map(updated -> {
-                    notifyDecisionRecorded(updated, decision);
-                    return updated;
+        if (updated == 0) {
+            return Optional.empty();
+        }
+
+        return repository.findByRequestId(decision.requestId())
+                .map(mapper::toDomainRequest)
+                .map(updatedRequest -> {
+                    notifyDecisionRecorded(updatedRequest, decision);
+                    return updatedRequest;
                 });
     }
 

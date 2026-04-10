@@ -87,6 +87,22 @@ toolkit:
         summary: 72h
         file: 720h
         memory_candidate: 720h
+  persistence:
+    retention:
+      cleanup:
+        enabled: true
+        cron: "0 0 3 * * *"
+      families:
+        trace:
+          domains:
+            critical:
+              ttl: 7d
+              disposition: PURGE
+        task:
+          domains:
+            admin_snapshot:
+              ttl: 30d
+              disposition: PURGE
   memory:
     conversation:
       enabled: true

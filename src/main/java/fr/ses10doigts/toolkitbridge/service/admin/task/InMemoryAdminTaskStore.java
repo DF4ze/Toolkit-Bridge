@@ -3,7 +3,6 @@ package fr.ses10doigts.toolkitbridge.service.admin.task;
 import fr.ses10doigts.toolkitbridge.service.admin.config.AdminTechnicalProperties;
 import fr.ses10doigts.toolkitbridge.service.agent.task.model.Task;
 import fr.ses10doigts.toolkitbridge.service.agent.task.model.TaskStatus;
-import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -12,7 +11,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-@Component
 public class InMemoryAdminTaskStore implements AdminTaskStore {
 
     private final int maxEvents;

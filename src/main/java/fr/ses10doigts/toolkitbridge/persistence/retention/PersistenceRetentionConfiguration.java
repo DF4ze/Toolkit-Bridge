@@ -4,6 +4,9 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-@EnableConfigurationProperties(PersistenceRetentionProperties.class)
+@EnableConfigurationProperties({
+        PersistenceRetentionProperties.class,
+        PersistenceRetentionCleanupProperties.class
+})
 public class PersistenceRetentionConfiguration {
 }
