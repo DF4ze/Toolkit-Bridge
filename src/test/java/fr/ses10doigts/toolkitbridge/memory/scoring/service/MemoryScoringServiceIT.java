@@ -15,7 +15,10 @@ import java.time.ZoneOffset;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest(properties = "toolkit.memory.scoring.usage-weight=1.0")
+@SpringBootTest(properties = {
+        "spring.datasource.url=jdbc:sqlite:file:./target/test-db-${random.uuid}.db",
+        "toolkit.memory.scoring.usage-weight=1.0"
+})
 @Import(MemoryScoringServiceIT.FixedClockConfig.class)
 class MemoryScoringServiceIT {
 

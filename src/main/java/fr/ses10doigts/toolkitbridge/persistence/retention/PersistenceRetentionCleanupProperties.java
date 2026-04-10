@@ -7,7 +7,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @Data
 public class PersistenceRetentionCleanupProperties {
 
-    private boolean enabled = true;
-    private String cron = "0 0 3 * * *";
-}
+    public static final String DEFAULT_CRON = "0 0 3 * * *";
 
+    private boolean enabled = true;
+    private String cron = DEFAULT_CRON;
+}

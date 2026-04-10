@@ -24,7 +24,10 @@ import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest(properties = "toolkit.memory.retrieval.max-candidate-pool-size=5")
+@SpringBootTest(properties = {
+        "spring.datasource.url=jdbc:sqlite:file:./target/test-db-${random.uuid}.db",
+        "toolkit.memory.retrieval.max-candidate-pool-size=5"
+})
 @Transactional
 @Import(MemoryRetrieverIT.FixedClockConfig.class)
 class MemoryRetrieverIT {

@@ -15,7 +15,9 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest
+@SpringBootTest(properties = {
+        "spring.datasource.url=jdbc:sqlite:file:./target/test-db-${random.uuid}.db"
+})
 @TestPropertySource(properties = {
         "toolkit.memory.conversation.max-recent-messages=3",
         "toolkit.memory.conversation.min-messages-to-keep=2",

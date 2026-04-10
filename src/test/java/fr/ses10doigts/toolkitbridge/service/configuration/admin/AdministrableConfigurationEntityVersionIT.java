@@ -12,7 +12,9 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-@SpringBootTest
+@SpringBootTest(properties = {
+        "spring.datasource.url=jdbc:sqlite:file:./target/test-db-${random.uuid}.db"
+})
 class AdministrableConfigurationEntityVersionIT {
 
     @Autowired

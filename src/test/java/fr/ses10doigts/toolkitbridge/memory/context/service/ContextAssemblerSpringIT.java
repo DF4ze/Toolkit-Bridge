@@ -18,7 +18,9 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest
+@SpringBootTest(properties = {
+        "spring.datasource.url=jdbc:sqlite:file:./target/test-db-${random.uuid}.db"
+})
 @TestPropertySource(properties = {
         "toolkit.memory.context.max-rules=2",
         "toolkit.memory.context.max-memories=2",

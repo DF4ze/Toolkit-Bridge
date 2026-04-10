@@ -3,7 +3,6 @@ package fr.ses10doigts.toolkitbridge.persistence.retention;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.autoconfigure.task.TaskSchedulingAutoConfiguration;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -17,13 +16,8 @@ class PersistenceRetentionCleanupSchedulerTest {
     @Test
     void cleanupPersistenceDataDelegatesToCleanupService() {
         PersistenceRetentionCleanupService cleanupService = mock(PersistenceRetentionCleanupService.class);
-        PersistenceRetentionCleanupProperties cleanupProperties = new PersistenceRetentionCleanupProperties();
-        cleanupProperties.setCron("0 0 3 * * *");
 
-        PersistenceRetentionCleanupScheduler scheduler = new PersistenceRetentionCleanupScheduler(
-                cleanupService,
-                cleanupProperties
-        );
+        PersistenceRetentionCleanupScheduler scheduler = new PersistenceRetentionCleanupScheduler(cleanupService);
 
         scheduler.cleanupPersistenceData();
 
@@ -38,8 +32,7 @@ class PersistenceRetentionCleanupSchedulerTest {
 
         contextRunner
                 .withPropertyValues(
-                        "toolkit.persistence.retention.cleanup.enabled=true",
-                        "toolkit.persistence.retention.cleanup.cron=0 0 3 * * *"
+                        "toolkit.persistence.retention.cleanup.enabled=true"
                 )
                 .run(context -> assertThat(context).hasSingleBean(PersistenceRetentionCleanupScheduler.class));
 
@@ -52,7 +45,6 @@ class PersistenceRetentionCleanupSchedulerTest {
     }
 
     @Configuration
-    @EnableConfigurationProperties(PersistenceRetentionCleanupProperties.class)
     static class TestConfiguration {
 
         @Bean

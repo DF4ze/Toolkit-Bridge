@@ -14,20 +14,13 @@ import org.springframework.stereotype.Component;
 public class PersistenceRetentionCleanupScheduler {
 
     private final PersistenceRetentionCleanupService cleanupService;
-    private final PersistenceRetentionCleanupProperties cleanupProperties;
 
-    public PersistenceRetentionCleanupScheduler(PersistenceRetentionCleanupService cleanupService,
-                                                PersistenceRetentionCleanupProperties cleanupProperties) {
+    public PersistenceRetentionCleanupScheduler(PersistenceRetentionCleanupService cleanupService) {
         this.cleanupService = cleanupService;
-        this.cleanupProperties = cleanupProperties;
     }
 
-    @Scheduled(cron = "#{@persistenceRetentionCleanupScheduler.cronExpression()}")
+    @Scheduled(cron = "${toolkit.persistence.retention.cleanup.cron:" + PersistenceRetentionCleanupProperties.DEFAULT_CRON + "}")
     public void cleanupPersistenceData() {
         cleanupService.cleanup();
-    }
-
-    public String cronExpression() {
-        return cleanupProperties.getCron();
     }
 }
