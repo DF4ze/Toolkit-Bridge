@@ -1,8 +1,12 @@
 package fr.ses10doigts.toolkitbridge.security.admin;
 
+import fr.ses10doigts.toolkitbridge.security.SensitiveDataMasker;
 import fr.ses10doigts.toolkitbridge.security.admin.config.AdminSecurityProperties;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -57,6 +61,19 @@ class AdminTokenServiceTest {
         String generated = service.getMasterToken();
         assertThat(generated).isNotBlank();
         assertThat(readToken(tokenPath)).isEqualTo(generated);
+    }
+
+    @Test
+    @ExtendWith(OutputCaptureExtension.class)
+    void logsMaskedTokenOnlyOnGeneration(CapturedOutput output) {
+        Path tokenPath = tempDir.resolve("security").resolve("admin-master.token");
+        AdminTokenService service = new AdminTokenService(buildProperties(tokenPath));
+
+        service.initializeTokenIfNeeded();
+
+        String generated = service.getMasterToken();
+        assertThat(output.getAll()).doesNotContain(generated);
+        assertThat(output.getAll()).contains(SensitiveDataMasker.mask(generated));
     }
 
     private AdminSecurityProperties buildProperties(Path tokenPath) {

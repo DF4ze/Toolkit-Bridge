@@ -1,5 +1,6 @@
 package fr.ses10doigts.toolkitbridge.security.admin;
 
+import fr.ses10doigts.toolkitbridge.security.SensitiveDataMasker;
 import fr.ses10doigts.toolkitbridge.security.admin.config.AdminSecurityProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -50,7 +51,7 @@ public class AdminTokenService {
             }
 
             masterToken = generateAndPersistToken(tokenPath);
-            log.info("Marcel admin master token generated. Store it now; it will not be shown again: {}", masterToken);
+            log.info("Marcel admin master token generated (masked): {}", SensitiveDataMasker.mask(masterToken));
         } catch (IOException ex) {
             throw new IllegalStateException("Unable to load or generate admin master token", ex);
         }
