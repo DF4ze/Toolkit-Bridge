@@ -41,7 +41,8 @@ class AnalysisReviewWorkflowRunnerResumeTest {
                 Map.of("resultArtifactPath", "result.md")
         );
 
-        AnalysisReviewWorkflowRunner runner = new AnalysisReviewWorkflowRunner(orchestrator, artifactService, noopAnalysis, noopReview, correctionStep);
+        WorkflowStep noopValidation = context -> new WorkflowStepResult(WorkflowStepDecision.CONTINUE, "validation", Map.of("buildStatus", "SUCCESS", "buildDurationMs", 0L, "buildResultPath", "build.md"));
+        AnalysisReviewWorkflowRunner runner = new AnalysisReviewWorkflowRunner(orchestrator, artifactService, noopAnalysis, noopReview, correctionStep, noopValidation);
         WorkflowExecutionContext context = buildContext(Map.of(
                 "humanDecisionNote", "Review updated manually by reviewer",
                 "reportRootDirectory", tempDir.resolve("data/rapport"),
@@ -55,12 +56,16 @@ class AnalysisReviewWorkflowRunnerResumeTest {
         assertThat(result.decision()).isEqualTo(WorkflowStepDecision.CONTINUE);
         assertThat(result.message()).isEqualTo("Correction completed");
         assertThat(result.data()).containsKeys("resultArtifactPath", "workflowSummaryPath");
+        assertMandatoryContract(result, true);
 
         Path summaryPath = Path.of(result.data().get("workflowSummaryPath").toString());
         assertThat(Files.exists(summaryPath)).isTrue();
         assertThat(Files.readString(summaryPath, StandardCharsets.UTF_8))
-                .contains("Decision: CONTINUE")
-                .contains("Correction triggered: true");
+                .contains("Status: CONTINUE")
+                .contains("Reason: Workflow step completed")
+                .contains("Context:")
+                .contains("Actions:")
+                .contains("Artifacts:");
     }
 
     @Test
@@ -79,7 +84,8 @@ class AnalysisReviewWorkflowRunnerResumeTest {
         );
         WorkflowStep correctionStep = context -> new WorkflowStepResult(WorkflowStepDecision.CONTINUE, "Correction completed", Map.of());
 
-        AnalysisReviewWorkflowRunner runner = new AnalysisReviewWorkflowRunner(orchestrator, artifactService, noopAnalysis, waitHumanReview, correctionStep);
+        WorkflowStep noopValidation = context -> new WorkflowStepResult(WorkflowStepDecision.CONTINUE, "validation", Map.of("buildStatus", "SUCCESS", "buildDurationMs", 0L, "buildResultPath", "build.md"));
+        AnalysisReviewWorkflowRunner runner = new AnalysisReviewWorkflowRunner(orchestrator, artifactService, noopAnalysis, waitHumanReview, correctionStep, noopValidation);
         WorkflowExecutionContext context = buildContext(Map.of(
                 "reportRootDirectory", tempDir.resolve("data/rapport"),
                 "reportVersion", "v1.1",
@@ -91,16 +97,20 @@ class AnalysisReviewWorkflowRunnerResumeTest {
 
         assertThat(result.decision()).isEqualTo(WorkflowStepDecision.WAIT_HUMAN);
         assertThat(result.data()).containsKey("workflowSummaryPath");
+        assertMandatoryContract(result, false);
+        assertThat(result.data()).containsEntry("waitReason", "Missing decision in review");
 
         Path summaryPath = Path.of(result.data().get("workflowSummaryPath").toString());
         assertThat(Files.readString(summaryPath, StandardCharsets.UTF_8))
-                .contains("Decision: WAIT_HUMAN")
+                .contains("Status: WAIT_HUMAN")
                 .contains("Reason: Missing decision in review")
-                .contains("Edit review result");
+                .contains("Context:")
+                .contains("Actions:")
+                .contains("Artifacts:");
     }
 
     @Test
-    void runCorrectionAfterReviewReturnsStopFailureWhenCorrectionFails() {
+    void runCorrectionAfterReviewReturnsStopFailureWhenCorrectionFails() throws Exception {
         WorkflowOrchestrator orchestrator = new WorkflowOrchestrator();
         WorkflowArtifactService artifactService = new WorkflowArtifactService();
         WorkflowStep noopAnalysis = context -> new WorkflowStepResult(WorkflowStepDecision.CONTINUE, "analysis", Map.of());
@@ -111,7 +121,8 @@ class AnalysisReviewWorkflowRunnerResumeTest {
                 Map.of()
         );
 
-        AnalysisReviewWorkflowRunner runner = new AnalysisReviewWorkflowRunner(orchestrator, artifactService, noopAnalysis, noopReview, correctionStep);
+        WorkflowStep noopValidation = context -> new WorkflowStepResult(WorkflowStepDecision.CONTINUE, "validation", Map.of("buildStatus", "SUCCESS", "buildDurationMs", 0L, "buildResultPath", "build.md"));
+        AnalysisReviewWorkflowRunner runner = new AnalysisReviewWorkflowRunner(orchestrator, artifactService, noopAnalysis, noopReview, correctionStep, noopValidation);
         WorkflowExecutionContext context = buildContext(Map.of(
                 "reportRootDirectory", tempDir.resolve("data/rapport"),
                 "reportVersion", "v1.1",
@@ -123,8 +134,15 @@ class AnalysisReviewWorkflowRunnerResumeTest {
 
         assertThat(result.decision()).isEqualTo(WorkflowStepDecision.STOP_FAILURE);
         assertThat(result.message()).contains("CorrectionStep:");
+        assertMandatoryContract(result, true);
         Path summaryPath = Path.of(result.data().get("workflowSummaryPath").toString());
         assertThat(Files.exists(summaryPath)).isTrue();
+        assertThat(Files.readString(summaryPath, StandardCharsets.UTF_8))
+                .contains("Status: STOP_FAILURE")
+                .contains("Reason: CorrectionStep: Missing required artifact")
+                .contains("Context:")
+                .contains("Actions:")
+                .contains("Artifacts:");
     }
 
     @Test
@@ -134,7 +152,8 @@ class AnalysisReviewWorkflowRunnerResumeTest {
         WorkflowStep noopAnalysis = context -> new WorkflowStepResult(WorkflowStepDecision.CONTINUE, "analysis", Map.of());
         WorkflowStep noopReview = context -> new WorkflowStepResult(WorkflowStepDecision.CONTINUE, "review", Map.of("requiresCorrection", false));
         WorkflowStep correctionStep = context -> new WorkflowStepResult(WorkflowStepDecision.CONTINUE, "Correction completed", Map.of());
-        AnalysisReviewWorkflowRunner runner = new AnalysisReviewWorkflowRunner(orchestrator, artifactService, noopAnalysis, noopReview, correctionStep);
+        WorkflowStep noopValidation = context -> new WorkflowStepResult(WorkflowStepDecision.CONTINUE, "validation", Map.of("buildStatus", "SUCCESS", "buildDurationMs", 0L, "buildResultPath", "build.md"));
+        AnalysisReviewWorkflowRunner runner = new AnalysisReviewWorkflowRunner(orchestrator, artifactService, noopAnalysis, noopReview, correctionStep, noopValidation);
 
         assertThatThrownBy(() -> runner.runCorrectionAfterReview(null))
                 .isInstanceOf(NullPointerException.class)
@@ -158,7 +177,8 @@ class AnalysisReviewWorkflowRunnerResumeTest {
                 Map.of("resultArtifactPath", "result.md")
         );
 
-        AnalysisReviewWorkflowRunner runner = new AnalysisReviewWorkflowRunner(orchestrator, artifactService, noopAnalysis, noopReview, correctionStep);
+        WorkflowStep noopValidation = context -> new WorkflowStepResult(WorkflowStepDecision.CONTINUE, "validation", Map.of("buildStatus", "SUCCESS", "buildDurationMs", 0L, "buildResultPath", "build.md"));
+        AnalysisReviewWorkflowRunner runner = new AnalysisReviewWorkflowRunner(orchestrator, artifactService, noopAnalysis, noopReview, correctionStep, noopValidation);
         WorkflowExecutionContext context = buildContext(Map.of(
                 "reportRootDirectory", tempDir.resolve("data/rapport"),
                 "reportVersion", "v1.1",
@@ -171,6 +191,7 @@ class AnalysisReviewWorkflowRunnerResumeTest {
         assertThat(result.decision()).isEqualTo(WorkflowStepDecision.CONTINUE);
         assertThat(result.message()).isEqualTo("Correction completed");
         assertThat(result.data()).doesNotContainKey("workflowSummaryPath");
+        assertMandatoryContract(result, true);
     }
 
     @Test
@@ -185,13 +206,15 @@ class AnalysisReviewWorkflowRunnerResumeTest {
                 Map.of("resultArtifactPath", "result.md")
         );
 
-        AnalysisReviewWorkflowRunner runner = new AnalysisReviewWorkflowRunner(orchestrator, artifactService, noopAnalysis, noopReview, correctionStep);
+        WorkflowStep noopValidation = context -> new WorkflowStepResult(WorkflowStepDecision.CONTINUE, "validation", Map.of("buildStatus", "SUCCESS", "buildDurationMs", 0L, "buildResultPath", "build.md"));
+        AnalysisReviewWorkflowRunner runner = new AnalysisReviewWorkflowRunner(orchestrator, artifactService, noopAnalysis, noopReview, correctionStep, noopValidation);
 
         WorkflowStepResult result = runner.runCorrectionAfterReview(buildContext(Map.of()));
 
         assertThat(result.decision()).isEqualTo(WorkflowStepDecision.CONTINUE);
         assertThat(result.message()).isEqualTo("Correction completed");
         assertThat(result.data()).doesNotContainKey("workflowSummaryPath");
+        assertMandatoryContract(result, true);
     }
 
     private WorkflowExecutionContext buildContext(Map<String, Object> variables) {
@@ -209,5 +232,13 @@ class AnalysisReviewWorkflowRunnerResumeTest {
                 null
         );
         return new WorkflowExecutionContext(workflowRun, null, variables);
+    }
+
+    private void assertMandatoryContract(WorkflowStepResult result, boolean correctionTriggered) {
+        assertThat(result.data())
+                .containsEntry("finalDecision", result.decision().name())
+                .containsEntry("correctionTriggered", correctionTriggered)
+                .containsKey("nextAction");
+        assertThat(result.data().get("nextAction").toString()).isNotBlank();
     }
 }

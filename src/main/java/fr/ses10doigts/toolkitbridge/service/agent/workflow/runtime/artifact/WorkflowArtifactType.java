@@ -9,6 +9,8 @@ public enum WorkflowArtifactType {
     REVIEW_RESULT("review", true),
     CORRECTION_PROMPT("correction", false),
     CORRECTION_RESULT("correction", true),
+    BUILD_RESULT("build", true),
+    BUILD_ERROR_CORRECTION("build-error-correction", true),
     WORKFLOW_SUMMARY("workflow-summary", true);
 
     private final String suffix;

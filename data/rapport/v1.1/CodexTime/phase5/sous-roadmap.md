@@ -1,207 +1,144 @@
-# Mini-Roadmap — Phase 5 : Pilotage externe du workflow
+# Mini-Roadmap — Phase 5 (version corrigée)
 
-## Objectif global
+## Objectif réel
 
-Faire passer le système d’un workflow local, testable et observable à un workflow **pilotable de l’extérieur**, tout en conservant :
+Passer de :
 
-* la simplicité actuelle,
-* la séparation des responsabilités,
-* et l’absence de moteur générique prématuré.
+→ workflow local pilotable
 
-La Phase 5 doit permettre :
+à :
 
-* de déclencher un workflow à distance,
-* de relancer une reprise manuelle après `WAIT_HUMAN`,
-* d’exposer proprement les informations utiles à un canal externe,
-* sans intégrer tout de suite une architecture lourde.
+→ workflow **appelable et exploitable depuis l’extérieur**
 
-⚠️ Toujours sans :
-
-* moteur d’agents complet,
-* bus d’événements,
-* orchestration distribuée,
-* système multi-utilisateur complexe.
+Sans modifier le cœur runtime.
 
 ---
 
-# Étape 1 — Introduire un service applicatif de pilotage du workflow
+# Étape 1 — Exposer le runner existant
 
 ## Objectif
 
-Créer une façade simple permettant de piloter le workflow sans exposer directement les classes runtime internes.
+Utiliser directement :
+
+* `AnalysisReviewWorkflowRunner`
+
+comme point d’entrée applicatif.
 
 ## À faire
 
-* Introduire un service applicatif du type :
+* créer un point d’accès simple (classe ou service léger)
+* déléguer directement au runner
+* ne pas introduire de logique métier
 
-    * `WorkflowCommandService`
-    * ou `WorkflowRuntimeService`
-* Ce service doit proposer des actions simples :
+## Important
 
-    * lancer le workflow complet
-    * relancer la correction après `WAIT_HUMAN`
-    * retourner un résultat exploitable
-
-## Contraintes
-
-* pas de logique métier nouvelle
-* pas de moteur
-* pas de duplication avec le runner
-* le service délègue au runner/runtime existant
-
-## Résultat attendu
-
-Un point d’entrée propre côté application, prêt à être appelé par Telegram plus tard.
+* ne pas créer de couche abstraite inutile
+* ne pas remplacer le runner
 
 ---
 
-# Étape 2 — Définir un contrat d’entrée/sortie minimal pour un canal externe
+# Étape 2 — Stabiliser le contrat réel
 
 ## Objectif
 
-Stabiliser ce qu’un canal externe doit fournir et recevoir.
+Formaliser ce qui est déjà produit :
+
+* `WorkflowStepResult`
+* `workflow-summary.md`
 
 ## À faire
 
-* définir les entrées minimales :
+* documenter les clés utilisées :
 
-    * chemin ou référence du contexte de travail
-    * mode de lancement :
+  * `finalDecision`
+  * `correctionTriggered`
+  * `nextAction`
+  * `waitReason`
+* standardiser leur usage
 
-        * run complet
-        * reprise correction
-* définir les sorties minimales :
+## Important
 
-    * décision finale
-    * message
-    * `workflowSummaryPath`
-    * `nextAction`
-    * artefacts utiles
-
-## Contraintes
-
-* pas de DTO géant
-* pas de modèle complexe
-* pas de sérialisation distribuée avancée
-
-## Résultat attendu
-
-Un contrat applicatif simple, stable, consommable plus tard par Telegram ou autre.
+* ne pas créer de DTO complexe
+* ne pas dupliquer les données
 
 ---
 
-# Étape 3 — Brancher un premier point d’entrée externe simple
+# Étape 3 — Ajouter un point d’entrée externe simple
 
 ## Objectif
 
-Permettre de déclencher le workflow hors tests, sans encore intégrer Telegram.
+Permettre un appel hors test.
+
+## Options simples
+
+* main Java
+* commande CLI
+* endpoint REST minimal (optionnel)
 
 ## À faire
 
-* choisir un point d’entrée simple :
+* appeler le runner
+* retourner:
 
-    * commande locale
-    * endpoint technique minimal
-    * point d’entrée d’admin simple
-* l’utiliser pour :
-
-    * lancer le workflow
-    * lancer la reprise après `WAIT_HUMAN`
-
-## Contraintes
-
-* pas d’interface complète
-* pas de dashboard
-* pas de couche complexe
-
-## Résultat attendu
-
-Le workflow peut être déclenché “pour de vrai”, en dehors d’un test JUnit.
+  * decision
+  * message
+  * summary path
 
 ---
 
-# Étape 4 — Préparer l’intégration Telegram sans la déployer totalement
+# Étape 4 — Exploitation humaine réelle (Terminé ✓)
 
 ## Objectif
 
-Faire en sorte que le workflow soit déjà prêt à être piloté par Telegram, sans brancher encore toute la boucle.
+Permettre à un humain de piloter le workflow.
 
 ## À faire
 
-* stabiliser les messages retournés
-* stabiliser le summary
-* définir ce qu’un message Telegram devra afficher :
+* utiliser `workflow-summary.md` (Terminé ✓)
+* standardiser : (Terminé ✓)
 
-    * décision
-    * raison
-    * action suivante
-    * fichier à consulter / relancer
-* vérifier que le service applicatif fournit déjà ces infos
+  * les messages (Terminé ✓)
+  * les actions à faire (Terminé ✓)
+* tester le cycle complet : (Terminé ✓)
 
-## Contraintes
-
-* pas encore de bot métier complet
-* pas de parser de commandes avancé
-* pas de gestion de conversation complexe
-
-## Résultat attendu
-
-Le système est “Telegram-ready” sans dépendre encore du bot.
+  * run → WAIT_HUMAN → edit → reprise (Terminé ✓)
 
 ---
 
-# Ce que la Phase 5 ne doit PAS faire
+# Étape 5 — Préparer Telegram (sans l’implémenter)
 
-* pas de moteur agent complet
-* pas de système multi-workflow configurable
-* pas de bus d’événements
-* pas d’orchestration distribuée
-* pas de gestion multi-utilisateur complète
-* pas de persistance métier lourde
-* pas de dashboard riche
-* pas de DSL de workflow
+## Objectif
 
----
+Rendre le système prêt à être branché.
 
-# Résultat attendu fin Phase 5
+## À faire
 
-Un workflow :
+* garantir que tout est lisible via :
 
-* déclenchable depuis l’extérieur,
-* relançable après `WAIT_HUMAN`,
-* pilotable via un service applicatif clair,
-* prêt à être branché à Telegram.
+  * texte simple
+  * summary
+* vérifier :
 
-```text
-Canal externe
-    ↓
-WorkflowCommandService
-    ↓
-AnalysisReviewWorkflowRunner
-    ↓
-WorkflowOrchestrator + Steps
-    ↓
-Artifacts + workflow-summary.md
-```
+  * aucun besoin de parsing complexe
+  * aucune dépendance implicite
 
 ---
 
-# Philosophie
+# Ce qu’il ne faut toujours pas faire
 
-Toujours :
-
-* explicite
-* pilotable
-* testable
-* sobre
-
-Jamais :
-
-* générique trop tôt
-* abstrait sans besoin réel
-* plus complexe que nécessaire
+* pas de moteur d’agent
+* pas de DSL
+* pas de routing dynamique
+* pas de persistence complexe
+* pas de multi-user
 
 ---
 
-👉 À la fin de la Phase 5, ton système ne sera plus seulement un workflow local solide :
-il deviendra un **workflow pilotable en situation réelle**, prêt pour une interaction humaine à distance.
+# Résultat attendu
+
+Un système :
+
+* appelable de l’extérieur
+* pilotable humainement
+* prêt pour Telegram
+* sans modification du runtime

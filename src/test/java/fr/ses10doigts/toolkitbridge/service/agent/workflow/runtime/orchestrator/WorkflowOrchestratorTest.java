@@ -631,6 +631,129 @@ class WorkflowOrchestratorTest {
                 .hasMessageContaining("requiresCorrection");
     }
 
+    // --- executeAnalysisReviewWithCorrectionAndValidation ---
+
+    @Test
+    void runsValidationAfterSuccessfulCycleWithoutCorrection() {
+        WorkflowExecutionContext context = buildContext();
+        AtomicInteger validationCount = new AtomicInteger(0);
+
+        WorkflowStep analysisStep = ctx -> new WorkflowStepResult(WorkflowStepDecision.CONTINUE, "analysis ok", Map.of());
+        WorkflowStep reviewStep = ctx -> new WorkflowStepResult(WorkflowStepDecision.CONTINUE, "review ok", Map.of("requiresCorrection", false));
+        WorkflowStep correctionStep = ctx -> new WorkflowStepResult(WorkflowStepDecision.CONTINUE, "correction", Map.of());
+        WorkflowStep validationStep = ctx -> {
+            validationCount.incrementAndGet();
+            return new WorkflowStepResult(WorkflowStepDecision.CONTINUE, "build passed", Map.of("buildStatus", "SUCCESS"));
+        };
+
+        WorkflowStepResult result = orchestrator.executeAnalysisReviewWithCorrectionAndValidation(
+                context, analysisStep, reviewStep, correctionStep, validationStep);
+
+        assertThat(result.decision()).isEqualTo(WorkflowStepDecision.CONTINUE);
+        assertThat(result.data())
+                .containsEntry("correctionTriggered", false)
+                .containsEntry("finalDecision", "CONTINUE");
+        assertThat(validationCount.get()).isEqualTo(1);
+    }
+
+    @Test
+    void runsValidationAfterCorrectionWhenCorrectionWasTriggered() {
+        WorkflowExecutionContext context = buildContext();
+        AtomicInteger correctionCount = new AtomicInteger(0);
+        AtomicInteger validationCount = new AtomicInteger(0);
+
+        WorkflowStep analysisStep = ctx -> new WorkflowStepResult(WorkflowStepDecision.CONTINUE, "analysis ok", Map.of());
+        WorkflowStep reviewStep = ctx -> new WorkflowStepResult(WorkflowStepDecision.CONTINUE, "review", Map.of("requiresCorrection", true));
+        WorkflowStep correctionStep = ctx -> {
+            correctionCount.incrementAndGet();
+            return new WorkflowStepResult(WorkflowStepDecision.CONTINUE, "corrected", Map.of());
+        };
+        WorkflowStep validationStep = ctx -> {
+            validationCount.incrementAndGet();
+            return new WorkflowStepResult(WorkflowStepDecision.CONTINUE, "build passed", Map.of("buildStatus", "SUCCESS"));
+        };
+
+        WorkflowStepResult result = orchestrator.executeAnalysisReviewWithCorrectionAndValidation(
+                context, analysisStep, reviewStep, correctionStep, validationStep);
+
+        assertThat(result.decision()).isEqualTo(WorkflowStepDecision.CONTINUE);
+        assertThat(result.data())
+                .containsEntry("correctionTriggered", true)
+                .containsEntry("finalDecision", "CONTINUE");
+        assertThat(correctionCount.get()).isEqualTo(1);
+        assertThat(validationCount.get()).isEqualTo(1);
+    }
+
+    @Test
+    void stopsAtAnalysisFailureAndSkipsValidation() {
+        WorkflowExecutionContext context = buildContext();
+        AtomicInteger validationCount = new AtomicInteger(0);
+
+        WorkflowStep analysisStep = ctx -> new WorkflowStepResult(WorkflowStepDecision.STOP_FAILURE, "analysis failed", Map.of());
+        WorkflowStep reviewStep = ctx -> new WorkflowStepResult(WorkflowStepDecision.CONTINUE, "review", Map.of("requiresCorrection", false));
+        WorkflowStep correctionStep = ctx -> new WorkflowStepResult(WorkflowStepDecision.CONTINUE, "correction", Map.of());
+        WorkflowStep validationStep = ctx -> {
+            validationCount.incrementAndGet();
+            return new WorkflowStepResult(WorkflowStepDecision.CONTINUE, "build", Map.of());
+        };
+
+        WorkflowStepResult result = orchestrator.executeAnalysisReviewWithCorrectionAndValidation(
+                context, analysisStep, reviewStep, correctionStep, validationStep);
+
+        assertThat(result.decision()).isEqualTo(WorkflowStepDecision.STOP_FAILURE);
+        assertThat(validationCount.get()).isEqualTo(0);
+    }
+
+    @Test
+    void stopsAtCorrectionFailureAndSkipsValidation() {
+        WorkflowExecutionContext context = buildContext();
+        AtomicInteger validationCount = new AtomicInteger(0);
+
+        WorkflowStep analysisStep = ctx -> new WorkflowStepResult(WorkflowStepDecision.CONTINUE, "analysis ok", Map.of());
+        WorkflowStep reviewStep = ctx -> new WorkflowStepResult(WorkflowStepDecision.CONTINUE, "review", Map.of("requiresCorrection", true));
+        WorkflowStep correctionStep = ctx -> new WorkflowStepResult(WorkflowStepDecision.STOP_FAILURE, "correction failed", Map.of());
+        WorkflowStep validationStep = ctx -> {
+            validationCount.incrementAndGet();
+            return new WorkflowStepResult(WorkflowStepDecision.CONTINUE, "build", Map.of());
+        };
+
+        WorkflowStepResult result = orchestrator.executeAnalysisReviewWithCorrectionAndValidation(
+                context, analysisStep, reviewStep, correctionStep, validationStep);
+
+        assertThat(result.decision()).isEqualTo(WorkflowStepDecision.STOP_FAILURE);
+        assertThat(result.data()).containsEntry("correctionTriggered", true);
+        assertThat(validationCount.get()).isEqualTo(0);
+    }
+
+    @Test
+    void returnsValidationStopFailureWhenBuildFails() {
+        WorkflowExecutionContext context = buildContext();
+
+        WorkflowStep analysisStep = ctx -> new WorkflowStepResult(WorkflowStepDecision.CONTINUE, "analysis ok", Map.of());
+        WorkflowStep reviewStep = ctx -> new WorkflowStepResult(WorkflowStepDecision.CONTINUE, "review ok", Map.of("requiresCorrection", false));
+        WorkflowStep correctionStep = ctx -> new WorkflowStepResult(WorkflowStepDecision.CONTINUE, "correction", Map.of());
+        WorkflowStep validationStep = ctx -> new WorkflowStepResult(WorkflowStepDecision.STOP_FAILURE, "build failed", Map.of("buildStatus", "FAILURE"));
+
+        WorkflowStepResult result = orchestrator.executeAnalysisReviewWithCorrectionAndValidation(
+                context, analysisStep, reviewStep, correctionStep, validationStep);
+
+        assertThat(result.decision()).isEqualTo(WorkflowStepDecision.STOP_FAILURE);
+        assertThat(result.data())
+                .containsEntry("correctionTriggered", false)
+                .containsEntry("finalDecision", "STOP_FAILURE");
+    }
+
+    @Test
+    void rejectsNullValidationStep() {
+        WorkflowExecutionContext context = buildContext();
+        WorkflowStep step = ctx -> new WorkflowStepResult(WorkflowStepDecision.CONTINUE, "ok", Map.of());
+
+        assertThatThrownBy(() -> orchestrator.executeAnalysisReviewWithCorrectionAndValidation(
+                context, step, step, step, null))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessageContaining("validationStep");
+    }
+
     private WorkflowExecutionContext buildContext() {
         WorkflowRun workflowRun = new WorkflowRun(
                 "run-1",

@@ -105,6 +105,41 @@ public class WorkflowOrchestrator {
         );
     }
 
+    public WorkflowStepResult executeAnalysisReviewWithCorrectionAndValidation(
+            WorkflowExecutionContext context,
+            WorkflowStep analysisStep,
+            WorkflowStep reviewStep,
+            WorkflowStep correctionStep,
+            WorkflowStep validationStep) {
+        Objects.requireNonNull(context, "context must not be null");
+        Objects.requireNonNull(analysisStep, "analysisStep must not be null");
+        Objects.requireNonNull(reviewStep, "reviewStep must not be null");
+        Objects.requireNonNull(correctionStep, "correctionStep must not be null");
+        Objects.requireNonNull(validationStep, "validationStep must not be null");
+
+        WorkflowStepResult analysisResult = executeSingleStep(context, analysisStep);
+        if (analysisResult.decision() != WorkflowStepDecision.CONTINUE) {
+            return enrichObservability(analysisResult, false);
+        }
+
+        WorkflowStepResult reviewResult = executeSingleStep(context, reviewStep);
+        if (reviewResult.decision() != WorkflowStepDecision.CONTINUE) {
+            return enrichObservability(reviewResult, false);
+        }
+
+        boolean correctionTriggered = false;
+        if (requiresCorrection(reviewResult)) {
+            WorkflowStepResult correctionResult = executeSingleStep(context, correctionStep);
+            if (correctionResult.decision() != WorkflowStepDecision.CONTINUE) {
+                return enrichObservability(correctionResult, true);
+            }
+            correctionTriggered = true;
+        }
+
+        WorkflowStepResult validationResult = executeSingleStep(context, validationStep);
+        return enrichObservability(validationResult, correctionTriggered);
+    }
+
     private boolean requiresCorrection(WorkflowStepResult reviewResult) {
         Object value = reviewResult.data().get(REQUIRES_CORRECTION_KEY);
         if (value instanceof Boolean boolValue) {
