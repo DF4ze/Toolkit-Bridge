@@ -29,6 +29,7 @@ class WorkflowTelegramSessionStoreTest {
                 42L,
                 100L,
                 "Toolkit",
+                Path.of("D:/repo").toAbsolutePath().normalize(),
                 7,
                 2,
                 roadmapPath
@@ -37,6 +38,7 @@ class WorkflowTelegramSessionStoreTest {
         assertThat(session.chatId()).isEqualTo(42L);
         assertThat(session.userId()).isEqualTo(100L);
         assertThat(session.projectName()).isEqualTo("Toolkit");
+        assertThat(session.projectPath()).isNotNull();
         assertThat(session.phase()).isEqualTo(7);
         assertThat(session.etape()).isEqualTo(2);
         assertThat(session.roadmapPath()).isEqualTo(roadmapPath);
@@ -104,5 +106,19 @@ class WorkflowTelegramSessionStoreTest {
 
         WorkflowTelegramSession ignoredOtherRun = store.completeRun(7L, "run-OTHER", WorkflowTelegramRunStatus.COMPLETED, Path.of("y"), "done");
         assertThat(ignoredOtherRun.lastStatus()).isEqualTo(WorkflowTelegramRunStatus.FAILED);
+    }
+
+    @Test
+    void updateContextReplacingProjectClearsProjectPathWhenNotProvided() {
+        WorkflowTelegramSessionStore store = new WorkflowTelegramSessionStore();
+
+        Path pathA = Path.of("D:/repoA").toAbsolutePath().normalize();
+        WorkflowTelegramSession s1 = store.updateContext(1L, 1L, "ProjectA", pathA, 1, 1, null);
+        assertThat(s1.projectName()).isEqualTo("ProjectA");
+        assertThat(s1.projectPath()).isEqualTo(pathA);
+
+        WorkflowTelegramSession s2 = store.updateContext(1L, 1L, "ProjectB", null, null, null, null);
+        assertThat(s2.projectName()).isEqualTo("ProjectB");
+        assertThat(s2.projectPath()).isNull();
     }
 }

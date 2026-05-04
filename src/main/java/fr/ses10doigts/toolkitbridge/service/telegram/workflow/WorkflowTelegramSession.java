@@ -13,6 +13,7 @@ public record WorkflowTelegramSession(
         Long chatId,
         Long userId,
         String projectName,
+        Path projectPath,
         Integer phase,
         Integer etape,
         Path roadmapPath,
@@ -39,6 +40,7 @@ public record WorkflowTelegramSession(
         Instant now = Instant.now();
         return new WorkflowTelegramSession(
                 chatId,
+                null,
                 null,
                 null,
                 null,

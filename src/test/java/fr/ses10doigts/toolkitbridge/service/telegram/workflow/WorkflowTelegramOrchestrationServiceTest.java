@@ -1,23 +1,30 @@
 package fr.ses10doigts.toolkitbridge.service.telegram.workflow;
 
 import fr.ses10doigts.toolkitbridge.service.agent.workflow.runtime.AnalysisReviewWorkflowRunner;
+import fr.ses10doigts.toolkitbridge.service.agent.workflow.runtime.project.WorkflowProjectLookupResult;
+import fr.ses10doigts.toolkitbridge.service.agent.workflow.runtime.project.WorkflowProjectRegistryService;
 import fr.ses10doigts.toolkitbridge.service.agent.workflow.runtime.step.WorkflowStepDecision;
 import fr.ses10doigts.toolkitbridge.service.agent.workflow.runtime.step.WorkflowStepResult;
 import fr.ses10doigts.toolkitbridge.config.workspace.WorkspaceProperties;
 import fr.ses10doigts.toolkitbridge.service.workspace.WorkspaceLayout;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.mockito.ArgumentCaptor;
 
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.AbstractExecutorService;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.verify;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -28,6 +35,24 @@ class WorkflowTelegramOrchestrationServiceTest {
 
     @TempDir
     Path tempDir;
+
+    private WorkflowProjectRegistryService registryFound() {
+        WorkflowProjectRegistryService registry = mock(WorkflowProjectRegistryService.class);
+        when(registry.lookup(anyString())).thenAnswer(inv -> {
+            String name = inv.getArgument(0);
+            if (name == null || name.isBlank()) {
+                return WorkflowProjectLookupResult.notFound("Project not found");
+            }
+            return WorkflowProjectLookupResult.found(name.trim().toLowerCase(Locale.ROOT), name.trim(), Path.of("D:/repo").toAbsolutePath().normalize());
+        });
+        return registry;
+    }
+
+    private WorkflowProjectRegistryService registryNotFound() {
+        WorkflowProjectRegistryService registry = mock(WorkflowProjectRegistryService.class);
+        when(registry.lookup(anyString())).thenReturn(WorkflowProjectLookupResult.notFound("Project not found"));
+        return registry;
+    }
 
     @Test
     void startRunCompletesSessionWhenWorkflowReturnsContinue() {
@@ -47,6 +72,7 @@ class WorkflowTelegramOrchestrationServiceTest {
                 resolver,
                 runner,
                 new WorkflowTelegramErrorSanitizer(),
+                registryFound(),
                 executor,
                 Duration.ofMinutes(15),
                 Path.of("data/rapport").toAbsolutePath().normalize(),
@@ -64,6 +90,70 @@ class WorkflowTelegramOrchestrationServiceTest {
     }
 
     @Test
+    void startRunInjectsCodexWorkingDirectoryInContext() {
+        WorkflowTelegramSessionStore store = new WorkflowTelegramSessionStore();
+        WorkflowTelegramRunTargetResolver resolver = new WorkflowTelegramRunTargetResolver();
+        AnalysisReviewWorkflowRunner runner = mock(AnalysisReviewWorkflowRunner.class);
+        when(runner.runAnalysisReviewWithOptionalCorrection(any()))
+                .thenReturn(new WorkflowStepResult(WorkflowStepDecision.CONTINUE, "done", Map.of()));
+
+        ExecutorService executor = new DirectExecutorService();
+        WorkflowTelegramOrchestrationService service = new WorkflowTelegramOrchestrationService(
+                store,
+                resolver,
+                runner,
+                new WorkflowTelegramErrorSanitizer(),
+                registryFound(),
+                executor,
+                Duration.ofMinutes(15),
+                Path.of("data/rapport").toAbsolutePath().normalize(),
+                "v1.1"
+        );
+
+        service.startRun(10L, 20L, "Toolkit", 7, 1);
+
+        ArgumentCaptor<fr.ses10doigts.toolkitbridge.service.agent.workflow.runtime.model.WorkflowExecutionContext> captor =
+                ArgumentCaptor.forClass(fr.ses10doigts.toolkitbridge.service.agent.workflow.runtime.model.WorkflowExecutionContext.class);
+        verify(runner, times(1)).runAnalysisReviewWithOptionalCorrection(captor.capture());
+        Object value = captor.getValue().variables().get("codexWorkingDirectory");
+        assertThat(value).isInstanceOf(Path.class);
+        assertThat((Path) value).isEqualTo(Path.of("D:/repo").toAbsolutePath().normalize());
+    }
+
+    @Test
+    void startRunUsesSessionProjectPathAndInjectsCodexWorkingDirectory() {
+        WorkflowTelegramSessionStore store = new WorkflowTelegramSessionStore();
+        WorkflowTelegramRunTargetResolver resolver = new WorkflowTelegramRunTargetResolver();
+        AnalysisReviewWorkflowRunner runner = mock(AnalysisReviewWorkflowRunner.class);
+        when(runner.runAnalysisReviewWithOptionalCorrection(any()))
+                .thenReturn(new WorkflowStepResult(WorkflowStepDecision.CONTINUE, "done", Map.of()));
+
+        Path projectPath = tempDir.resolve("project").toAbsolutePath().normalize();
+        store.updateContext(10L, 20L, "Toolkit", projectPath, null, null, null);
+
+        ExecutorService executor = new DirectExecutorService();
+        WorkflowTelegramOrchestrationService service = new WorkflowTelegramOrchestrationService(
+                store,
+                resolver,
+                runner,
+                new WorkflowTelegramErrorSanitizer(),
+                registryNotFound(),
+                executor,
+                Duration.ofMinutes(15),
+                Path.of("data/rapport").toAbsolutePath().normalize(),
+                "v1.1"
+        );
+
+        service.startRun(10L, 20L, (String) null, 7, 1);
+
+        ArgumentCaptor<fr.ses10doigts.toolkitbridge.service.agent.workflow.runtime.model.WorkflowExecutionContext> captor =
+                ArgumentCaptor.forClass(fr.ses10doigts.toolkitbridge.service.agent.workflow.runtime.model.WorkflowExecutionContext.class);
+        verify(runner, times(1)).runAnalysisReviewWithOptionalCorrection(captor.capture());
+        assertThat(captor.getValue().variables().get("codexWorkingDirectory")).isEqualTo(projectPath);
+        assertThat(captor.getValue().variables()).containsKey("analysisSourcePath");
+    }
+
+    @Test
     void startRunMessageContainsWorkflowStartedWithoutEmojiDependency() {
         WorkflowTelegramSessionStore store = new WorkflowTelegramSessionStore();
         WorkflowTelegramRunTargetResolver resolver = new WorkflowTelegramRunTargetResolver();
@@ -77,6 +167,7 @@ class WorkflowTelegramOrchestrationServiceTest {
                 resolver,
                 runner,
                 new WorkflowTelegramErrorSanitizer(),
+                registryFound(),
                 executor,
                 Duration.ofMinutes(15),
                 Path.of("data/rapport").toAbsolutePath().normalize(),
@@ -86,6 +177,58 @@ class WorkflowTelegramOrchestrationServiceTest {
         String response = service.startRun(10L, 20L, "Toolkit", 7, 1);
 
         assertThat(response).contains("Workflow started");
+    }
+
+    @Test
+    void startRunRefusesWhenProjectIsUnknown() {
+        WorkflowTelegramSessionStore store = new WorkflowTelegramSessionStore();
+        WorkflowTelegramRunTargetResolver resolver = new WorkflowTelegramRunTargetResolver();
+        AnalysisReviewWorkflowRunner runner = mock(AnalysisReviewWorkflowRunner.class);
+
+        ExecutorService executor = new DirectExecutorService();
+        WorkflowTelegramOrchestrationService service = new WorkflowTelegramOrchestrationService(
+                store,
+                resolver,
+                runner,
+                new WorkflowTelegramErrorSanitizer(),
+                registryNotFound(),
+                executor,
+                Duration.ofMinutes(15),
+                Path.of("data/rapport").toAbsolutePath().normalize(),
+                "v1.1"
+        );
+
+        String response = service.startRun(10L, 20L, "Toolkit", 7, 1);
+
+        assertThat(response).contains("Action impossible");
+        assertThat(response).contains("Unknown project");
+        assertThat(response).contains("/workflow_project_set");
+    }
+
+    @Test
+    void startRunRefusesWhenNoProjectConfiguredInSessionOrArgs() {
+        WorkflowTelegramSessionStore store = new WorkflowTelegramSessionStore();
+        WorkflowTelegramRunTargetResolver resolver = new WorkflowTelegramRunTargetResolver();
+        AnalysisReviewWorkflowRunner runner = mock(AnalysisReviewWorkflowRunner.class);
+
+        ExecutorService executor = new DirectExecutorService();
+        WorkflowTelegramOrchestrationService service = new WorkflowTelegramOrchestrationService(
+                store,
+                resolver,
+                runner,
+                new WorkflowTelegramErrorSanitizer(),
+                registryFound(),
+                executor,
+                Duration.ofMinutes(15),
+                Path.of("data/rapport").toAbsolutePath().normalize(),
+                "v1.1"
+        );
+
+        String response = service.startRun(10L, 20L, null, 7, 1);
+
+        assertThat(response).contains("Action impossible");
+        assertThat(response).contains("No project configured");
+        assertThat(response).contains("/workflow_project_set");
     }
 
     @Test
@@ -102,6 +245,7 @@ class WorkflowTelegramOrchestrationServiceTest {
                 resolver,
                 runner,
                 new WorkflowTelegramErrorSanitizer(),
+                registryFound(),
                 executor,
                 Duration.ofMinutes(15),
                 Path.of("data/rapport").toAbsolutePath().normalize(),
@@ -128,6 +272,7 @@ class WorkflowTelegramOrchestrationServiceTest {
                 resolver,
                 runner,
                 new WorkflowTelegramErrorSanitizer(),
+                registryFound(),
                 executor,
                 Duration.ofMillis(20),
                 Path.of("data/rapport").toAbsolutePath().normalize(),
@@ -189,13 +334,14 @@ class WorkflowTelegramOrchestrationServiceTest {
                 resolver,
                 runner,
                 new WorkflowTelegramErrorSanitizer(),
+                registryFound(),
                 executor,
                 Duration.ofMinutes(15),
                 Path.of("data/rapport").toAbsolutePath().normalize(),
                 "v1.1"
         );
 
-        store.updateContext(10L, 20L, "Toolkit", 7, 4, null);
+        store.updateContext(10L, 20L, "Toolkit", null, 7, 4, null);
         store.tryMarkRunning(10L, "run-1");
         store.completeRun(10L, "run-1", WorkflowTelegramRunStatus.WAITING_HUMAN, Path.of("x"), "wait");
 
@@ -206,6 +352,44 @@ class WorkflowTelegramOrchestrationServiceTest {
         WorkflowTelegramSession session = store.getOrCreate(10L);
         assertThat(session.running()).isFalse();
         assertThat(session.lastStatus()).isEqualTo(WorkflowTelegramRunStatus.COMPLETED);
+
+        ArgumentCaptor<fr.ses10doigts.toolkitbridge.service.agent.workflow.runtime.model.WorkflowExecutionContext> captor =
+                ArgumentCaptor.forClass(fr.ses10doigts.toolkitbridge.service.agent.workflow.runtime.model.WorkflowExecutionContext.class);
+        verify(runner, times(1)).runCorrectionAfterReview(captor.capture());
+        Object value = captor.getValue().variables().get("codexWorkingDirectory");
+        assertThat(value).isInstanceOf(Path.class);
+        assertThat((Path) value).isEqualTo(Path.of("D:/repo").toAbsolutePath().normalize());
+        assertThat(captor.getValue().variables()).doesNotContainKey("analysisSourcePath");
+    }
+
+    @Test
+    void resumeRefusesWhenProjectIsUnknown() {
+        WorkflowTelegramSessionStore store = new WorkflowTelegramSessionStore();
+        WorkflowTelegramRunTargetResolver resolver = new WorkflowTelegramRunTargetResolver();
+        AnalysisReviewWorkflowRunner runner = mock(AnalysisReviewWorkflowRunner.class);
+
+        ExecutorService executor = new DirectExecutorService();
+        WorkflowTelegramOrchestrationService service = new WorkflowTelegramOrchestrationService(
+                store,
+                resolver,
+                runner,
+                new WorkflowTelegramErrorSanitizer(),
+                registryNotFound(),
+                executor,
+                Duration.ofMinutes(15),
+                Path.of("data/rapport").toAbsolutePath().normalize(),
+                "v1.1"
+        );
+
+        store.updateContext(10L, 20L, "Toolkit", null, 7, 4, null);
+        store.tryMarkRunning(10L, "run-1");
+        store.completeRun(10L, "run-1", WorkflowTelegramRunStatus.WAITING_HUMAN, Path.of("x"), "wait");
+
+        String response = service.resume(10L, 20L);
+
+        assertThat(response).contains("Action impossible");
+        assertThat(response).contains("Unknown project");
+        assertThat(response).contains("/workflow_project_set");
     }
 
     @Test
@@ -228,7 +412,7 @@ class WorkflowTelegramOrchestrationServiceTest {
 
         assertThat(service.resume(10L, 20L)).contains(WorkflowTelegramOrchestrationService.NO_WAITING_HUMAN_MESSAGE);
 
-        store.updateContext(10L, 20L, "Toolkit", 7, 4, null);
+        store.updateContext(10L, 20L, "Toolkit", null, 7, 4, null);
         store.tryMarkRunning(10L, "run-1");
         store.failRun(10L, "run-1", "boom");
         assertThat(service.resume(10L, 20L)).contains(WorkflowTelegramOrchestrationService.NO_WAITING_HUMAN_MESSAGE);
@@ -275,13 +459,14 @@ class WorkflowTelegramOrchestrationServiceTest {
                 resolver,
                 runner,
                 new WorkflowTelegramErrorSanitizer(),
+                registryFound(),
                 executor,
                 Duration.ofMinutes(15),
                 Path.of("data/rapport").toAbsolutePath().normalize(),
                 "v1.1"
         );
 
-        store.updateContext(10L, 20L, "Toolkit", 7, 4, null);
+        store.updateContext(10L, 20L, "Toolkit", null, 7, 4, null);
         store.tryMarkRunning(10L, "run-1");
         store.completeRun(10L, "run-1", WorkflowTelegramRunStatus.WAITING_HUMAN, Path.of("x"), "wait");
 
@@ -301,13 +486,14 @@ class WorkflowTelegramOrchestrationServiceTest {
                 resolver,
                 runner,
                 new WorkflowTelegramErrorSanitizer(),
+                registryFound(),
                 executor,
                 Duration.ofMinutes(15),
                 Path.of("data/rapport").toAbsolutePath().normalize(),
                 "v1.1"
         );
 
-        store.updateContext(10L, 20L, "Toolkit", 7, 4, null);
+        store.updateContext(10L, 20L, "Toolkit", null, 7, 4, null);
         store.tryMarkRunning(10L, "run-1");
         store.completeRun(10L, "run-1", WorkflowTelegramRunStatus.WAITING_HUMAN, Path.of("x"), "wait");
 
@@ -316,7 +502,7 @@ class WorkflowTelegramOrchestrationServiceTest {
         service.resume(10L, 20L);
         assertThat(store.getOrCreate(10L).lastStatus()).isEqualTo(WorkflowTelegramRunStatus.WAITING_HUMAN);
 
-        store.updateContext(12L, 20L, "Toolkit", 7, 4, null);
+        store.updateContext(12L, 20L, "Toolkit", null, 7, 4, null);
         store.tryMarkRunning(12L, "run-12");
         store.completeRun(12L, "run-12", WorkflowTelegramRunStatus.WAITING_HUMAN, Path.of("x"), "wait");
 
@@ -346,6 +532,7 @@ class WorkflowTelegramOrchestrationServiceTest {
                 resolver,
                 runner,
                 new WorkflowTelegramErrorSanitizer(),
+                registryFound(),
                 new DirectExecutorService(),
                 Duration.ofMinutes(15),
                 Path.of("data/rapport").toAbsolutePath().normalize(),
@@ -373,6 +560,7 @@ class WorkflowTelegramOrchestrationServiceTest {
                 resolver,
                 runner,
                 new WorkflowTelegramErrorSanitizer(),
+                registryFound(),
                 new DirectExecutorService(),
                 Duration.ofMinutes(15),
                 Path.of("data/rapport").toAbsolutePath().normalize(),
@@ -416,6 +604,7 @@ class WorkflowTelegramOrchestrationServiceTest {
                 new WorkflowTelegramRunTargetResolver(),
                 runner,
                 new WorkflowTelegramErrorSanitizer(),
+                registryFound(),
                 new DirectExecutorService(),
                 Duration.ofMinutes(15),
                 Path.of("data/rapport").toAbsolutePath().normalize(),
@@ -470,6 +659,7 @@ class WorkflowTelegramOrchestrationServiceTest {
                 resolver,
                 runner,
                 new WorkflowTelegramErrorSanitizer(),
+                registryFound(),
                 new DirectExecutorService(),
                 Duration.ofMinutes(15),
                 Path.of("data/rapport").toAbsolutePath().normalize(),
@@ -525,7 +715,7 @@ class WorkflowTelegramOrchestrationServiceTest {
     void workflowHomeRendersWithActiveContext() {
         WorkflowTelegramSessionStore store = new WorkflowTelegramSessionStore();
         Path roadmapPath = Path.of("workspace/shared/roadmap.md");
-        store.updateContext(10L, 20L, "Toolkit", 7, 5, roadmapPath);
+        store.updateContext(10L, 20L, "Toolkit", null, 7, 5, roadmapPath);
         WorkflowTelegramOrchestrationService service = new WorkflowTelegramOrchestrationService(
                 store,
                 new WorkflowTelegramRunTargetResolver(),
@@ -570,7 +760,7 @@ class WorkflowTelegramOrchestrationServiceTest {
         assertThat(idle).doesNotContain(WINDOWS_ABSOLUTE_PATH_MARKER);
         assertThat(idle).doesNotContain(UNIX_ABSOLUTE_PATH_MARKER);
 
-        store.updateContext(2L, 20L, "Toolkit", 7, 5, Path.of("workspace/shared/roadmap.md"));
+        store.updateContext(2L, 20L, "Toolkit", null, 7, 5, Path.of("workspace/shared/roadmap.md"));
         store.tryMarkRunning(2L, "run-2");
         String running = service.status(2L);
         assertThat(running).contains("Status: RUNNING");
@@ -589,7 +779,7 @@ class WorkflowTelegramOrchestrationServiceTest {
         assertThat(waiting).doesNotContain(WINDOWS_ABSOLUTE_PATH_MARKER);
         assertThat(waiting).doesNotContain(UNIX_ABSOLUTE_PATH_MARKER);
 
-        store.updateContext(3L, 20L, "Toolkit", 7, 5, Path.of("workspace/shared/roadmap.md"));
+        store.updateContext(3L, 20L, "Toolkit", null, 7, 5, Path.of("workspace/shared/roadmap.md"));
         store.tryMarkRunning(3L, "run-3");
         store.failRun(3L, "run-3", "boom");
         String failed = service.status(3L);

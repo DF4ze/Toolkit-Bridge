@@ -3,6 +3,7 @@ package fr.ses10doigts.toolkitbridge.controler.telegram.workflow;
 import fr.ses10doigts.telegrambots.model.TelegramUpdateContext;
 import fr.ses10doigts.telegrambots.service.poller.handler.annot.TelegramController;
 import fr.ses10doigts.toolkitbridge.service.telegram.workflow.WorkflowTelegramOrchestrationService;
+import fr.ses10doigts.toolkitbridge.service.telegram.workflow.WorkflowTelegramProjectService;
 import fr.ses10doigts.toolkitbridge.service.telegram.workflow.WorkflowTelegramRoadmapService;
 import fr.ses10doigts.toolkitbridge.service.telegram.workflow.WorkflowTelegramSummaryService;
 import org.junit.jupiter.api.Test;
@@ -22,7 +23,8 @@ class WorkflowTelegramControllerTest {
         WorkflowTelegramController controller = new WorkflowTelegramController(
                 mock(WorkflowTelegramRoadmapService.class),
                 orchestrationService,
-                mock(WorkflowTelegramSummaryService.class)
+                mock(WorkflowTelegramSummaryService.class),
+                mock(WorkflowTelegramProjectService.class)
         );
 
         TelegramUpdateContext context = new TelegramUpdateContext(
@@ -49,7 +51,8 @@ class WorkflowTelegramControllerTest {
         WorkflowTelegramController controller = new WorkflowTelegramController(
                 mock(WorkflowTelegramRoadmapService.class),
                 mock(WorkflowTelegramOrchestrationService.class),
-                mock(WorkflowTelegramSummaryService.class)
+                mock(WorkflowTelegramSummaryService.class),
+                mock(WorkflowTelegramProjectService.class)
         );
 
         TelegramController annot = controller.getClass().getAnnotation(TelegramController.class);
@@ -63,7 +66,8 @@ class WorkflowTelegramControllerTest {
         WorkflowTelegramController controller = new WorkflowTelegramController(
                 mock(WorkflowTelegramRoadmapService.class),
                 mock(WorkflowTelegramOrchestrationService.class),
-                mock(WorkflowTelegramSummaryService.class)
+                mock(WorkflowTelegramSummaryService.class),
+                mock(WorkflowTelegramProjectService.class)
         );
 
         assertThat(controller.getClass().getDeclaredFields())
@@ -72,7 +76,8 @@ class WorkflowTelegramControllerTest {
                 .containsExactly(
                         WorkflowTelegramRoadmapService.class.getName(),
                         WorkflowTelegramOrchestrationService.class.getName(),
-                        WorkflowTelegramSummaryService.class.getName()
+                        WorkflowTelegramSummaryService.class.getName(),
+                        WorkflowTelegramProjectService.class.getName()
                 );
     }
 }

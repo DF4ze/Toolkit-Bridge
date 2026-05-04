@@ -8,12 +8,15 @@ import fr.ses10doigts.toolkitbridge.service.agent.workflow.runtime.validation.Va
 import fr.ses10doigts.toolkitbridge.service.agent.workflow.runtime.validation.ValidationStatus;
 import fr.ses10doigts.toolkitbridge.service.agent.workflow.runtime.validation.WorkflowValidationService;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+@Slf4j
 public class MavenValidationStep implements WorkflowStep {
 
     private static final int DEFAULT_TIMEOUT_SECONDS = 300;
@@ -51,6 +54,7 @@ public class MavenValidationStep implements WorkflowStep {
             return stopFailure("context must not be null");
         }
 
+        String runId = context.workflowRun().runId();
         try {
             Path reportRootDirectory = requiredPath(context, VAR_REPORT_ROOT_DIRECTORY);
             String reportVersion = requiredString(context, VAR_REPORT_VERSION);
@@ -65,6 +69,7 @@ public class MavenValidationStep implements WorkflowStep {
                     timeoutSeconds
             );
 
+            log.info("Maven validation started: runId={}", runId);
             ValidationResult buildResult = validationService.validate(command);
 
             String artifactContent = buildArtifactContent(buildResult);
@@ -72,7 +77,12 @@ public class MavenValidationStep implements WorkflowStep {
                     reportRootDirectory, reportVersion, reportPhase, stepNumber, WorkflowArtifactType.BUILD_RESULT);
             artifactService.writeArtifact(buildResultPath, artifactContent);
 
+            log.debug("Maven validation result: runId={}, status={}, exitCode={}, durationMs={}, stdoutLen={}, stderrLen={}",
+                    runId, buildResult.status(), buildResult.exitCode(), buildResult.durationMs(),
+                    buildResult.stdout().length(), buildResult.stderr().length());
+
             if (buildResult.status() == ValidationStatus.SUCCESS) {
+                log.info("Maven validation passed: runId={}", runId);
                 return new WorkflowStepResult(
                         WorkflowStepDecision.CONTINUE,
                         COMPLETED_MESSAGE,
@@ -85,6 +95,8 @@ public class MavenValidationStep implements WorkflowStep {
             int retryMax = optionalInt(context, VAR_BUILD_ERROR_RETRY_MAX, DEFAULT_RETRY_MAX);
 
             if (buildResult.status() == ValidationStatus.FAILURE && retryCount < retryMax) {
+                log.warn("Maven validation failed — correction will be attempted: runId={}, retryCount={}, retryMax={}",
+                        runId, retryCount + 1, retryMax);
                 Map<String, Object> data = buildData(buildResult, buildResultPath, WorkflowStepDecision.RETRY_CORRECTION);
                 data.put(VAR_BUILD_ERROR_RETRY_COUNT, retryCount + 1);
                 data.put(VAR_BUILD_ERROR_RETRY_MAX, retryMax);
@@ -97,6 +109,14 @@ public class MavenValidationStep implements WorkflowStep {
                 );
             }
 
+            if (buildResult.status() == ValidationStatus.FAILURE) {
+                log.warn("Maven validation failed — retry limit exhausted: runId={}, retryCount={}, retryMax={}",
+                        runId, retryCount, retryMax);
+            } else {
+                // TIMEOUT or SYSTEM_ERROR
+                log.warn("Maven validation ended with non-recoverable status: runId={}, status={}", runId, buildResult.status());
+            }
+
             String reason = buildResult.errorMessage() != null
                     ? buildResult.errorMessage()
                     : "Build exited with status " + buildResult.status().name();
@@ -107,6 +127,7 @@ public class MavenValidationStep implements WorkflowStep {
             );
 
         } catch (IllegalArgumentException e) {
+            log.error("MavenValidationStep failed: runId={}", runId, e);
             return stopFailure(e.getMessage());
         }
     }

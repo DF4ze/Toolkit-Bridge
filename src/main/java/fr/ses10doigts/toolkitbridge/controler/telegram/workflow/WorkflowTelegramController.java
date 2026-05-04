@@ -4,6 +4,7 @@ import fr.ses10doigts.telegrambots.model.TelegramUpdateContext;
 import fr.ses10doigts.telegrambots.service.poller.handler.annot.Command;
 import fr.ses10doigts.telegrambots.service.poller.handler.annot.TelegramController;
 import fr.ses10doigts.toolkitbridge.service.telegram.workflow.WorkflowTelegramOrchestrationService;
+import fr.ses10doigts.toolkitbridge.service.telegram.workflow.WorkflowTelegramProjectService;
 import fr.ses10doigts.toolkitbridge.service.telegram.workflow.WorkflowTelegramRoadmapService;
 import fr.ses10doigts.toolkitbridge.service.telegram.workflow.WorkflowTelegramSummaryService;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +20,7 @@ public class WorkflowTelegramController {
     private final WorkflowTelegramRoadmapService roadmapService;
     private final WorkflowTelegramOrchestrationService orchestrationService;
     private final WorkflowTelegramSummaryService summaryService;
+    private final WorkflowTelegramProjectService projectService;
 
     @Command(value = "/workflow", description = "Workflow interface")
     public String workflow(TelegramUpdateContext ctx) {
@@ -36,6 +38,10 @@ public class WorkflowTelegramController {
             projectName = argValue(ctx, "projectName");
         }
         String path = argValue(ctx, "path");
+        log.info("Command /workflow_roadmap_load: chatId={}, userId={}, project={}",
+                ctx == null ? null : ctx.getChatId(),
+                ctx == null ? null : ctx.getUserId(),
+                projectName);
         return roadmapService.loadRoadmap(
                 ctx == null ? null : ctx.getChatId(),
                 ctx == null ? null : ctx.getUserId(),
@@ -57,9 +63,14 @@ public class WorkflowTelegramController {
             etape = argIntValue(ctx, "step");
         }
 
+        log.info("Command /workflow_run: chatId={}, userId={}, project={}, phase={}, etape={}",
+                ctx == null ? null : ctx.getChatId(),
+                ctx == null ? null : ctx.getUserId(),
+                projectName, phase, etape);
         return orchestrationService.startRun(
                 ctx == null ? null : ctx.getChatId(),
                 ctx == null ? null : ctx.getUserId(),
+                ctx == null ? null : ctx.getBotId(),
                 projectName,
                 phase,
                 etape
@@ -73,6 +84,9 @@ public class WorkflowTelegramController {
 
     @Command(value = "/workflow_resume", description = "Resume workflow after WAIT_HUMAN")
     public String workflowResume(TelegramUpdateContext ctx) {
+        log.info("Command /workflow_resume: chatId={}, userId={}",
+                ctx == null ? null : ctx.getChatId(),
+                ctx == null ? null : ctx.getUserId());
         return orchestrationService.resume(
                 ctx == null ? null : ctx.getChatId(),
                 ctx == null ? null : ctx.getUserId()
@@ -82,6 +96,14 @@ public class WorkflowTelegramController {
     @Command(value = "/workflow_summary", description = "Workflow summary")
     public String workflowSummary(TelegramUpdateContext ctx) {
         return summaryService.workflowSummary(ctx);
+    }
+
+    @Command(value = "/workflow_project_set", description = "Register or update a workflow project path")
+    public String workflowProjectSet(TelegramUpdateContext ctx) {
+        log.info("Command /workflow_project_set: chatId={}, userId={}",
+                ctx == null ? null : ctx.getChatId(),
+                ctx == null ? null : ctx.getUserId());
+        return projectService.setProject(ctx == null ? null : ctx.getArgs());
     }
 
     private String argValue(TelegramUpdateContext ctx, String key) {

@@ -1,0 +1,10 @@
+@startuml
+actor User
+participant "Marcel" as Marcel
+participant "CodexTime" as CodexTime
+
+User -> Marcel: demande d'exécution
+Marcel -> CodexTime: startWorkflow()
+CodexTime --> Marcel: résultat
+Marcel --> User: retour utilisateur
+@enduml

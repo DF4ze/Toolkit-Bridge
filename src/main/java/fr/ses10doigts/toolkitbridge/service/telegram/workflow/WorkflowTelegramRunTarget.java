@@ -5,15 +5,19 @@ public record WorkflowTelegramRunTarget(
         Integer phase,
         Integer etape,
         boolean valid,
-        String errorMessage
+        String errorMessage,
+        WorkflowTelegramRunTargetErrorCode errorCode
 ) {
 
     public static WorkflowTelegramRunTarget ok(String projectName, Integer phase, Integer etape) {
-        return new WorkflowTelegramRunTarget(projectName, phase, etape, true, null);
+        return new WorkflowTelegramRunTarget(projectName, phase, etape, true, null, null);
     }
 
     public static WorkflowTelegramRunTarget error(String message) {
-        return new WorkflowTelegramRunTarget(null, null, null, false, message == null ? "" : message.trim());
+        return error(message, null);
+    }
+
+    public static WorkflowTelegramRunTarget error(String message, WorkflowTelegramRunTargetErrorCode errorCode) {
+        return new WorkflowTelegramRunTarget(null, null, null, false, message == null ? "" : message.trim(), errorCode);
     }
 }
-

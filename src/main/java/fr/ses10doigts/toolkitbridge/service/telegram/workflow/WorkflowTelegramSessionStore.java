@@ -20,6 +20,7 @@ public class WorkflowTelegramSessionStore {
     public WorkflowTelegramSession updateContext(Long chatId,
                                                  Long userId,
                                                  String projectName,
+                                                 Path projectPath,
                                                  Integer phase,
                                                  Integer etape,
                                                  Path roadmapPath) {
@@ -34,10 +35,16 @@ public class WorkflowTelegramSessionStore {
 
         return sessionsByChatId.compute(chatId, (key, existing) -> {
             WorkflowTelegramSession base = existing == null ? WorkflowTelegramSession.idle(chatId) : existing;
+            boolean projectChanged = projectName != null
+                    && !projectName.isBlank()
+                    && base.projectName() != null
+                    && !base.projectName().isBlank()
+                    && !projectName.trim().equals(base.projectName());
             return new WorkflowTelegramSession(
                     chatId,
                     userId != null ? userId : base.userId(),
                     projectName != null && !projectName.isBlank() ? projectName.trim() : base.projectName(),
+                    projectPath != null ? projectPath : (projectChanged ? null : base.projectPath()),
                     phase != null ? phase : base.phase(),
                     etape != null ? etape : base.etape(),
                     roadmapPath != null ? roadmapPath : base.roadmapPath(),
@@ -52,6 +59,15 @@ public class WorkflowTelegramSessionStore {
                     base.lastError()
             );
         });
+    }
+
+    public WorkflowTelegramSession updateContext(Long chatId,
+                                                 Long userId,
+                                                 String projectName,
+                                                 Integer phase,
+                                                 Integer etape,
+                                                 Path roadmapPath) {
+        return updateContext(chatId, userId, projectName, null, phase, etape, roadmapPath);
     }
 
     public boolean tryMarkRunning(Long chatId, String runId) {
@@ -70,6 +86,7 @@ public class WorkflowTelegramSessionStore {
                     chatId,
                     base.userId(),
                     base.projectName(),
+                    base.projectPath(),
                     base.phase(),
                     base.etape(),
                     base.roadmapPath(),
@@ -116,6 +133,7 @@ public class WorkflowTelegramSessionStore {
                     chatId,
                     base.userId(),
                     base.projectName(),
+                    base.projectPath(),
                     base.phase(),
                     base.etape(),
                     base.roadmapPath(),
@@ -154,6 +172,7 @@ public class WorkflowTelegramSessionStore {
                     chatId,
                     base.userId(),
                     base.projectName(),
+                    base.projectPath(),
                     base.phase(),
                     base.etape(),
                     base.roadmapPath(),

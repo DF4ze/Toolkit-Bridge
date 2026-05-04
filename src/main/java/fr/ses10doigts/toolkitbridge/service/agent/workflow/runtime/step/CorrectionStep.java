@@ -8,10 +8,13 @@ import fr.ses10doigts.toolkitbridge.service.agent.workflow.runtime.codex.CodexEx
 import fr.ses10doigts.toolkitbridge.service.agent.workflow.runtime.codex.CodexWorkflowClient;
 import fr.ses10doigts.toolkitbridge.service.agent.workflow.runtime.model.WorkflowExecutionContext;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.Objects;
 
+@Slf4j
 public class CorrectionStep implements WorkflowStep {
 
     private static final String ERROR_PREFIX = "CorrectionStep: ";
@@ -40,6 +43,7 @@ public class CorrectionStep implements WorkflowStep {
             return stopFailure("context must not be null");
         }
 
+        String runId = context.workflowRun().runId();
         try {
             Path reportRootDirectory = requiredPath(context, VAR_REPORT_ROOT_DIRECTORY);
             String reportVersion = requiredString(context, VAR_REPORT_VERSION);
@@ -87,7 +91,11 @@ public class CorrectionStep implements WorkflowStep {
                     optionalInt(context, VAR_CODEX_TIMEOUT_SECONDS)
             );
 
+            log.info("Codex correction call started: runId={}", runId);
             CodexExecutionResult codexResult = codexWorkflowClient.execute(request);
+            log.debug("Codex correction call completed: runId={}, exitCode={}, durationMs={}, stdoutLen={}, stderrLen={}",
+                    runId, codexResult.exitCode(), codexResult.durationMs(),
+                    codexResult.stdout().length(), codexResult.stderr().length());
             String correctionResultContent = buildResultContent(codexResult);
 
             Path correctionResultPath = workflowArtifactService.buildArtifactPath(
@@ -100,6 +108,11 @@ public class CorrectionStep implements WorkflowStep {
             workflowArtifactService.writeArtifact(correctionResultPath, correctionResultContent);
 
             if (!codexResult.success()) {
+                if (codexResult.timedOut()) {
+                    log.warn("Codex correction timed out: runId={}, durationMs={}", runId, codexResult.durationMs());
+                } else {
+                    log.warn("Codex correction failed: runId={}, exitCode={}", runId, codexResult.exitCode());
+                }
                 String failureMessage = codexResult.timedOut()
                         ? "Codex execution timed out"
                         : "Codex execution was not successful";
@@ -110,6 +123,7 @@ public class CorrectionStep implements WorkflowStep {
                 );
             }
 
+            log.info("Codex correction call succeeded: runId={}", runId);
             return new WorkflowStepResult(
                     WorkflowStepDecision.CONTINUE,
                     COMPLETED_MESSAGE,
@@ -124,6 +138,7 @@ public class CorrectionStep implements WorkflowStep {
                     )
             );
         } catch (IllegalArgumentException | CodexExecutionException | IllegalStateException e) {
+            log.error("CorrectionStep failed: runId={}", runId, e);
             return stopFailure(e.getMessage());
         }
     }

@@ -23,6 +23,7 @@ final class WorkflowTelegramMessageRenderer {
         sb.append("- /workflow_status").append("\n");
         sb.append("- /workflow_summary").append("\n");
         sb.append("- /workflow_resume").append("\n");
+        sb.append("- /workflow_project_set").append("\n");
         sb.append("- /workflow_roadmap_load").append("\n\n");
         sb.append("Next:").append("\n");
         sb.append("- ").append(recommendedNextAction(safeSession));

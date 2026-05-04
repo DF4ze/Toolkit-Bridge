@@ -8,6 +8,8 @@ import fr.ses10doigts.toolkitbridge.service.agent.workflow.runtime.codex.CodexEx
 import fr.ses10doigts.toolkitbridge.service.agent.workflow.runtime.codex.CodexWorkflowClient;
 import fr.ses10doigts.toolkitbridge.service.agent.workflow.runtime.model.WorkflowExecutionContext;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
@@ -20,6 +22,7 @@ import java.util.Objects;
  * workflow context. It does not parse Maven output beyond the data prepared by
  * {@link MavenValidationStep}.
  */
+@Slf4j
 public class BuildErrorCorrectionStep implements WorkflowStep {
 
     private static final String ERROR_PREFIX = "BuildErrorCorrectionStep: ";
@@ -54,6 +57,7 @@ public class BuildErrorCorrectionStep implements WorkflowStep {
             return stopFailure("context must not be null");
         }
 
+        String runId = context.workflowRun().runId();
         try {
             Path reportRootDirectory = requiredPath(context, VAR_REPORT_ROOT_DIRECTORY);
             String reportVersion = requiredString(context, VAR_REPORT_VERSION);
@@ -70,7 +74,12 @@ public class BuildErrorCorrectionStep implements WorkflowStep {
                     optionalInt(context, VAR_CODEX_TIMEOUT_SECONDS)
             );
 
+            log.info("Codex build error correction call started: runId={}", runId);
+            log.debug("Build error correction retry state: runId={}, retryCount={}, retryMax={}", runId, retryCount, retryMax);
             CodexExecutionResult codexResult = codexWorkflowClient.execute(request);
+            log.debug("Codex build error correction call completed: runId={}, exitCode={}, durationMs={}, stdoutLen={}, stderrLen={}",
+                    runId, codexResult.exitCode(), codexResult.durationMs(),
+                    codexResult.stdout().length(), codexResult.stderr().length());
             Path resultPath = artifactService.buildArtifactPath(
                     reportRootDirectory,
                     reportVersion,
@@ -81,11 +90,17 @@ public class BuildErrorCorrectionStep implements WorkflowStep {
             artifactService.writeArtifact(resultPath, buildResultContent(codexResult, retryCount, retryMax));
 
             if (!codexResult.success()) {
+                if (codexResult.timedOut()) {
+                    log.warn("Codex build error correction timed out: runId={}, durationMs={}", runId, codexResult.durationMs());
+                } else {
+                    log.warn("Codex build error correction failed: runId={}, exitCode={}", runId, codexResult.exitCode());
+                }
                 return stopFailure(codexResult.timedOut()
                         ? "Codex execution timed out"
                         : "Codex execution was not successful");
             }
 
+            log.info("Codex build error correction call succeeded: runId={}", runId);
             Map<String, Object> data = new HashMap<>();
             data.put("resultArtifactPath", resultPath.toString());
             data.put("correctionAttemptPath", resultPath.toString());
@@ -106,6 +121,7 @@ public class BuildErrorCorrectionStep implements WorkflowStep {
                     data
             );
         } catch (IllegalArgumentException | CodexExecutionException | IllegalStateException e) {
+            log.error("BuildErrorCorrectionStep failed: runId={}", runId, e);
             return stopFailure(e.getMessage());
         }
     }

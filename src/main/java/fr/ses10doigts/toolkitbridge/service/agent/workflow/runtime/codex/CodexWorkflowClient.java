@@ -1,15 +1,19 @@
 package fr.ses10doigts.toolkitbridge.service.agent.workflow.runtime.codex;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -17,9 +21,10 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 @Service
+@Slf4j
 public class CodexWorkflowClient {
 
-    private static final String CODEX_BINARY = "codex";
+    private static final String CODEX_BINARY = "C:\\Users\\Skill Korp\\AppData\\Roaming\\npm\\codex.cmd";
     private static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(120);
     private static final int STREAM_COLLECTION_TIMEOUT_SECONDS = 5;
 
@@ -29,6 +34,7 @@ public class CodexWorkflowClient {
         }
 
         List<String> command = buildCommand(request);
+        log.debug("Codex CLI command built: command={}", String.join(" ", command));
         ProcessBuilder processBuilder = new ProcessBuilder(command);
         if (request.workingDirectory() != null) {
             validateWorkingDirectory(request.workingDirectory());
@@ -37,7 +43,10 @@ public class CodexWorkflowClient {
 
         long startedAt = System.nanoTime();
         try {
+            log.info("Codex CLI process starting: workingDirectory={}",
+                    request.workingDirectory() != null ? "set" : "none");
             Process process = processBuilder.start();
+            writePromptToStdin(process, request.prompt());
             int timeoutSeconds = request.timeoutSeconds() == null
                     ? (int) DEFAULT_TIMEOUT.toSeconds()
                     : request.timeoutSeconds();
@@ -50,6 +59,7 @@ public class CodexWorkflowClient {
                 long durationMs = elapsedMs(startedAt);
 
                 if (!finished) {
+                    log.warn("Codex CLI process timed out: durationMs={}", durationMs);
                     process.destroy();
                     if (!process.waitFor(2, TimeUnit.SECONDS)) {
                         process.destroyForcibly();
@@ -68,6 +78,10 @@ public class CodexWorkflowClient {
                 int exitCode = process.exitValue();
                 String stdout = safeGet(stdoutFuture);
                 String stderr = safeGet(stderrFuture);
+
+                log.debug("Codex CLI execution finished: exitCode={}, durationMs={}, stdoutLen={}, stderrLen={}",
+                        exitCode, durationMs, stdout.length(), stderr.length());
+
                 return new CodexExecutionResult(
                         String.join(" ", command),
                         exitCode,
@@ -79,15 +93,25 @@ public class CodexWorkflowClient {
                 );
             }
         } catch (IOException e) {
+            log.error("Failed to start Codex CLI process", e);
             throw new CodexExecutionException("Failed to start Codex CLI process", e);
         } catch (InterruptedException e) {
+            log.error("Codex CLI execution interrupted", e);
             Thread.currentThread().interrupt();
             throw new CodexExecutionException("Codex CLI execution interrupted", e);
         }
     }
 
-    private List<String> buildCommand(CodexExecutionRequest request) {
-        return List.of(CODEX_BINARY, request.prompt());
+    List<String> buildCommand(CodexExecutionRequest request) {
+        List<String> command = new ArrayList<>();
+        command.add(CODEX_BINARY);
+        command.add("exec");
+        if (request.workingDirectory() != null) {
+            command.add("--cd");
+            command.add(request.workingDirectory().toString());
+        }
+        command.add("-");
+        return List.copyOf(command);
     }
 
     private String readStream(InputStream stream) throws IOException {
@@ -100,6 +124,17 @@ public class CodexWorkflowClient {
             }
         }
         return builder.toString();
+    }
+
+    private void writePromptToStdin(Process process, String prompt) {
+        try (BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(process.getOutputStream(), StandardCharsets.UTF_8))) {
+            writer.write(prompt);
+            writer.flush();
+        } catch (IOException e) {
+            log.error("Codex CLI failed to write prompt to stdin", e);
+            process.destroy();
+            throw new CodexExecutionException("Failed to write prompt to Codex CLI stdin", e);
+        }
     }
 
     private String safeGet(Future<String> future) {

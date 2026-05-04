@@ -26,6 +26,7 @@ class WorkflowTelegramRunTargetResolverTest {
                 10L,
                 20L,
                 "Toolkit",
+                null,
                 7,
                 4,
                 null,
@@ -54,6 +55,7 @@ class WorkflowTelegramRunTargetResolverTest {
                 10L,
                 20L,
                 "Toolkit",
+                null,
                 7,
                 4,
                 null,
@@ -82,6 +84,7 @@ class WorkflowTelegramRunTargetResolverTest {
                 10L,
                 null,
                 "Toolkit",
+                null,
                 7,
                 null,
                 null,
@@ -112,5 +115,6 @@ class WorkflowTelegramRunTargetResolverTest {
 
         assertThat(error.valid()).isFalse();
         assertThat(error.errorMessage()).contains("missing projectName");
+        assertThat(error.errorCode()).isEqualTo(WorkflowTelegramRunTargetErrorCode.MISSING_PROJECT);
     }
 }

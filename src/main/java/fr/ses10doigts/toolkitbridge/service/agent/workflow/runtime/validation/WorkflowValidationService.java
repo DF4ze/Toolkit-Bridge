@@ -1,5 +1,7 @@
 package fr.ses10doigts.toolkitbridge.service.agent.workflow.runtime.validation;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -17,6 +19,7 @@ import java.util.concurrent.TimeUnit;
  * annotation will be added when this service is wired into the workflow runtime
  * (a future step). Until then it can be instantiated directly.
  */
+@Slf4j
 public class WorkflowValidationService {
 
     private static final int DEFAULT_TIMEOUT_SECONDS = 120;
@@ -35,6 +38,8 @@ public class WorkflowValidationService {
                 ? command.timeoutSeconds()
                 : DEFAULT_TIMEOUT_SECONDS;
 
+        log.debug("Process validation starting: command={}, timeoutSeconds={}", commandString, timeoutSeconds);
+
         ProcessBuilder processBuilder = new ProcessBuilder(command.command());
         processBuilder.directory(command.workingDirectory().toFile());
 
@@ -51,6 +56,7 @@ public class WorkflowValidationService {
                 long durationMs = elapsedMs(startedAt);
 
                 if (!finished) {
+                    log.warn("Process validation timed out: command={}, durationMs={}", commandString, durationMs);
                     process.destroy();
                     try {
                         if (!process.waitFor(2, TimeUnit.SECONDS)) {
@@ -72,17 +78,24 @@ public class WorkflowValidationService {
                 }
 
                 int exitCode = process.exitValue();
-                return new ValidationResult(
+                String stdout = safeGet(stdoutFuture);
+                String stderr = safeGet(stderrFuture);
+                ValidationResult result = new ValidationResult(
                         commandString,
                         exitCode == 0 ? ValidationStatus.SUCCESS : ValidationStatus.FAILURE,
                         exitCode,
-                        safeGet(stdoutFuture),
-                        safeGet(stderrFuture),
+                        stdout,
+                        stderr,
                         durationMs,
                         null
                 );
+                log.debug("Process validation finished: status={}, exitCode={}, durationMs={}, stdoutLen={}, stderrLen={}",
+                        result.status(), result.exitCode(), result.durationMs(),
+                        result.stdout().length(), result.stderr().length());
+                return result;
             }
         } catch (IOException e) {
+            log.error("Process validation failed to start: command={}", commandString, e);
             return new ValidationResult(
                     commandString,
                     ValidationStatus.SYSTEM_ERROR,
@@ -94,6 +107,7 @@ public class WorkflowValidationService {
             );
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+            log.error("Process validation interrupted: command={}", commandString, e);
             return new ValidationResult(
                     commandString,
                     ValidationStatus.SYSTEM_ERROR,

@@ -8,12 +8,15 @@ import fr.ses10doigts.toolkitbridge.service.agent.workflow.runtime.step.Workflow
 import fr.ses10doigts.toolkitbridge.service.agent.workflow.runtime.step.WorkflowStepDecision;
 import fr.ses10doigts.toolkitbridge.service.agent.workflow.runtime.step.WorkflowStepResult;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+@Slf4j
 public class AnalysisReviewWorkflowRunner {
 
     private static final String VAR_REPORT_ROOT_DIRECTORY = "reportRootDirectory";
@@ -86,6 +89,7 @@ public class AnalysisReviewWorkflowRunner {
 
     public WorkflowStepResult runAnalysisReviewWithOptionalCorrection(WorkflowExecutionContext context) {
         Objects.requireNonNull(context, "context must not be null");
+        log.info("Workflow analysis+review started: runId={}", context.workflowRun().runId());
         WorkflowStepResult result = workflowOrchestrator.executeAnalysisReviewWithOptionalCorrection(
                 context,
                 analysisStep,
@@ -97,6 +101,7 @@ public class AnalysisReviewWorkflowRunner {
 
     public WorkflowStepResult runWithValidation(WorkflowExecutionContext context) {
         Objects.requireNonNull(context, "context must not be null");
+        log.info("Workflow analysis+review+validation started: runId={}", context.workflowRun().runId());
         WorkflowStepResult workflowResult = workflowOrchestrator.executeAnalysisReviewWithOptionalCorrection(
                 context,
                 analysisStep,
@@ -112,6 +117,7 @@ public class AnalysisReviewWorkflowRunner {
 
     public WorkflowStepResult runWithValidationAndRetry(WorkflowExecutionContext context) {
         Objects.requireNonNull(context, "context must not be null");
+        log.info("Workflow run with retry started: runId={}", context.workflowRun().runId());
         WorkflowExecutionContext currentContext = context;
 
         while (true) {
@@ -122,15 +128,23 @@ public class AnalysisReviewWorkflowRunner {
 
             RetryState retryState = retryState(result);
             if (!retryState.valid()) {
+                log.error("Workflow stopped — invalid build retry state: runId={}, error={}",
+                        currentContext.workflowRun().runId(), retryState.errorMessage());
                 return attachWorkflowSummarySafely(
                         currentContext,
                         stopFailure("Invalid build retry state: " + retryState.errorMessage())
                 );
             }
             if (retryState.retryCount() >= retryState.retryMax()) {
+                log.warn("Build retry limit reached: runId={}, retryCount={}, retryMax={}",
+                        currentContext.workflowRun().runId(), retryState.retryCount(), retryState.retryMax());
                 return stopAtRetryLimit(currentContext, result, retryState);
             }
 
+            log.info("Build error correction triggered: runId={}, retryCount={}, retryMax={}",
+                    currentContext.workflowRun().runId(), retryState.retryCount(), retryState.retryMax());
+            log.debug("Build retry state: runId={}, retryCount={}, retryMax={}",
+                    currentContext.workflowRun().runId(), retryState.retryCount(), retryState.retryMax());
             WorkflowExecutionContext correctionContext = withVariables(currentContext, result.data());
             WorkflowStepResult correctionResult = buildErrorCorrectionStep.execute(correctionContext);
             if (correctionResult.decision() != WorkflowStepDecision.CONTINUE) {
@@ -147,6 +161,7 @@ public class AnalysisReviewWorkflowRunner {
 
     public WorkflowStepResult runCorrectionAfterReview(WorkflowExecutionContext context) {
         Objects.requireNonNull(context, "context must not be null");
+        log.info("Workflow correction after review started: runId={}", context.workflowRun().runId());
         WorkflowStepResult result = workflowOrchestrator.executeSingleStep(context, correctionStep);
         Map<String, Object> data = new HashMap<>(result.data());
         data.put(CORRECTION_TRIGGERED_KEY, true);
@@ -163,6 +178,7 @@ public class AnalysisReviewWorkflowRunner {
         try {
             return attachWorkflowSummary(context, result);
         } catch (RuntimeException e) {
+            log.warn("Workflow summary generation failed (non-blocking): runId={}", context.workflowRun().runId());
             Map<String, Object> data = new HashMap<>(result.data());
             String fallbackAction = "Summary generation failed; workflow result remains valid. "
                     + toText(data.get(NEXT_ACTION_KEY), defaultNextAction(result.decision()));
@@ -279,6 +295,8 @@ public class AnalysisReviewWorkflowRunner {
         putIfPresent(data, context.variables(), CORRECTION_ATTEMPT_PATH_KEY);
         putIfPresent(data, context.variables(), BUILD_ERROR_RETRY_COUNT_KEY);
         putIfPresent(data, context.variables(), BUILD_ERROR_RETRY_MAX_KEY);
+        log.warn("Workflow WAIT_HUMAN — persistent build failure after correction: runId={}",
+                context.workflowRun().runId());
         data.put(BUILD_STATUS_KEY, BUILD_FAILURE_STATUS);
         data.put(FINAL_DECISION_KEY, WorkflowStepDecision.WAIT_HUMAN.name());
         data.put(WAIT_REASON_KEY, PERSISTENT_BUILD_FAILURE_WAIT_REASON);

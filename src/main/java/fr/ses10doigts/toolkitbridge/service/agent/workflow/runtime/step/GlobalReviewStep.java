@@ -8,10 +8,13 @@ import fr.ses10doigts.toolkitbridge.service.agent.workflow.runtime.codex.CodexEx
 import fr.ses10doigts.toolkitbridge.service.agent.workflow.runtime.codex.CodexWorkflowClient;
 import fr.ses10doigts.toolkitbridge.service.agent.workflow.runtime.model.WorkflowExecutionContext;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.Objects;
 
+@Slf4j
 public class GlobalReviewStep implements WorkflowStep {
 
     private static final String ERROR_PREFIX = "GlobalReviewStep: ";
@@ -46,6 +49,7 @@ public class GlobalReviewStep implements WorkflowStep {
             return stopFailure("context must not be null");
         }
 
+        String runId = context.workflowRun().runId();
         try {
             Path reportRootDirectory = requiredPath(context, VAR_REPORT_ROOT_DIRECTORY);
             String reportVersion = requiredString(context, VAR_REPORT_VERSION);
@@ -93,7 +97,11 @@ public class GlobalReviewStep implements WorkflowStep {
                     optionalInt(context, VAR_CODEX_TIMEOUT_SECONDS)
             );
 
+            log.info("Codex review call started: runId={}", runId);
             CodexExecutionResult codexResult = codexWorkflowClient.execute(request);
+            log.debug("Codex review call completed: runId={}, exitCode={}, durationMs={}, stdoutLen={}, stderrLen={}",
+                    runId, codexResult.exitCode(), codexResult.durationMs(),
+                    codexResult.stdout().length(), codexResult.stderr().length());
             String semanticReviewOutput = codexResult.stdout();
             String reviewResultContent = buildResultContent(codexResult);
 
@@ -107,6 +115,11 @@ public class GlobalReviewStep implements WorkflowStep {
             workflowArtifactService.writeArtifact(reviewResultPath, reviewResultContent);
 
             if (!codexResult.success()) {
+                if (codexResult.timedOut()) {
+                    log.warn("Codex review timed out: runId={}, durationMs={}", runId, codexResult.durationMs());
+                } else {
+                    log.warn("Codex review failed: runId={}, exitCode={}", runId, codexResult.exitCode());
+                }
                 String failureMessage = codexResult.timedOut()
                         ? "Codex execution timed out"
                         : "Codex execution was not successful";
@@ -118,7 +131,9 @@ public class GlobalReviewStep implements WorkflowStep {
             }
 
             ReviewDirective reviewDirective = parseReviewDirective(semanticReviewOutput);
+            log.info("Codex review call succeeded: runId={}, directive={}", runId, reviewDirective);
             if (reviewDirective == ReviewDirective.WAIT_HUMAN) {
+                log.warn("Codex review requires human decision: runId={}", runId);
                 Map<String, Object> data = new java.util.HashMap<>();
                 data.put("promptArtifactPath", reviewPromptPath.toString());
                 data.put("resultArtifactPath", reviewResultPath.toString());
@@ -157,6 +172,7 @@ public class GlobalReviewStep implements WorkflowStep {
                     data
             );
         } catch (IllegalArgumentException | CodexExecutionException | IllegalStateException e) {
+            log.error("GlobalReviewStep failed: runId={}", runId, e);
             return stopFailure(e.getMessage());
         }
     }

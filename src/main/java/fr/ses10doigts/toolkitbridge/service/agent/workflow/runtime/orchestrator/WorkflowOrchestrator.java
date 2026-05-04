@@ -5,10 +5,13 @@ import fr.ses10doigts.toolkitbridge.service.agent.workflow.runtime.step.Workflow
 import fr.ses10doigts.toolkitbridge.service.agent.workflow.runtime.step.WorkflowStepDecision;
 import fr.ses10doigts.toolkitbridge.service.agent.workflow.runtime.step.WorkflowStepResult;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 
+@Slf4j
 public class WorkflowOrchestrator {
     private static final String NO_CORRECTION_REQUIRED_MESSAGE = "Review completed - no correction required";
     private static final String REQUIRES_CORRECTION_KEY = "requiresCorrection";
@@ -20,10 +23,16 @@ public class WorkflowOrchestrator {
         Objects.requireNonNull(context, "context must not be null");
         Objects.requireNonNull(step, "step must not be null");
 
+        String runId = context.workflowRun().runId();
+        log.debug("Executing workflow step: runId={}, step={}", runId, step.getClass().getSimpleName());
+
         WorkflowStepResult result = step.execute(context);
         if (result == null) {
             throw new IllegalStateException("step result must not be null");
         }
+
+        log.debug("Workflow step completed: runId={}, step={}, decision={}",
+                runId, step.getClass().getSimpleName(), result.decision());
 
         WorkflowStepDecision decision = result.decision();
         return switch (decision) {
@@ -89,6 +98,7 @@ public class WorkflowOrchestrator {
         }
 
         if (requiresCorrection(reviewResult)) {
+            log.debug("Correction triggered by review: runId={}", context.workflowRun().runId());
             WorkflowStepResult correctionResult = executeSingleStep(context, correctionStep);
             return enrichObservability(correctionResult, true);
         }
@@ -129,6 +139,7 @@ public class WorkflowOrchestrator {
 
         boolean correctionTriggered = false;
         if (requiresCorrection(reviewResult)) {
+            log.debug("Correction triggered by review: runId={}", context.workflowRun().runId());
             WorkflowStepResult correctionResult = executeSingleStep(context, correctionStep);
             if (correctionResult.decision() != WorkflowStepDecision.CONTINUE) {
                 return enrichObservability(correctionResult, true);

@@ -8,6 +8,8 @@ import fr.ses10doigts.toolkitbridge.service.agent.workflow.runtime.codex.CodexEx
 import fr.ses10doigts.toolkitbridge.service.agent.workflow.runtime.codex.CodexWorkflowClient;
 import fr.ses10doigts.toolkitbridge.service.agent.workflow.runtime.model.WorkflowExecutionContext;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -15,6 +17,7 @@ import java.nio.file.Path;
 import java.util.Map;
 import java.util.Objects;
 
+@Slf4j
 public class GlobalAnalysisStep implements WorkflowStep {
 
     private static final String ERROR_PREFIX = "GlobalAnalysisStep: ";
@@ -42,6 +45,7 @@ public class GlobalAnalysisStep implements WorkflowStep {
             return stopFailure("context must not be null");
         }
 
+        String runId = context.workflowRun().runId();
         try {
             Path reportRootDirectory = requiredPath(context, VAR_REPORT_ROOT_DIRECTORY);
             String reportVersion = requiredString(context, VAR_REPORT_VERSION);
@@ -67,7 +71,12 @@ public class GlobalAnalysisStep implements WorkflowStep {
                     optionalInt(context, VAR_CODEX_TIMEOUT_SECONDS)
             );
 
+            log.info("Codex analysis call started: runId={}", runId);
             CodexExecutionResult codexResult = codexWorkflowClient.execute(request);
+            log.debug("Codex analysis call completed: runId={}, exitCode={}, durationMs={}, stdoutLen={}, stderrLen={}",
+                    runId, codexResult.exitCode(), codexResult.durationMs(),
+                    codexResult.stdout().length(), codexResult.stderr().length());
+
             String resultContent = buildResultContent(codexResult);
 
             Path resultArtifactPath = workflowArtifactService.buildArtifactPath(
@@ -80,6 +89,11 @@ public class GlobalAnalysisStep implements WorkflowStep {
             workflowArtifactService.writeArtifact(resultArtifactPath, resultContent);
 
             if (!codexResult.success()) {
+                if (codexResult.timedOut()) {
+                    log.warn("Codex analysis timed out: runId={}, durationMs={}", runId, codexResult.durationMs());
+                } else {
+                    log.warn("Codex analysis failed: runId={}, exitCode={}", runId, codexResult.exitCode());
+                }
                 String failureMessage = codexResult.timedOut()
                         ? "Codex execution timed out"
                         : "Codex execution was not successful";
@@ -93,6 +107,7 @@ public class GlobalAnalysisStep implements WorkflowStep {
                 );
             }
 
+            log.info("Codex analysis call succeeded: runId={}", runId);
             return new WorkflowStepResult(
                     WorkflowStepDecision.CONTINUE,
                     COMPLETED_MESSAGE,
@@ -102,6 +117,7 @@ public class GlobalAnalysisStep implements WorkflowStep {
                     )
             );
         } catch (IllegalArgumentException | IOException | CodexExecutionException | IllegalStateException e) {
+            log.error("GlobalAnalysisStep failed: runId={}", runId, e);
             return stopFailure(e.getMessage());
         }
     }
